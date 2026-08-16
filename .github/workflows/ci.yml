@@ -95,6 +95,14 @@ jobs:
           ACCEPT_EULA: "Y"
           MSSQL_PID: Developer
           MSSQL_SA_PASSWORD: "dbxDBX123!"
+          # Must match `docker/compose.yml`. The seed writes its text as raw
+          # byte literals so that it cannot depend on how the client decoded the
+          # file — but the bytes are still *read back* through the server's
+          # collation, so a different one decodes them into different letters.
+          # Without this line CI ran the default Latin1 collation and the same
+          # fixture came back as 'príli lutoucký kun'; the tests were right and
+          # the environment was wrong.
+          MSSQL_COLLATION: SQL_Czech_CP1250_CI_AS
         ports: ["1433:1433"]
         options: >-
           --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P dbxDBX123! -Q 'SELECT 1' -b -o /dev/null"
@@ -249,8 +257,8 @@ jobs:
   #
   # It installs the built wheel rather than `-e ".[dev]"` — exactly the way the
   # package reaches the target image. If a dependency crept in that does not run
-  # on 3.10 with SQLAlchemy 1.4 and pandas 1.5,
-  # padne to tady, ne v produkci.
+  # on 3.10 with SQLAlchemy 1.4 and pandas 1.5, it fails here rather than in
+  # production.
   #
   # The matrix has one entry on purpose: supporting more Python versions is not
   # wanted, and `requires-python = ">=3.10,<3.11"` enforces it. The
