@@ -79,9 +79,15 @@ per row *times column*, so quote the column count with any figure.
 
 ## Commits and releases
 
-Commit messages are in Czech, code and identifiers in English — the project has
-a Czech-speaking maintainer and an English-speaking API. Versioning is semver
-with a tag per release; clients pin the tag.
+Everything here is in English, commit messages included. That is a deliberate
+choice rather than a default: most of what this repository is worth is the
+recorded *reason* — the production incident behind a comment, the measurement
+behind a decision, the parity constraint behind something that looks wrong. A
+lot of that lives in `git log` and `git blame`. Writing it in the maintainer's
+language would leave a reader able to follow the code and not the reasoning,
+which is most of what publishing it was for.
+
+Versioning is semver with a tag per release; deployments pin the tag.
 
 ## Reporting a bug
 
