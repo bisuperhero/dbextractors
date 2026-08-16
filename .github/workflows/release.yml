@@ -1,9 +1,10 @@
 name: Release
 
-# A release happens on a tag and nowhere else. CI already runs on tags with
-# `cancel-in-progress` disabled, so every tag has its own green run rather than
-# riding on the run of the commit it points at — this workflow waits for that
-# run rather than repeating it.
+# A release happens on a tag and nowhere else. CI runs on tags too, with
+# `cancel-in-progress` disabled, so every tag gets its own green run rather than
+# riding on the run of the commit it points at. This workflow does not wait for
+# that run — it repeats the part publishing depends on, for the reason given
+# above the `gate` job.
 on:
   push:
     tags: ["v*"]
