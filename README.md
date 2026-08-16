@@ -1,8 +1,8 @@
 # dbextractors
 
 [![CI](https://github.com/bisuperhero/dbextractors/actions/workflows/ci.yml/badge.svg)](https://github.com/bisuperhero/dbextractors/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/dbextractors.svg)](https://pypi.org/project/dbextractors/)
-[![Python](https://img.shields.io/pypi/pyversions/dbextractors.svg)](https://pypi.org/project/dbextractors/)
+[![PyPI](https://img.shields.io/pypi/v/dbextractors)](https://pypi.org/project/dbextractors/)
+[![Python](https://img.shields.io/pypi/pyversions/dbextractors)](https://pypi.org/project/dbextractors/)
 [![Licence](https://img.shields.io/badge/licence-Apache--2.0-blue.svg)](LICENSE)
 
 Table extraction from **MySQL, MSSQL, PostgreSQL and Firebird** into
