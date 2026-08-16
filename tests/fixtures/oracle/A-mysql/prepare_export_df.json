@@ -1,0 +1,312 @@
+{
+ "810f11574b4a4298": {
+  "args": [],
+  "args_after": [],
+  "kwargs": {
+   "__t__": "dict",
+   "v": [
+    [
+     "batch_df",
+     {
+      "__t__": "frame",
+      "columns": [
+       {
+        "dtype": "int64",
+        "name": "id",
+        "v": [
+         1,
+         2,
+         3
+        ]
+       },
+       {
+        "dtype": "object",
+        "name": "nazev",
+        "v": [
+         "a",
+         {
+          "__t__": "none"
+         },
+         "c"
+        ]
+       },
+       {
+        "dtype": "float64",
+        "name": "castka",
+        "v": [
+         1.5,
+         2.5,
+         {
+          "__t__": "nan"
+         }
+        ]
+       },
+       {
+        "dtype": "object",
+        "name": "datum",
+        "v": [
+         "2026-08-11",
+         "0000-00-00",
+         {
+          "__t__": "none"
+         }
+        ]
+       },
+       {
+        "dtype": "float64",
+        "name": "priznak",
+        "v": [
+         1.0,
+         0.0,
+         {
+          "__t__": "nan"
+         }
+        ]
+       },
+       {
+        "dtype": "object",
+        "name": "_mage_created_at",
+        "v": [
+         "x",
+         "y",
+         "z"
+        ]
+       },
+       {
+        "dtype": "bool",
+        "name": "_deleted_in_source",
+        "v": [
+         false,
+         false,
+         false
+        ]
+       },
+       {
+        "dtype": "object",
+        "name": "row_hash",
+        "v": [
+         {
+          "__t__": "none"
+         },
+         {
+          "__t__": "none"
+         },
+         {
+          "__t__": "none"
+         }
+        ]
+       },
+       {
+        "dtype": "object",
+        "name": "_timestamp",
+        "v": [
+         {
+          "__t__": "none"
+         },
+         {
+          "__t__": "none"
+         },
+         {
+          "__t__": "none"
+         }
+        ]
+       }
+      ],
+      "index": [
+       0,
+       1,
+       2
+      ],
+      "index_name": null
+     }
+    ],
+    [
+     "meta",
+     {
+      "__t__": "dict",
+      "v": [
+       [
+        "_deleted_in_source",
+        false
+       ]
+      ]
+     }
+    ],
+    [
+     "all_columns",
+     [
+      "id",
+      "nazev",
+      "castka",
+      "datum",
+      "priznak",
+      "row_hash",
+      "_timestamp"
+     ]
+    ],
+    [
+     "date_like_columns",
+     {
+      "__t__": "set",
+      "v": [
+       "datum"
+      ]
+     }
+    ],
+    [
+     "integer_columns_mapping",
+     {
+      "__t__": "dict",
+      "v": [
+       [
+        "id",
+        "INTEGER"
+       ]
+      ]
+     }
+    ],
+    [
+     "overwrite_types",
+     {
+      "__t__": "dict",
+      "v": [
+       [
+        "id",
+        "INTEGER"
+       ],
+       [
+        "nazev",
+        "TEXT"
+       ],
+       [
+        "castka",
+        "NUMERIC"
+       ],
+       [
+        "priznak",
+        "BOOLEAN"
+       ]
+      ]
+     }
+    ],
+    [
+     "orig_type_map",
+     {
+      "__t__": "dict",
+      "v": [
+       [
+        "datum",
+        "date"
+       ]
+      ]
+     }
+    ]
+   ]
+  },
+  "result": {
+   "__t__": "frame",
+   "columns": [
+    {
+     "dtype": "object",
+     "name": "id",
+     "v": [
+      "1",
+      "2",
+      "3"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "nazev",
+     "v": [
+      "a",
+      {
+       "__t__": "none"
+      },
+      "c"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "castka",
+     "v": [
+      "1.5",
+      "2.5",
+      {
+       "__t__": "none"
+      }
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "datum",
+     "v": [
+      "2026-08-11",
+      {
+       "__t__": "none"
+      },
+      {
+       "__t__": "none"
+      }
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "priznak",
+     "v": [
+      true,
+      false,
+      {
+       "__t__": "none"
+      }
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "_deleted_in_source",
+     "v": [
+      "False",
+      "False",
+      "False"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "row_hash",
+     "v": [
+      {
+       "__t__": "none"
+      },
+      {
+       "__t__": "none"
+      },
+      {
+       "__t__": "none"
+      }
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "_timestamp",
+     "v": [
+      {
+       "__t__": "none"
+      },
+      {
+       "__t__": "none"
+      },
+      {
+       "__t__": "none"
+      }
+     ]
+    }
+   ],
+   "index": [
+    0,
+    1,
+    2
+   ],
+   "index_name": null
+  }
+ }
+}

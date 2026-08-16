@@ -1,0 +1,754 @@
+{
+ "3a8de06594023960": {
+  "args": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "object",
+      "name": "id",
+      "v": [
+       "1",
+       "2",
+       "3",
+       "4"
+      ]
+     },
+     {
+      "dtype": "Int64",
+      "name": "cislo",
+      "v": [
+       {
+        "__t__": "np",
+        "dtype": "int64",
+        "v": 1
+       },
+       {
+        "__t__": "na"
+       },
+       {
+        "__t__": "na"
+       },
+       {
+        "__t__": "na"
+       }
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "datum",
+      "v": [
+       "2026-08-07",
+       {
+        "__t__": "none"
+       },
+       {
+        "__t__": "none"
+       },
+       {
+        "__t__": "none"
+       }
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "cas",
+      "v": [
+       "12:34:56",
+       "25:00:00",
+       {
+        "__t__": "none"
+       },
+       "abc"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "text",
+      "v": [
+       "a\r\nb",
+       "c\rd",
+       {
+        "__t__": "none"
+       },
+       "ž"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "bajty",
+      "v": [
+       "b'abc'",
+       {
+        "__t__": "none"
+       },
+       "b'xyz'",
+       "b''"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "vlajka",
+      "v": [
+       true,
+       false,
+       {
+        "__t__": "none"
+       },
+       {
+        "__t__": "none"
+       }
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2,
+     3
+    ],
+    "index_name": null
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "cislo",
+      "INTEGER"
+     ],
+     [
+      "datum",
+      "DATE"
+     ],
+     [
+      "cas",
+      "TIME"
+     ],
+     [
+      "vlajka",
+      "BOOLEAN"
+     ]
+    ]
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "object",
+      "name": "id",
+      "v": [
+       "1",
+       "2",
+       "3",
+       "4"
+      ]
+     },
+     {
+      "dtype": "Int64",
+      "name": "cislo",
+      "v": [
+       {
+        "__t__": "np",
+        "dtype": "int64",
+        "v": 1
+       },
+       {
+        "__t__": "na"
+       },
+       {
+        "__t__": "na"
+       },
+       {
+        "__t__": "na"
+       }
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "datum",
+      "v": [
+       "2026-08-07",
+       {
+        "__t__": "none"
+       },
+       {
+        "__t__": "none"
+       },
+       {
+        "__t__": "none"
+       }
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "cas",
+      "v": [
+       "12:34:56",
+       "25:00:00",
+       {
+        "__t__": "none"
+       },
+       "abc"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "text",
+      "v": [
+       "a\r\nb",
+       "c\rd",
+       {
+        "__t__": "none"
+       },
+       "ž"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "bajty",
+      "v": [
+       "b'abc'",
+       {
+        "__t__": "none"
+       },
+       "b'xyz'",
+       "b''"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "vlajka",
+      "v": [
+       true,
+       false,
+       {
+        "__t__": "none"
+       },
+       {
+        "__t__": "none"
+       }
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2,
+     3
+    ],
+    "index_name": null
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "cislo",
+      "INTEGER"
+     ],
+     [
+      "datum",
+      "DATE"
+     ],
+     [
+      "cas",
+      "TIME"
+     ],
+     [
+      "vlajka",
+      "BOOLEAN"
+     ]
+    ]
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "frame",
+   "columns": [
+    {
+     "dtype": "object",
+     "name": "id",
+     "v": [
+      "1",
+      "2",
+      "3",
+      "4"
+     ]
+    },
+    {
+     "dtype": "Int64",
+     "name": "cislo",
+     "v": [
+      {
+       "__t__": "np",
+       "dtype": "int64",
+       "v": 1
+      },
+      {
+       "__t__": "na"
+      },
+      {
+       "__t__": "na"
+      },
+      {
+       "__t__": "na"
+      }
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "datum",
+     "v": [
+      "2026-08-07",
+      {
+       "__t__": "none"
+      },
+      {
+       "__t__": "none"
+      },
+      {
+       "__t__": "none"
+      }
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "cas",
+     "v": [
+      "12:34:56",
+      "25:00:00",
+      {
+       "__t__": "none"
+      },
+      "abc"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "text",
+     "v": [
+      "a\r\nb",
+      "c\rd",
+      {
+       "__t__": "none"
+      },
+      "ž"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "bajty",
+     "v": [
+      "b'abc'",
+      {
+       "__t__": "none"
+      },
+      "b'xyz'",
+      "b''"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "vlajka",
+     "v": [
+      true,
+      false,
+      {
+       "__t__": "none"
+      },
+      {
+       "__t__": "none"
+      }
+     ]
+    }
+   ],
+   "index": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "index_name": null
+  }
+ },
+ "f54cde4e9572c097": {
+  "args": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "object",
+      "name": "id",
+      "v": [
+       "1",
+       "2",
+       "3",
+       "4"
+      ]
+     },
+     {
+      "dtype": "Int64",
+      "name": "cislo",
+      "v": [
+       {
+        "__t__": "np",
+        "dtype": "int64",
+        "v": 1
+       },
+       {
+        "__t__": "na"
+       },
+       {
+        "__t__": "na"
+       },
+       {
+        "__t__": "na"
+       }
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "datum",
+      "v": [
+       "2026-08-07",
+       {
+        "__t__": "none"
+       },
+       {
+        "__t__": "none"
+       },
+       {
+        "__t__": "none"
+       }
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "cas",
+      "v": [
+       "12:34:56",
+       "25:00:00",
+       {
+        "__t__": "none"
+       },
+       "abc"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "text",
+      "v": [
+       "a\r\nb",
+       "c\rd",
+       {
+        "__t__": "none"
+       },
+       "ž"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "bajty",
+      "v": [
+       "b'abc'",
+       {
+        "__t__": "none"
+       },
+       "b'xyz'",
+       "b''"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "vlajka",
+      "v": [
+       true,
+       false,
+       {
+        "__t__": "none"
+       },
+       {
+        "__t__": "none"
+       }
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2,
+     3
+    ],
+    "index_name": null
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "cislo",
+      "INTEGER"
+     ],
+     [
+      "datum",
+      "DATE"
+     ],
+     [
+      "cas",
+      "TIME"
+     ],
+     [
+      "vlajka",
+      "BOOLEAN"
+     ]
+    ]
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "object",
+      "name": "id",
+      "v": [
+       "1",
+       "2",
+       "3",
+       "4"
+      ]
+     },
+     {
+      "dtype": "Int64",
+      "name": "cislo",
+      "v": [
+       {
+        "__t__": "np",
+        "dtype": "int64",
+        "v": 1
+       },
+       {
+        "__t__": "na"
+       },
+       {
+        "__t__": "na"
+       },
+       {
+        "__t__": "na"
+       }
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "datum",
+      "v": [
+       "2026-08-07",
+       {
+        "__t__": "none"
+       },
+       {
+        "__t__": "none"
+       },
+       {
+        "__t__": "none"
+       }
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "cas",
+      "v": [
+       "12:34:56",
+       "25:00:00",
+       {
+        "__t__": "none"
+       },
+       "abc"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "text",
+      "v": [
+       "a\r\nb",
+       "c\rd",
+       {
+        "__t__": "none"
+       },
+       "ž"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "bajty",
+      "v": [
+       "b'abc'",
+       {
+        "__t__": "none"
+       },
+       "b'xyz'",
+       "b''"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "vlajka",
+      "v": [
+       true,
+       false,
+       {
+        "__t__": "none"
+       },
+       {
+        "__t__": "none"
+       }
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2,
+     3
+    ],
+    "index_name": null
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "cislo",
+      "INTEGER"
+     ],
+     [
+      "datum",
+      "DATE"
+     ],
+     [
+      "cas",
+      "TIME"
+     ],
+     [
+      "vlajka",
+      "BOOLEAN"
+     ]
+    ]
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "frame",
+   "columns": [
+    {
+     "dtype": "object",
+     "name": "id",
+     "v": [
+      "1",
+      "2",
+      "3",
+      "4"
+     ]
+    },
+    {
+     "dtype": "Int64",
+     "name": "cislo",
+     "v": [
+      {
+       "__t__": "np",
+       "dtype": "int64",
+       "v": 1
+      },
+      {
+       "__t__": "na"
+      },
+      {
+       "__t__": "na"
+      },
+      {
+       "__t__": "na"
+      }
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "datum",
+     "v": [
+      "2026-08-07",
+      {
+       "__t__": "none"
+      },
+      {
+       "__t__": "none"
+      },
+      {
+       "__t__": "none"
+      }
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "cas",
+     "v": [
+      "12:34:56",
+      "25:00:00",
+      {
+       "__t__": "none"
+      },
+      "abc"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "text",
+     "v": [
+      "a\r\nb",
+      "c\rd",
+      {
+       "__t__": "none"
+      },
+      "ž"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "bajty",
+     "v": [
+      "b'abc'",
+      {
+       "__t__": "none"
+      },
+      "b'xyz'",
+      "b''"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "vlajka",
+     "v": [
+      true,
+      false,
+      {
+       "__t__": "none"
+      },
+      {
+       "__t__": "none"
+      }
+     ]
+    }
+   ],
+   "index": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "index_name": null
+  }
+ }
+}

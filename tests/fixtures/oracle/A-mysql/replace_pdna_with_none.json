@@ -1,0 +1,282 @@
+{
+ "106aab883edfd779": {
+  "args": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "float64",
+      "name": "a",
+      "v": [
+       1.0,
+       {
+        "__t__": "nan"
+       }
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1
+    ],
+    "index_name": null
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "float64",
+      "name": "a",
+      "v": [
+       1.0,
+       {
+        "__t__": "nan"
+       }
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1
+    ],
+    "index_name": null
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "frame",
+   "columns": [
+    {
+     "dtype": "float64",
+     "name": "a",
+     "v": [
+      1.0,
+      {
+       "__t__": "nan"
+      }
+     ]
+    }
+   ],
+   "index": [
+    0,
+    1
+   ],
+   "index_name": null
+  }
+ },
+ "65b3e310ed1ecedc": {
+  "args": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "float64",
+      "name": "a",
+      "v": [
+       1.0,
+       {
+        "__t__": "nan"
+       }
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1
+    ],
+    "index_name": null
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "float64",
+      "name": "a",
+      "v": [
+       1.0,
+       {
+        "__t__": "nan"
+       }
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1
+    ],
+    "index_name": null
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "frame",
+   "columns": [
+    {
+     "dtype": "float64",
+     "name": "a",
+     "v": [
+      1.0,
+      {
+       "__t__": "nan"
+      }
+     ]
+    }
+   ],
+   "index": [
+    0,
+    1
+   ],
+   "index_name": null
+  }
+ },
+ "744593b92112f437": {
+  "args": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "float64",
+      "name": "a",
+      "v": [
+       1.0,
+       {
+        "__t__": "nan"
+       }
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1
+    ],
+    "index_name": null
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "float64",
+      "name": "a",
+      "v": [
+       1.0,
+       {
+        "__t__": "nan"
+       }
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1
+    ],
+    "index_name": null
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "frame",
+   "columns": [
+    {
+     "dtype": "float64",
+     "name": "a",
+     "v": [
+      1.0,
+      {
+       "__t__": "nan"
+      }
+     ]
+    }
+   ],
+   "index": [
+    0,
+    1
+   ],
+   "index_name": null
+  }
+ },
+ "9fb637baecd9e361": {
+  "args": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "object",
+      "name": "a",
+      "v": [
+       "x",
+       {
+        "__t__": "none"
+       }
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1
+    ],
+    "index_name": null
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "object",
+      "name": "a",
+      "v": [
+       "x",
+       {
+        "__t__": "none"
+       }
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1
+    ],
+    "index_name": null
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "frame",
+   "columns": [
+    {
+     "dtype": "object",
+     "name": "a",
+     "v": [
+      "x",
+      {
+       "__t__": "none"
+      }
+     ]
+    }
+   ],
+   "index": [
+    0,
+    1
+   ],
+   "index_name": null
+  }
+ }
+}

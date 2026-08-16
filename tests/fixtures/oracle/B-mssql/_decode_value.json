@@ -1,0 +1,78 @@
+{
+ "33bef3b59879de3e": {
+  "args": [
+   {
+    "__t__": "bytes",
+    "v": "YWJj"
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "bytes",
+    "v": "YWJj"
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "abc"
+ },
+ "4f461421353e9712": {
+  "args": [
+   {
+    "__t__": "bytes",
+    "v": ""
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "bytes",
+    "v": ""
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": ""
+ },
+ "6f787d2d0a17cdab": {
+  "args": [
+   {
+    "__t__": "bytes",
+    "v": "UPjtbGmaIJ5sdZ1vdehr/SBr+fI="
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "bytes",
+    "v": "UPjtbGmaIJ5sdZ1vdehr/SBr+fI="
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "Příliš žluťoučký kůň"
+ },
+ "fee8e9393b55b7fb": {
+  "args": [
+   {
+    "__t__": "bytes",
+    "v": "ZOFtYQ=="
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "bytes",
+    "v": "ZOFtYQ=="
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "dáma"
+ }
+}

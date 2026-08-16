@@ -1,0 +1,17 @@
+# The recorded oracle fixtures are machine-generated: they are what the
+# predecessor implementation actually returned, captured call by call. Nobody
+# reads or reviews them by hand, and left as ordinary source they would
+# dominate the language statistics and bury the real change in any commit that
+# re-records them.
+#
+# `linguist-generated` and not `-diff`: GitHub collapses the file in review but
+# the diff stays available. A re-recorded fixture means the predecessor's
+# behaviour changed, which is exactly the thing a reviewer must be able to look
+# at — suppressing the diff would hide the only evidence of it.
+tests/fixtures/oracle/** linguist-generated
+
+# Line endings. Some of the material this package grew out of came from
+# Windows, and a mixed checkout makes every subsequent diff unreadable.
+* text=auto eol=lf
+*.py text eol=lf
+*.sh text eol=lf

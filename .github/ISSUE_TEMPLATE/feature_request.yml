@@ -1,0 +1,52 @@
+name: Feature request
+description: A capability the package does not have yet.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Three constraints decide most of these before the design does, so it is
+        worth checking them first — see
+        [CONTRIBUTING.md](https://github.com/bisuperhero/dbextractors/blob/main/CONTRIBUTING.md):
+
+        1. The runtime cannot be raised (Python 3.10, pandas 1.5, SQLAlchemy 1.4).
+        2. The configuration contract is frozen — a new capability arrives as a
+           new key with a safe default, never as a change to an existing one.
+        3. Target column names cannot change.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: >
+        What are you trying to do that you cannot do today? Describe the
+        situation, not the solution you have in mind — the constraints above
+        often rule out the obvious solution and leave a different one open.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed shape
+      description: >
+        If it needs configuration, name the key and its default. The default
+        has to leave every existing pipeline behaving exactly as it does now.
+
+  - type: input
+    id: scale
+    attributes:
+      label: Scale
+      description: >
+        Rows and columns of the tables involved. Throughput in this package is
+        per row *times column*, so the column count changes what is feasible.
+      placeholder: "e.g. 15M rows, 43 columns, MySQL source"
+
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Constraints
+      options:
+        - label: This does not require a newer Python, pandas or SQLAlchemy.
+        - label: This does not rename an existing configuration key or change its meaning.
+        - label: This does not change any column name in the target.

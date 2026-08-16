@@ -1,0 +1,141 @@
+{
+ "31d2d2083c5ad3c0": {
+  "args": [
+   "a"
+  ],
+  "args_after": [
+   "a"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "a"
+ },
+ "33bef3b59879de3e": {
+  "args": [
+   {
+    "__t__": "bytes",
+    "v": "YWJj"
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "bytes",
+    "v": "YWJj"
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "abc"
+ },
+ "531aedc6ca826251": {
+  "args": [
+   {
+    "__t__": "none"
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "none"
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": ""
+ },
+ "5887747dba7d1092": {
+  "args": [
+   1.5
+  ],
+  "args_after": [
+   1.5
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "1.5"
+ },
+ "85d5af3dd3b9ab24": {
+  "args": [
+   {
+    "__t__": "bytes",
+    "v": "//4="
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "bytes",
+    "v": "//4="
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "��"
+ },
+ "a5368d6e9e0d03fe": {
+  "args": [
+   ""
+  ],
+  "args_after": [
+   ""
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": ""
+ },
+ "ab537aaff40e184e": {
+  "args": [
+   {
+    "__t__": "bytearray",
+    "v": "eHk="
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "bytearray",
+    "v": "eHk="
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "xy"
+ },
+ "cf3a06fed6cad2d2": {
+  "args": [
+   true
+  ],
+  "args_after": [
+   true
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "True"
+ },
+ "fc085d3a300d1cd8": {
+  "args": [
+   1
+  ],
+  "args_after": [
+   1
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "1"
+ }
+}

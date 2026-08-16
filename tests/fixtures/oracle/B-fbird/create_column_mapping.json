@@ -1,0 +1,249 @@
+{
+ "53cb00c0f66de833": {
+  "args": [
+   [
+    "id",
+    "cena",
+    "cena_bez_dph",
+    "Cena",
+    "CENA",
+    "CenaBezDPH",
+    "cena bez dph",
+    "cena  bez   dph",
+    " cena ",
+    "cena\tbez\ndph",
+    "cena-bez-dph",
+    "cena.bez.dph",
+    "cena/bez/dph",
+    "cena(bez dph)",
+    "cena%",
+    "#cislo",
+    "e-mail@domena.cz",
+    "50%_sleva",
+    "a__b",
+    "a___b",
+    "_cena",
+    "cena_",
+    "__cena__",
+    "_",
+    "___",
+    "čeština",
+    "Příjmení",
+    "cena_rozesílky",
+    "已经",
+    "Ω",
+    "2023",
+    "2023_trzby",
+    "1. čtvrtletí",
+    "",
+    "a",
+    "row_hash",
+    "_timestamp",
+    "_deleted_in_source"
+   ]
+  ],
+  "args_after": [
+   [
+    "id",
+    "cena",
+    "cena_bez_dph",
+    "Cena",
+    "CENA",
+    "CenaBezDPH",
+    "cena bez dph",
+    "cena  bez   dph",
+    " cena ",
+    "cena\tbez\ndph",
+    "cena-bez-dph",
+    "cena.bez.dph",
+    "cena/bez/dph",
+    "cena(bez dph)",
+    "cena%",
+    "#cislo",
+    "e-mail@domena.cz",
+    "50%_sleva",
+    "a__b",
+    "a___b",
+    "_cena",
+    "cena_",
+    "__cena__",
+    "_",
+    "___",
+    "čeština",
+    "Příjmení",
+    "cena_rozesílky",
+    "已经",
+    "Ω",
+    "2023",
+    "2023_trzby",
+    "1. čtvrtletí",
+    "",
+    "a",
+    "row_hash",
+    "_timestamp",
+    "_deleted_in_source"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "id",
+     "id"
+    ],
+    [
+     "cena",
+     "cena"
+    ],
+    [
+     "cena_bez_dph",
+     "cena_bez_dph"
+    ],
+    [
+     "Cena",
+     "cena"
+    ],
+    [
+     "CENA",
+     "cena"
+    ],
+    [
+     "CenaBezDPH",
+     "cenabezdph"
+    ],
+    [
+     "cena bez dph",
+     "cena_bez_dph"
+    ],
+    [
+     "cena  bez   dph",
+     "cena_bez_dph"
+    ],
+    [
+     " cena ",
+     "cena"
+    ],
+    [
+     "cena\tbez\ndph",
+     "cena_bez_dph"
+    ],
+    [
+     "cena-bez-dph",
+     "cenabezdph"
+    ],
+    [
+     "cena.bez.dph",
+     "cenabezdph"
+    ],
+    [
+     "cena/bez/dph",
+     "cenabezdph"
+    ],
+    [
+     "cena(bez dph)",
+     "cenabez_dph"
+    ],
+    [
+     "cena%",
+     "cena"
+    ],
+    [
+     "#cislo",
+     "cislo"
+    ],
+    [
+     "e-mail@domena.cz",
+     "emaildomenacz"
+    ],
+    [
+     "50%_sleva",
+     "50_sleva"
+    ],
+    [
+     "a__b",
+     "a_b"
+    ],
+    [
+     "a___b",
+     "a_b"
+    ],
+    [
+     "_cena",
+     "cena"
+    ],
+    [
+     "cena_",
+     "cena"
+    ],
+    [
+     "__cena__",
+     "cena"
+    ],
+    [
+     "_",
+     ""
+    ],
+    [
+     "___",
+     ""
+    ],
+    [
+     "čeština",
+     "čeština"
+    ],
+    [
+     "Příjmení",
+     "příjmení"
+    ],
+    [
+     "cena_rozesílky",
+     "cena_rozesílky"
+    ],
+    [
+     "已经",
+     "已经"
+    ],
+    [
+     "Ω",
+     "ω"
+    ],
+    [
+     "2023",
+     "2023"
+    ],
+    [
+     "2023_trzby",
+     "2023_trzby"
+    ],
+    [
+     "1. čtvrtletí",
+     "1_čtvrtletí"
+    ],
+    [
+     "",
+     ""
+    ],
+    [
+     "a",
+     "a"
+    ],
+    [
+     "row_hash",
+     "row_hash"
+    ],
+    [
+     "_timestamp",
+     "timestamp"
+    ],
+    [
+     "_deleted_in_source",
+     "deleted_in_source"
+    ]
+   ]
+  }
+ }
+}

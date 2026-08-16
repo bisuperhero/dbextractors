@@ -1,0 +1,175 @@
+name: Release
+
+# A release happens on a tag and nowhere else. CI already runs on tags with
+# `cancel-in-progress` disabled, so every tag has its own green run rather than
+# riding on the run of the commit it points at — this workflow waits for that
+# run rather than repeating it.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  # The tag must agree with what the package will report at runtime. Getting
+  # this wrong is easy and only shows up after the artefact is on PyPI, where
+  # a version number cannot be reused.
+  verify-version:
+    name: tag matches __version__
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Compare
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg=$(python -c "import re,pathlib; \
+            src = pathlib.Path('src/dbextractors/__init__.py').read_text(); \
+            print(re.search(r'__version__ = \"([^\"]+)\"', src).group(1))")
+          echo "tag=$tag  package=$pkg"
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match __version__ $pkg."
+            exit 1
+          fi
+
+      # A release with no CHANGELOG entry is a release nobody can evaluate,
+      # and this project's entries are also where breakage is announced.
+      - name: CHANGELOG mentions this version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          if ! grep -qF "$tag" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no entry for $tag."
+            exit 1
+          fi
+
+  # Publishing from a red tag is the one mistake that cannot be taken back, so
+  # this is a gate and not a courtesy.
+  #
+  # It deliberately does not wait for the CI workflow's own run on this tag:
+  # waiting means either a third-party action polling the checks API or a
+  # `workflow_run` trigger, and both fail open — a run that never starts, or a
+  # name that stops matching after a rename, reads as "nothing to wait for".
+  # Re-running the gate here costs two minutes and cannot fail open. The full
+  # CI matrix (Mage parity, the wheel matrix, the 3.12 refusal) still runs on
+  # this tag in its own workflow; what is repeated here is what publishing
+  # depends on directly.
+  gate:
+    name: lint, types and tests
+    needs: [verify-version]
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: dbx
+          POSTGRES_PASSWORD: dbx
+          POSTGRES_DB: dbx
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DBX_GOLDEN_TEST_DSN: "host=127.0.0.1 port=5432 dbname=dbx user=dbx password=dbx"
+      DBX_GOLDEN_DSN: "host=127.0.0.1 port=5432 dbname=dbx user=dbx password=dbx"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: pip install -e ".[dev]"
+      - run: ruff check src tests scripts
+      - run: ruff format --check src tests scripts
+      - run: mypy
+      - run: pytest
+
+      # The database tests skip themselves when no database is reachable, which
+      # is right locally and would be a silent loss of coverage here.
+      - name: Database tests must not have skipped
+        shell: bash
+        run: |
+          set -o pipefail
+          pytest tests/golden tests/target -q --no-header -p no:randomly | tee /tmp/db.log
+      - name: Check nothing skipped
+        run: |
+          if grep -qE "[0-9]+ skipped" /tmp/db.log; then
+            echo "::error::Database tests skipped — the database was not reachable."
+            exit 1
+          fi
+
+  build:
+    name: build sdist + wheel
+    needs: [verify-version, gate]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: python -m pip install --upgrade pip build twine
+      - run: python -m build
+      - run: python -m twine check dist/*
+
+      # What ends up in the sdist is decided by MANIFEST.in, which is easy to
+      # loosen by accident. This is the last point before the archive leaves
+      # for PyPI, from where it cannot be withdrawn.
+      - name: Show what the sdist contains
+        run: tar tzf dist/*.tar.gz | sort
+
+      # Installing the built wheel into a clean environment, the way the
+      # production image will. An editable install proves less than this does.
+      - name: Install the wheel and import it
+        run: |
+          python -m venv /tmp/clean
+          /tmp/clean/bin/pip install --upgrade pip
+          /tmp/clean/bin/pip install dist/*.whl
+          /tmp/clean/bin/python scripts/verify_runtime.py
+          /tmp/clean/bin/python -c "import dbextractors; print(dbextractors.__version__)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: publish to PyPI
+    needs: [build]
+    runs-on: ubuntu-latest
+    # The environment is what a PyPI Trusted Publisher is bound to, and it is
+    # also where a required reviewer can be configured. No API token exists
+    # anywhere in this repository; OIDC issues a short-lived credential per run.
+    environment:
+      name: pypi
+      url: https://pypi.org/p/dbextractors
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    name: GitHub release
+    needs: [publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Create the release with the artefacts attached
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "$GITHUB_REF_NAME" \
+            --notes "See CHANGELOG.md for what changed and what breaks."

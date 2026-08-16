@@ -1,0 +1,674 @@
+{
+ "072b6b01a3b6ba1f": {
+  "args": [
+   {
+    "__t__": "na"
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "na"
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "none"
+  }
+ },
+ "0c0e8243d9365b45": {
+  "args": [
+   0
+  ],
+  "args_after": [
+   0
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "0"
+ },
+ "1020193c85f875a1": {
+  "args": [
+   {
+    "__t__": "bytearray",
+    "v": "YWJj"
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "bytearray",
+    "v": "YWJj"
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "bytearray(b'abc')"
+ },
+ "1b9699b1e28ce13b": {
+  "args": [
+   2147483647
+  ],
+  "args_after": [
+   2147483647
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "2147483647"
+ },
+ "2fff2f5ad5375be4": {
+  "args": [
+   2147483648
+  ],
+  "args_after": [
+   2147483648
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "2147483648"
+ },
+ "306da07cd1457958": {
+  "args": [
+   42
+  ],
+  "args_after": [
+   42
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "42"
+ },
+ "33bef3b59879de3e": {
+  "args": [
+   {
+    "__t__": "bytes",
+    "v": "YWJj"
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "bytes",
+    "v": "YWJj"
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "b'abc'"
+ },
+ "3777b0ab234cf6fd": {
+  "args": [
+   {
+    "__t__": "np",
+    "dtype": "float32",
+    "v": 1.5
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "np",
+    "dtype": "float32",
+    "v": 1.5
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "1.5"
+ },
+ "531aedc6ca826251": {
+  "args": [
+   {
+    "__t__": "none"
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "none"
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "none"
+  }
+ },
+ "53acd974a5e69784": {
+  "args": [
+   -1
+  ],
+  "args_after": [
+   -1
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "-1"
+ },
+ "6b431ebc6252146e": {
+  "args": [
+   -9223372036854775808
+  ],
+  "args_after": [
+   -9223372036854775808
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "-9223372036854775808"
+ },
+ "6f2ad22de08c7580": {
+  "args": [
+   {
+    "__t__": "decimal",
+    "v": "3"
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "decimal",
+    "v": "3"
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "3"
+ },
+ "74daa3bdb4fa6e90": {
+  "args": [
+   -1.0
+  ],
+  "args_after": [
+   -1.0
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "-1.0"
+ },
+ "76de122ad390b426": {
+  "args": [
+   {
+    "__t__": "np",
+    "dtype": "int64",
+    "v": 7
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "np",
+    "dtype": "int64",
+    "v": 7
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "7"
+ },
+ "783ad844156deb5a": {
+  "args": [
+   {
+    "__t__": "decimal",
+    "v": "3.5"
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "decimal",
+    "v": "3.5"
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "3.5"
+ },
+ "7a3c8c4d26d04589": {
+  "args": [
+   -42
+  ],
+  "args_after": [
+   -42
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "-42"
+ },
+ "8342edc7fd4cc759": {
+  "args": [
+   3.5
+  ],
+  "args_after": [
+   3.5
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "3.5"
+ },
+ "8c9118fcfd2062a7": {
+  "args": [
+   1.0
+  ],
+  "args_after": [
+   1.0
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "1.0"
+ },
+ "8e70f9624e9a3bb1": {
+  "args": [
+   2.000000001
+  ],
+  "args_after": [
+   2.000000001
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "2.000000001"
+ },
+ "8ffa5bfcc56676a4": {
+  "args": [
+   "text s \r koncem"
+  ],
+  "args_after": [
+   "text s \r koncem"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "text s \r koncem"
+ },
+ "901ed8366151ac89": {
+  "args": [
+   {
+    "__t__": "decimal",
+    "v": "-0"
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "decimal",
+    "v": "-0"
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "-0"
+ },
+ "9f0447ea62504d72": {
+  "args": [
+   "text s \r\n koncem"
+  ],
+  "args_after": [
+   "text s \r\n koncem"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "text s \r\n koncem"
+ },
+ "a001349700e3ffdf": {
+  "args": [
+   0.0
+  ],
+  "args_after": [
+   0.0
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "0.0"
+ },
+ "a10cfc56ed03069b": {
+  "args": [
+   []
+  ],
+  "args_after": [
+   []
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "[]"
+ },
+ "a2c74bfced195bf3": {
+  "args": [
+   {
+    "__t__": "np",
+    "dtype": "int32",
+    "v": -7
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "np",
+    "dtype": "int32",
+    "v": -7
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "-7"
+ },
+ "a641644417730db0": {
+  "args": [
+   8.0
+  ],
+  "args_after": [
+   8.0
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "8.0"
+ },
+ "b3a65dac366d3094": {
+  "args": [
+   {
+    "__t__": "timestamp",
+    "tz": null,
+    "v": "2026-08-07T12:34:56"
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "timestamp",
+    "tz": null,
+    "v": "2026-08-07T12:34:56"
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "2026-08-07 12:34:56"
+ },
+ "b58e1cf3166236f6": {
+  "args": [
+   9223372036854775808
+  ],
+  "args_after": [
+   9223372036854775808
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "9223372036854775808"
+ },
+ "b5981ea81afa88ac": {
+  "args": [
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "a",
+      1
+     ]
+    ]
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "a",
+      1
+     ]
+    ]
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "{\"a\": 1}"
+ },
+ "b5d41a7c1bd756d0": {
+  "args": [
+   -2147483648
+  ],
+  "args_after": [
+   -2147483648
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "-2147483648"
+ },
+ "c769e77bc7512f6c": {
+  "args": [
+   {
+    "__t__": "date",
+    "v": "2026-08-07"
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "date",
+    "v": "2026-08-07"
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "2026-08-07"
+ },
+ "ca53ab0d3c218ce0": {
+  "args": [
+   "ččč"
+  ],
+  "args_after": [
+   "ččč"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "ččč"
+ },
+ "cb7a761ce8a618fa": {
+  "args": [
+   -3.5
+  ],
+  "args_after": [
+   -3.5
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "-3.5"
+ },
+ "d40f66a983430958": {
+  "args": [
+   {
+    "__t__": "nan"
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "nan"
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "none"
+  }
+ },
+ "e3a83fd72242fb63": {
+  "args": [
+   {
+    "__t__": "dict",
+    "v": []
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "dict",
+    "v": []
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "{}"
+ },
+ "edb2870d68c8bd91": {
+  "args": [
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "a",
+      "č"
+     ]
+    ]
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "a",
+      "č"
+     ]
+    ]
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "{\"a\": \"č\"}"
+ },
+ "f0f96b30843adf8b": {
+  "args": [
+   [
+    1,
+    2
+   ]
+  ],
+  "args_after": [
+   [
+    1,
+    2
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "[1, 2]"
+ },
+ "f66fdf2bc0402164": {
+  "args": [
+   {
+    "__t__": "datetime",
+    "v": "2026-08-07T12:34:56"
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "datetime",
+    "v": "2026-08-07T12:34:56"
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "2026-08-07 12:34:56"
+ },
+ "fab1edc0cdaade4f": {
+  "args": [
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "ž",
+      "ř"
+     ]
+    ]
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "ž",
+      "ř"
+     ]
+    ]
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "{\"ž\": \"ř\"}"
+ },
+ "fc085d3a300d1cd8": {
+  "args": [
+   1
+  ],
+  "args_after": [
+   1
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "1"
+ }
+}

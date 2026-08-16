@@ -1,0 +1,1066 @@
+{
+ "17924a912c3e1946": {
+  "args": [
+   "sloupec_id",
+   {
+    "__t__": "series",
+    "dtype": "object",
+    "index": [
+     0,
+     1
+    ],
+    "name": null,
+    "v": [
+     "10",
+     "20"
+    ]
+   },
+   {
+    "__t__": "set",
+    "v": [
+     "sloupec_id"
+    ]
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "sloupec_id",
+      {
+       "__t__": "dict",
+       "v": [
+        [
+         "id_like",
+         true
+        ],
+        [
+         "seen_float",
+         false
+        ],
+        [
+         "seen_integer",
+         true
+        ],
+        [
+         "int_min",
+         10
+        ],
+        [
+         "int_max",
+         20
+        ],
+        [
+         "has_non_numeric",
+         false
+        ]
+       ]
+      }
+     ]
+    ]
+   }
+  ],
+  "args_after": [
+   "sloupec_id",
+   {
+    "__t__": "series",
+    "dtype": "object",
+    "index": [
+     0,
+     1
+    ],
+    "name": null,
+    "v": [
+     "10",
+     "20"
+    ]
+   },
+   {
+    "__t__": "set",
+    "v": [
+     "sloupec_id"
+    ]
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "sloupec_id",
+      {
+       "__t__": "dict",
+       "v": [
+        [
+         "id_like",
+         true
+        ],
+        [
+         "seen_float",
+         false
+        ],
+        [
+         "seen_integer",
+         true
+        ],
+        [
+         "int_min",
+         10
+        ],
+        [
+         "int_max",
+         20
+        ],
+        [
+         "has_non_numeric",
+         false
+        ]
+       ]
+      }
+     ]
+    ]
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "none"
+  }
+ },
+ "26bb047fbd22a789": {
+  "args": [
+   "sloupec_id",
+   {
+    "__t__": "series",
+    "dtype": "float64",
+    "index": [
+     0,
+     1
+    ],
+    "name": null,
+    "v": [
+     1.5,
+     2.0
+    ]
+   },
+   {
+    "__t__": "set",
+    "v": [
+     "sloupec_id"
+    ]
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "sloupec_id",
+      {
+       "__t__": "dict",
+       "v": [
+        [
+         "id_like",
+         true
+        ],
+        [
+         "seen_float",
+         true
+        ],
+        [
+         "seen_integer",
+         false
+        ],
+        [
+         "int_min",
+         {
+          "__t__": "none"
+         }
+        ],
+        [
+         "int_max",
+         {
+          "__t__": "none"
+         }
+        ],
+        [
+         "has_non_numeric",
+         false
+        ]
+       ]
+      }
+     ]
+    ]
+   }
+  ],
+  "args_after": [
+   "sloupec_id",
+   {
+    "__t__": "series",
+    "dtype": "float64",
+    "index": [
+     0,
+     1
+    ],
+    "name": null,
+    "v": [
+     1.5,
+     2.0
+    ]
+   },
+   {
+    "__t__": "set",
+    "v": [
+     "sloupec_id"
+    ]
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "sloupec_id",
+      {
+       "__t__": "dict",
+       "v": [
+        [
+         "id_like",
+         true
+        ],
+        [
+         "seen_float",
+         true
+        ],
+        [
+         "seen_integer",
+         false
+        ],
+        [
+         "int_min",
+         {
+          "__t__": "none"
+         }
+        ],
+        [
+         "int_max",
+         {
+          "__t__": "none"
+         }
+        ],
+        [
+         "has_non_numeric",
+         false
+        ]
+       ]
+      }
+     ]
+    ]
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "none"
+  }
+ },
+ "3a3d121ebdc9e4db": {
+  "args": [
+   "sloupec_id",
+   {
+    "__t__": "series",
+    "dtype": "object",
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "name": null,
+    "v": [
+     "0",
+     "1",
+     "0"
+    ]
+   },
+   {
+    "__t__": "set",
+    "v": [
+     "sloupec_id"
+    ]
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "sloupec_id",
+      {
+       "__t__": "dict",
+       "v": [
+        [
+         "id_like",
+         true
+        ],
+        [
+         "seen_float",
+         false
+        ],
+        [
+         "seen_integer",
+         true
+        ],
+        [
+         "int_min",
+         0
+        ],
+        [
+         "int_max",
+         1
+        ],
+        [
+         "has_non_numeric",
+         false
+        ]
+       ]
+      }
+     ]
+    ]
+   }
+  ],
+  "args_after": [
+   "sloupec_id",
+   {
+    "__t__": "series",
+    "dtype": "object",
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "name": null,
+    "v": [
+     "0",
+     "1",
+     "0"
+    ]
+   },
+   {
+    "__t__": "set",
+    "v": [
+     "sloupec_id"
+    ]
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "sloupec_id",
+      {
+       "__t__": "dict",
+       "v": [
+        [
+         "id_like",
+         true
+        ],
+        [
+         "seen_float",
+         false
+        ],
+        [
+         "seen_integer",
+         true
+        ],
+        [
+         "int_min",
+         0
+        ],
+        [
+         "int_max",
+         1
+        ],
+        [
+         "has_non_numeric",
+         false
+        ]
+       ]
+      }
+     ]
+    ]
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "none"
+  }
+ },
+ "4fe324bd161b481c": {
+  "args": [
+   "sloupec_id",
+   {
+    "__t__": "series",
+    "dtype": "object",
+    "index": [
+     0,
+     1
+    ],
+    "name": null,
+    "v": [
+     {
+      "__t__": "none"
+     },
+     {
+      "__t__": "none"
+     }
+    ]
+   },
+   {
+    "__t__": "set",
+    "v": [
+     "sloupec_id"
+    ]
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "sloupec_id",
+      {
+       "__t__": "dict",
+       "v": [
+        [
+         "id_like",
+         true
+        ],
+        [
+         "seen_float",
+         false
+        ],
+        [
+         "seen_integer",
+         false
+        ],
+        [
+         "int_min",
+         {
+          "__t__": "none"
+         }
+        ],
+        [
+         "int_max",
+         {
+          "__t__": "none"
+         }
+        ],
+        [
+         "has_non_numeric",
+         false
+        ]
+       ]
+      }
+     ]
+    ]
+   }
+  ],
+  "args_after": [
+   "sloupec_id",
+   {
+    "__t__": "series",
+    "dtype": "object",
+    "index": [
+     0,
+     1
+    ],
+    "name": null,
+    "v": [
+     {
+      "__t__": "none"
+     },
+     {
+      "__t__": "none"
+     }
+    ]
+   },
+   {
+    "__t__": "set",
+    "v": [
+     "sloupec_id"
+    ]
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "sloupec_id",
+      {
+       "__t__": "dict",
+       "v": [
+        [
+         "id_like",
+         true
+        ],
+        [
+         "seen_float",
+         false
+        ],
+        [
+         "seen_integer",
+         false
+        ],
+        [
+         "int_min",
+         {
+          "__t__": "none"
+         }
+        ],
+        [
+         "int_max",
+         {
+          "__t__": "none"
+         }
+        ],
+        [
+         "has_non_numeric",
+         false
+        ]
+       ]
+      }
+     ]
+    ]
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "none"
+  }
+ },
+ "5c6757df55cbb434": {
+  "args": [
+   "sloupec_id",
+   {
+    "__t__": "series",
+    "dtype": "int64",
+    "index": [
+     0,
+     1
+    ],
+    "name": null,
+    "v": [
+     1,
+     3000000000
+    ]
+   },
+   {
+    "__t__": "set",
+    "v": [
+     "sloupec_id"
+    ]
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "sloupec_id",
+      {
+       "__t__": "dict",
+       "v": [
+        [
+         "id_like",
+         true
+        ],
+        [
+         "seen_float",
+         false
+        ],
+        [
+         "seen_integer",
+         true
+        ],
+        [
+         "int_min",
+         1
+        ],
+        [
+         "int_max",
+         3000000000
+        ],
+        [
+         "has_non_numeric",
+         false
+        ]
+       ]
+      }
+     ]
+    ]
+   }
+  ],
+  "args_after": [
+   "sloupec_id",
+   {
+    "__t__": "series",
+    "dtype": "int64",
+    "index": [
+     0,
+     1
+    ],
+    "name": null,
+    "v": [
+     1,
+     3000000000
+    ]
+   },
+   {
+    "__t__": "set",
+    "v": [
+     "sloupec_id"
+    ]
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "sloupec_id",
+      {
+       "__t__": "dict",
+       "v": [
+        [
+         "id_like",
+         true
+        ],
+        [
+         "seen_float",
+         false
+        ],
+        [
+         "seen_integer",
+         true
+        ],
+        [
+         "int_min",
+         1
+        ],
+        [
+         "int_max",
+         3000000000
+        ],
+        [
+         "has_non_numeric",
+         false
+        ]
+       ]
+      }
+     ]
+    ]
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "none"
+  }
+ },
+ "d07d6928fbf60eb2": {
+  "args": [
+   "sloupec_id",
+   {
+    "__t__": "series",
+    "dtype": "int64",
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "name": null,
+    "v": [
+     1,
+     2,
+     300000
+    ]
+   },
+   {
+    "__t__": "set",
+    "v": [
+     "sloupec_id"
+    ]
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "sloupec_id",
+      {
+       "__t__": "dict",
+       "v": [
+        [
+         "id_like",
+         true
+        ],
+        [
+         "seen_float",
+         false
+        ],
+        [
+         "seen_integer",
+         true
+        ],
+        [
+         "int_min",
+         1
+        ],
+        [
+         "int_max",
+         300000
+        ],
+        [
+         "has_non_numeric",
+         false
+        ]
+       ]
+      }
+     ]
+    ]
+   }
+  ],
+  "args_after": [
+   "sloupec_id",
+   {
+    "__t__": "series",
+    "dtype": "int64",
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "name": null,
+    "v": [
+     1,
+     2,
+     300000
+    ]
+   },
+   {
+    "__t__": "set",
+    "v": [
+     "sloupec_id"
+    ]
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "sloupec_id",
+      {
+       "__t__": "dict",
+       "v": [
+        [
+         "id_like",
+         true
+        ],
+        [
+         "seen_float",
+         false
+        ],
+        [
+         "seen_integer",
+         true
+        ],
+        [
+         "int_min",
+         1
+        ],
+        [
+         "int_max",
+         300000
+        ],
+        [
+         "has_non_numeric",
+         false
+        ]
+       ]
+      }
+     ]
+    ]
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "none"
+  }
+ },
+ "e39b9ce6f0848bca": {
+  "args": [
+   "sloupec_id",
+   {
+    "__t__": "series",
+    "dtype": "object",
+    "index": [
+     0,
+     1
+    ],
+    "name": null,
+    "v": [
+     "a",
+     "b"
+    ]
+   },
+   {
+    "__t__": "set",
+    "v": [
+     "sloupec_id"
+    ]
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "sloupec_id",
+      {
+       "__t__": "dict",
+       "v": [
+        [
+         "id_like",
+         true
+        ],
+        [
+         "seen_float",
+         false
+        ],
+        [
+         "seen_integer",
+         false
+        ],
+        [
+         "int_min",
+         {
+          "__t__": "none"
+         }
+        ],
+        [
+         "int_max",
+         {
+          "__t__": "none"
+         }
+        ],
+        [
+         "has_non_numeric",
+         true
+        ]
+       ]
+      }
+     ]
+    ]
+   }
+  ],
+  "args_after": [
+   "sloupec_id",
+   {
+    "__t__": "series",
+    "dtype": "object",
+    "index": [
+     0,
+     1
+    ],
+    "name": null,
+    "v": [
+     "a",
+     "b"
+    ]
+   },
+   {
+    "__t__": "set",
+    "v": [
+     "sloupec_id"
+    ]
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "sloupec_id",
+      {
+       "__t__": "dict",
+       "v": [
+        [
+         "id_like",
+         true
+        ],
+        [
+         "seen_float",
+         false
+        ],
+        [
+         "seen_integer",
+         false
+        ],
+        [
+         "int_min",
+         {
+          "__t__": "none"
+         }
+        ],
+        [
+         "int_max",
+         {
+          "__t__": "none"
+         }
+        ],
+        [
+         "has_non_numeric",
+         true
+        ]
+       ]
+      }
+     ]
+    ]
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "none"
+  }
+ },
+ "f2be4ee64be68a98": {
+  "args": [
+   "sloupec_id",
+   {
+    "__t__": "series",
+    "dtype": "object",
+    "index": [
+     0,
+     1
+    ],
+    "name": null,
+    "v": [
+     1,
+     "x"
+    ]
+   },
+   {
+    "__t__": "set",
+    "v": [
+     "sloupec_id"
+    ]
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "sloupec_id",
+      {
+       "__t__": "dict",
+       "v": [
+        [
+         "id_like",
+         true
+        ],
+        [
+         "seen_float",
+         false
+        ],
+        [
+         "seen_integer",
+         false
+        ],
+        [
+         "int_min",
+         {
+          "__t__": "none"
+         }
+        ],
+        [
+         "int_max",
+         {
+          "__t__": "none"
+         }
+        ],
+        [
+         "has_non_numeric",
+         true
+        ]
+       ]
+      }
+     ]
+    ]
+   }
+  ],
+  "args_after": [
+   "sloupec_id",
+   {
+    "__t__": "series",
+    "dtype": "object",
+    "index": [
+     0,
+     1
+    ],
+    "name": null,
+    "v": [
+     1,
+     "x"
+    ]
+   },
+   {
+    "__t__": "set",
+    "v": [
+     "sloupec_id"
+    ]
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "sloupec_id",
+      {
+       "__t__": "dict",
+       "v": [
+        [
+         "id_like",
+         true
+        ],
+        [
+         "seen_float",
+         false
+        ],
+        [
+         "seen_integer",
+         false
+        ],
+        [
+         "int_min",
+         {
+          "__t__": "none"
+         }
+        ],
+        [
+         "int_max",
+         {
+          "__t__": "none"
+         }
+        ],
+        [
+         "has_non_numeric",
+         true
+        ]
+       ]
+      }
+     ]
+    ]
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "none"
+  }
+ }
+}

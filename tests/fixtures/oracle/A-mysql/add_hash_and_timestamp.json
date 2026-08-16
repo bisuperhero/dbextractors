@@ -1,0 +1,2618 @@
+{
+ "1a1472219be112eb": {
+  "args": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "int64",
+      "name": "id",
+      "v": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "text",
+      "v": [
+       "a",
+       "b",
+       "c"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "3b95afdb6e7613a84307ddbf68311295c72eb33d9fa98488fce0c2233781a135",
+       "1cde2400d03277bb51b15d47526e7a167c7e93e376f025a22c3ddea6992fdab2",
+       "6c3db91ba83ade4b58f9a090bcc8d878bc6b2d60b15c9de8b59d2b7773360cc1"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.810522+00:00",
+       "2026-08-15T10:18:02.810522+00:00",
+       "2026-08-15T10:18:02.810522+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "args_after": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "int64",
+      "name": "id",
+      "v": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "text",
+      "v": [
+       "a",
+       "b",
+       "c"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "3b95afdb6e7613a84307ddbf68311295c72eb33d9fa98488fce0c2233781a135",
+       "1cde2400d03277bb51b15d47526e7a167c7e93e376f025a22c3ddea6992fdab2",
+       "6c3db91ba83ade4b58f9a090bcc8d878bc6b2d60b15c9de8b59d2b7773360cc1"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.810522+00:00",
+       "2026-08-15T10:18:02.810522+00:00",
+       "2026-08-15T10:18:02.810522+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "frame",
+   "columns": [
+    {
+     "dtype": "int64",
+     "name": "id",
+     "v": [
+      1,
+      2,
+      3
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "text",
+     "v": [
+      "a",
+      "b",
+      "c"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "row_hash",
+     "v": [
+      "3b95afdb6e7613a84307ddbf68311295c72eb33d9fa98488fce0c2233781a135",
+      "1cde2400d03277bb51b15d47526e7a167c7e93e376f025a22c3ddea6992fdab2",
+      "6c3db91ba83ade4b58f9a090bcc8d878bc6b2d60b15c9de8b59d2b7773360cc1"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "_timestamp",
+     "v": [
+      "2026-08-15T10:18:02.810522+00:00",
+      "2026-08-15T10:18:02.810522+00:00",
+      "2026-08-15T10:18:02.810522+00:00"
+     ]
+    }
+   ],
+   "index": [
+    0,
+    1,
+    2
+   ],
+   "index_name": null
+  }
+ },
+ "215937e301cd0a37": {
+  "args": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "Int64",
+      "name": "i",
+      "v": [
+       {
+        "__t__": "np",
+        "dtype": "int64",
+        "v": 1
+       },
+       {
+        "__t__": "na"
+       },
+       {
+        "__t__": "np",
+        "dtype": "int64",
+        "v": 3
+       }
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "t",
+      "v": [
+       "a",
+       "b",
+       "c"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "3b95afdb6e7613a84307ddbf68311295c72eb33d9fa98488fce0c2233781a135",
+       "c5f8b4dd10aec7e443b3d9f811b7c752c6ecb8c3f45805c4ca5648bd3b4654ab",
+       "6c3db91ba83ade4b58f9a090bcc8d878bc6b2d60b15c9de8b59d2b7773360cc1"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.826625+00:00",
+       "2026-08-15T10:18:02.826625+00:00",
+       "2026-08-15T10:18:02.826625+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "args_after": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "Int64",
+      "name": "i",
+      "v": [
+       {
+        "__t__": "np",
+        "dtype": "int64",
+        "v": 1
+       },
+       {
+        "__t__": "na"
+       },
+       {
+        "__t__": "np",
+        "dtype": "int64",
+        "v": 3
+       }
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "t",
+      "v": [
+       "a",
+       "b",
+       "c"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "3b95afdb6e7613a84307ddbf68311295c72eb33d9fa98488fce0c2233781a135",
+       "c5f8b4dd10aec7e443b3d9f811b7c752c6ecb8c3f45805c4ca5648bd3b4654ab",
+       "6c3db91ba83ade4b58f9a090bcc8d878bc6b2d60b15c9de8b59d2b7773360cc1"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.826625+00:00",
+       "2026-08-15T10:18:02.826625+00:00",
+       "2026-08-15T10:18:02.826625+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "frame",
+   "columns": [
+    {
+     "dtype": "Int64",
+     "name": "i",
+     "v": [
+      {
+       "__t__": "np",
+       "dtype": "int64",
+       "v": 1
+      },
+      {
+       "__t__": "na"
+      },
+      {
+       "__t__": "np",
+       "dtype": "int64",
+       "v": 3
+      }
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "t",
+     "v": [
+      "a",
+      "b",
+      "c"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "row_hash",
+     "v": [
+      "3b95afdb6e7613a84307ddbf68311295c72eb33d9fa98488fce0c2233781a135",
+      "c5f8b4dd10aec7e443b3d9f811b7c752c6ecb8c3f45805c4ca5648bd3b4654ab",
+      "6c3db91ba83ade4b58f9a090bcc8d878bc6b2d60b15c9de8b59d2b7773360cc1"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "_timestamp",
+     "v": [
+      "2026-08-15T10:18:02.826625+00:00",
+      "2026-08-15T10:18:02.826625+00:00",
+      "2026-08-15T10:18:02.826625+00:00"
+     ]
+    }
+   ],
+   "index": [
+    0,
+    1,
+    2
+   ],
+   "index_name": null
+  }
+ },
+ "2221384dcabe4af0": {
+  "args": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "object",
+      "name": "a",
+      "v": [
+       "x",
+       "y",
+       "z"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
+       "a1fce4363854ff888cff4b8e7875d600c2682390412a8cf79b37d0b11148b0fa",
+       "594e519ae499312b29433b7dd8a97ff068defcba9755b6d5d00e84c524d67b06"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.823291+00:00",
+       "2026-08-15T10:18:02.823291+00:00",
+       "2026-08-15T10:18:02.823291+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "args_after": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "object",
+      "name": "a",
+      "v": [
+       "x",
+       "y",
+       "z"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
+       "a1fce4363854ff888cff4b8e7875d600c2682390412a8cf79b37d0b11148b0fa",
+       "594e519ae499312b29433b7dd8a97ff068defcba9755b6d5d00e84c524d67b06"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.823291+00:00",
+       "2026-08-15T10:18:02.823291+00:00",
+       "2026-08-15T10:18:02.823291+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "frame",
+   "columns": [
+    {
+     "dtype": "object",
+     "name": "a",
+     "v": [
+      "x",
+      "y",
+      "z"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "row_hash",
+     "v": [
+      "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
+      "a1fce4363854ff888cff4b8e7875d600c2682390412a8cf79b37d0b11148b0fa",
+      "594e519ae499312b29433b7dd8a97ff068defcba9755b6d5d00e84c524d67b06"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "_timestamp",
+     "v": [
+      "2026-08-15T10:18:02.823291+00:00",
+      "2026-08-15T10:18:02.823291+00:00",
+      "2026-08-15T10:18:02.823291+00:00"
+     ]
+    }
+   ],
+   "index": [
+    0,
+    1,
+    2
+   ],
+   "index_name": null
+  }
+ },
+ "2b8ee4a6450330fc": {
+  "args": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "object",
+      "name": "castka",
+      "v": [
+       {
+        "__t__": "decimal",
+        "v": "1.50"
+       },
+       {
+        "__t__": "decimal",
+        "v": "2"
+       },
+       {
+        "__t__": "decimal",
+        "v": "-3.25"
+       }
+      ]
+     },
+     {
+      "dtype": "int64",
+      "name": "id",
+      "v": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "02053b0ba9977e3f54bfaaae34e87feec9e536e90c424fab4ff964e1ea4efc6e",
+       "afa210a04dd3cfbaba83ca653799b144aa5d064308415b18c24f1fbaaca413b6",
+       "dbbcd8f78c25e58a1fc2639232ce1eeb966f380b7312d54e015d71f015aa9967"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.799198+00:00",
+       "2026-08-15T10:18:02.799198+00:00",
+       "2026-08-15T10:18:02.799198+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "args_after": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "object",
+      "name": "castka",
+      "v": [
+       {
+        "__t__": "decimal",
+        "v": "1.50"
+       },
+       {
+        "__t__": "decimal",
+        "v": "2"
+       },
+       {
+        "__t__": "decimal",
+        "v": "-3.25"
+       }
+      ]
+     },
+     {
+      "dtype": "int64",
+      "name": "id",
+      "v": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "02053b0ba9977e3f54bfaaae34e87feec9e536e90c424fab4ff964e1ea4efc6e",
+       "afa210a04dd3cfbaba83ca653799b144aa5d064308415b18c24f1fbaaca413b6",
+       "dbbcd8f78c25e58a1fc2639232ce1eeb966f380b7312d54e015d71f015aa9967"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.799198+00:00",
+       "2026-08-15T10:18:02.799198+00:00",
+       "2026-08-15T10:18:02.799198+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "frame",
+   "columns": [
+    {
+     "dtype": "object",
+     "name": "castka",
+     "v": [
+      {
+       "__t__": "decimal",
+       "v": "1.50"
+      },
+      {
+       "__t__": "decimal",
+       "v": "2"
+      },
+      {
+       "__t__": "decimal",
+       "v": "-3.25"
+      }
+     ]
+    },
+    {
+     "dtype": "int64",
+     "name": "id",
+     "v": [
+      1,
+      2,
+      3
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "row_hash",
+     "v": [
+      "02053b0ba9977e3f54bfaaae34e87feec9e536e90c424fab4ff964e1ea4efc6e",
+      "afa210a04dd3cfbaba83ca653799b144aa5d064308415b18c24f1fbaaca413b6",
+      "dbbcd8f78c25e58a1fc2639232ce1eeb966f380b7312d54e015d71f015aa9967"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "_timestamp",
+     "v": [
+      "2026-08-15T10:18:02.799198+00:00",
+      "2026-08-15T10:18:02.799198+00:00",
+      "2026-08-15T10:18:02.799198+00:00"
+     ]
+    }
+   ],
+   "index": [
+    0,
+    1,
+    2
+   ],
+   "index_name": null
+  }
+ },
+ "68e14852633c96ce": {
+  "args": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "float64",
+      "name": "id",
+      "v": [
+       1.0,
+       {
+        "__t__": "nan"
+       },
+       3.0
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "text",
+      "v": [
+       "a",
+       {
+        "__t__": "none"
+       },
+       "c"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "fc8dab610a0816ba1db67271d2cd20578c242cec48db7ceab13d253762afc3e5",
+       "565d240f5343e625ae579a4d45a770f1f02c6368b5ed4d06da4fbe6f47c28866",
+       "1fb78a8680221fe829488dba0f88a88e1556c7d38023cfcaa175e346bff207e1"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.841615+00:00",
+       "2026-08-15T10:18:02.841615+00:00",
+       "2026-08-15T10:18:02.841615+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "args_after": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "float64",
+      "name": "id",
+      "v": [
+       1.0,
+       {
+        "__t__": "nan"
+       },
+       3.0
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "text",
+      "v": [
+       "a",
+       {
+        "__t__": "none"
+       },
+       "c"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "fc8dab610a0816ba1db67271d2cd20578c242cec48db7ceab13d253762afc3e5",
+       "565d240f5343e625ae579a4d45a770f1f02c6368b5ed4d06da4fbe6f47c28866",
+       "1fb78a8680221fe829488dba0f88a88e1556c7d38023cfcaa175e346bff207e1"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.841615+00:00",
+       "2026-08-15T10:18:02.841615+00:00",
+       "2026-08-15T10:18:02.841615+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "frame",
+   "columns": [
+    {
+     "dtype": "float64",
+     "name": "id",
+     "v": [
+      1.0,
+      {
+       "__t__": "nan"
+      },
+      3.0
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "text",
+     "v": [
+      "a",
+      {
+       "__t__": "none"
+      },
+      "c"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "row_hash",
+     "v": [
+      "fc8dab610a0816ba1db67271d2cd20578c242cec48db7ceab13d253762afc3e5",
+      "565d240f5343e625ae579a4d45a770f1f02c6368b5ed4d06da4fbe6f47c28866",
+      "1fb78a8680221fe829488dba0f88a88e1556c7d38023cfcaa175e346bff207e1"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "_timestamp",
+     "v": [
+      "2026-08-15T10:18:02.841615+00:00",
+      "2026-08-15T10:18:02.841615+00:00",
+      "2026-08-15T10:18:02.841615+00:00"
+     ]
+    }
+   ],
+   "index": [
+    0,
+    1,
+    2
+   ],
+   "index_name": null
+  }
+ },
+ "6e736f2cc888b1e3": {
+  "args": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "object",
+      "name": "b",
+      "v": [
+       {
+        "__t__": "bytes",
+        "v": "YWJj"
+       },
+       {
+        "__t__": "bytes",
+        "v": ""
+       },
+       {
+        "__t__": "none"
+       }
+      ]
+     },
+     {
+      "dtype": "int64",
+      "name": "id",
+      "v": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "7dd54c39419199b4dafaed6fca4d20af196d5ba5ed53c02ceb008f56c9104cc0",
+       "67915c25cab11623e589a3bd24b13520acee72e795b1b6ec0ab144cba5348438",
+       "9b13b54081b17a35b8388f9e59b95f9da8460d969c32ca2d9bc50ae07db5b400"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.802132+00:00",
+       "2026-08-15T10:18:02.802132+00:00",
+       "2026-08-15T10:18:02.802132+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "args_after": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "object",
+      "name": "b",
+      "v": [
+       {
+        "__t__": "bytes",
+        "v": "YWJj"
+       },
+       {
+        "__t__": "bytes",
+        "v": ""
+       },
+       {
+        "__t__": "none"
+       }
+      ]
+     },
+     {
+      "dtype": "int64",
+      "name": "id",
+      "v": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "7dd54c39419199b4dafaed6fca4d20af196d5ba5ed53c02ceb008f56c9104cc0",
+       "67915c25cab11623e589a3bd24b13520acee72e795b1b6ec0ab144cba5348438",
+       "9b13b54081b17a35b8388f9e59b95f9da8460d969c32ca2d9bc50ae07db5b400"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.802132+00:00",
+       "2026-08-15T10:18:02.802132+00:00",
+       "2026-08-15T10:18:02.802132+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "frame",
+   "columns": [
+    {
+     "dtype": "object",
+     "name": "b",
+     "v": [
+      {
+       "__t__": "bytes",
+       "v": "YWJj"
+      },
+      {
+       "__t__": "bytes",
+       "v": ""
+      },
+      {
+       "__t__": "none"
+      }
+     ]
+    },
+    {
+     "dtype": "int64",
+     "name": "id",
+     "v": [
+      1,
+      2,
+      3
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "row_hash",
+     "v": [
+      "7dd54c39419199b4dafaed6fca4d20af196d5ba5ed53c02ceb008f56c9104cc0",
+      "67915c25cab11623e589a3bd24b13520acee72e795b1b6ec0ab144cba5348438",
+      "9b13b54081b17a35b8388f9e59b95f9da8460d969c32ca2d9bc50ae07db5b400"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "_timestamp",
+     "v": [
+      "2026-08-15T10:18:02.802132+00:00",
+      "2026-08-15T10:18:02.802132+00:00",
+      "2026-08-15T10:18:02.802132+00:00"
+     ]
+    }
+   ],
+   "index": [
+    0,
+    1,
+    2
+   ],
+   "index_name": null
+  }
+ },
+ "7a0d7d706737c05f": {
+  "args": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "object",
+      "name": "a",
+      "v": [
+       "x||y",
+       "x",
+       "||"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "b",
+      "v": [
+       "y",
+       "|y",
+       ""
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "aa78d53660ef48f65a70612947978b9007617ddc4763fab4dfddc2ed866d38a9",
+       "4065820eccb44a35fc156b7de8a6aba91bc461360d2839388cb23ee933ac9a05",
+       "45ca31c3315a5978f40438aab46040d75e99c9b125c2fd01db6e10ac80bef906"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.835557+00:00",
+       "2026-08-15T10:18:02.835557+00:00",
+       "2026-08-15T10:18:02.835557+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "args_after": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "object",
+      "name": "a",
+      "v": [
+       "x||y",
+       "x",
+       "||"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "b",
+      "v": [
+       "y",
+       "|y",
+       ""
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "aa78d53660ef48f65a70612947978b9007617ddc4763fab4dfddc2ed866d38a9",
+       "4065820eccb44a35fc156b7de8a6aba91bc461360d2839388cb23ee933ac9a05",
+       "45ca31c3315a5978f40438aab46040d75e99c9b125c2fd01db6e10ac80bef906"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.835557+00:00",
+       "2026-08-15T10:18:02.835557+00:00",
+       "2026-08-15T10:18:02.835557+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "frame",
+   "columns": [
+    {
+     "dtype": "object",
+     "name": "a",
+     "v": [
+      "x||y",
+      "x",
+      "||"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "b",
+     "v": [
+      "y",
+      "|y",
+      ""
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "row_hash",
+     "v": [
+      "aa78d53660ef48f65a70612947978b9007617ddc4763fab4dfddc2ed866d38a9",
+      "4065820eccb44a35fc156b7de8a6aba91bc461360d2839388cb23ee933ac9a05",
+      "45ca31c3315a5978f40438aab46040d75e99c9b125c2fd01db6e10ac80bef906"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "_timestamp",
+     "v": [
+      "2026-08-15T10:18:02.835557+00:00",
+      "2026-08-15T10:18:02.835557+00:00",
+      "2026-08-15T10:18:02.835557+00:00"
+     ]
+    }
+   ],
+   "index": [
+    0,
+    1,
+    2
+   ],
+   "index_name": null
+  }
+ },
+ "96ed9cd07b146aff": {
+  "args": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "int64",
+      "name": "id",
+      "v": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "dtype": "float64",
+      "name": "cena",
+      "v": [
+       1.5,
+       2.5,
+       3.5
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "d09a25fdc735485b74dc05152d6c31f4b0435f989c0249714ef7eb053539c05a",
+       "b7e272ce37100523d6d7c36591dddb43b7c625f83778d11cd07751e2cbd11c8b",
+       "0e0a477af70d235cf989f2796001337b728ad9fb8001d31f4b1b8240f817e7a7"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.807656+00:00",
+       "2026-08-15T10:18:02.807656+00:00",
+       "2026-08-15T10:18:02.807656+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "args_after": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "int64",
+      "name": "id",
+      "v": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "dtype": "float64",
+      "name": "cena",
+      "v": [
+       1.5,
+       2.5,
+       3.5
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "d09a25fdc735485b74dc05152d6c31f4b0435f989c0249714ef7eb053539c05a",
+       "b7e272ce37100523d6d7c36591dddb43b7c625f83778d11cd07751e2cbd11c8b",
+       "0e0a477af70d235cf989f2796001337b728ad9fb8001d31f4b1b8240f817e7a7"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.807656+00:00",
+       "2026-08-15T10:18:02.807656+00:00",
+       "2026-08-15T10:18:02.807656+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "frame",
+   "columns": [
+    {
+     "dtype": "int64",
+     "name": "id",
+     "v": [
+      1,
+      2,
+      3
+     ]
+    },
+    {
+     "dtype": "float64",
+     "name": "cena",
+     "v": [
+      1.5,
+      2.5,
+      3.5
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "row_hash",
+     "v": [
+      "d09a25fdc735485b74dc05152d6c31f4b0435f989c0249714ef7eb053539c05a",
+      "b7e272ce37100523d6d7c36591dddb43b7c625f83778d11cd07751e2cbd11c8b",
+      "0e0a477af70d235cf989f2796001337b728ad9fb8001d31f4b1b8240f817e7a7"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "_timestamp",
+     "v": [
+      "2026-08-15T10:18:02.807656+00:00",
+      "2026-08-15T10:18:02.807656+00:00",
+      "2026-08-15T10:18:02.807656+00:00"
+     ]
+    }
+   ],
+   "index": [
+    0,
+    1,
+    2
+   ],
+   "index_name": null
+  }
+ },
+ "996495c30b41f33d": {
+  "args": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "int64",
+      "name": "id",
+      "v": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "dtype": "int64",
+      "name": "pocet",
+      "v": [
+       10,
+       20,
+       30
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "186242fb8f32a11332541a57c91c3d11664f2719de9eb4b170434065e54ce494",
+       "bbdb570c019b6a559adb648a1bb64b81822d235245ad4d30ae01df08f191ee5f",
+       "a084f4de02ac6ec15dfb1cdf37d2b234caa879a372208574d0dbddd1d71bfe56"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.844255+00:00",
+       "2026-08-15T10:18:02.844255+00:00",
+       "2026-08-15T10:18:02.844255+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "args_after": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "int64",
+      "name": "id",
+      "v": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "dtype": "int64",
+      "name": "pocet",
+      "v": [
+       10,
+       20,
+       30
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "186242fb8f32a11332541a57c91c3d11664f2719de9eb4b170434065e54ce494",
+       "bbdb570c019b6a559adb648a1bb64b81822d235245ad4d30ae01df08f191ee5f",
+       "a084f4de02ac6ec15dfb1cdf37d2b234caa879a372208574d0dbddd1d71bfe56"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.844255+00:00",
+       "2026-08-15T10:18:02.844255+00:00",
+       "2026-08-15T10:18:02.844255+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "frame",
+   "columns": [
+    {
+     "dtype": "int64",
+     "name": "id",
+     "v": [
+      1,
+      2,
+      3
+     ]
+    },
+    {
+     "dtype": "int64",
+     "name": "pocet",
+     "v": [
+      10,
+      20,
+      30
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "row_hash",
+     "v": [
+      "186242fb8f32a11332541a57c91c3d11664f2719de9eb4b170434065e54ce494",
+      "bbdb570c019b6a559adb648a1bb64b81822d235245ad4d30ae01df08f191ee5f",
+      "a084f4de02ac6ec15dfb1cdf37d2b234caa879a372208574d0dbddd1d71bfe56"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "_timestamp",
+     "v": [
+      "2026-08-15T10:18:02.844255+00:00",
+      "2026-08-15T10:18:02.844255+00:00",
+      "2026-08-15T10:18:02.844255+00:00"
+     ]
+    }
+   ],
+   "index": [
+    0,
+    1,
+    2
+   ],
+   "index_name": null
+  }
+ },
+ "9dff642df77c99bd": {
+  "args": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "object",
+      "name": "t",
+      "v": [
+       "příliš žluťoučký",
+       "已经",
+       "  mezery  "
+      ]
+     },
+     {
+      "dtype": "int64",
+      "name": "id",
+      "v": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "abc337bc749cadc736e46ccc3aff90c21c82492ef1894ccb78e1796403f58a4f",
+       "3c9390d08d7ee9696638d8060198777745b575655e3f1c2216f8384accf8748a",
+       "cae7962778a2c2883716e15ecc4c23955aa1928be75181647b3fc799a5403e54"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.849767+00:00",
+       "2026-08-15T10:18:02.849767+00:00",
+       "2026-08-15T10:18:02.849767+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "args_after": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "object",
+      "name": "t",
+      "v": [
+       "příliš žluťoučký",
+       "已经",
+       "  mezery  "
+      ]
+     },
+     {
+      "dtype": "int64",
+      "name": "id",
+      "v": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "abc337bc749cadc736e46ccc3aff90c21c82492ef1894ccb78e1796403f58a4f",
+       "3c9390d08d7ee9696638d8060198777745b575655e3f1c2216f8384accf8748a",
+       "cae7962778a2c2883716e15ecc4c23955aa1928be75181647b3fc799a5403e54"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.849767+00:00",
+       "2026-08-15T10:18:02.849767+00:00",
+       "2026-08-15T10:18:02.849767+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "frame",
+   "columns": [
+    {
+     "dtype": "object",
+     "name": "t",
+     "v": [
+      "příliš žluťoučký",
+      "已经",
+      "  mezery  "
+     ]
+    },
+    {
+     "dtype": "int64",
+     "name": "id",
+     "v": [
+      1,
+      2,
+      3
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "row_hash",
+     "v": [
+      "abc337bc749cadc736e46ccc3aff90c21c82492ef1894ccb78e1796403f58a4f",
+      "3c9390d08d7ee9696638d8060198777745b575655e3f1c2216f8384accf8748a",
+      "cae7962778a2c2883716e15ecc4c23955aa1928be75181647b3fc799a5403e54"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "_timestamp",
+     "v": [
+      "2026-08-15T10:18:02.849767+00:00",
+      "2026-08-15T10:18:02.849767+00:00",
+      "2026-08-15T10:18:02.849767+00:00"
+     ]
+    }
+   ],
+   "index": [
+    0,
+    1,
+    2
+   ],
+   "index_name": null
+  }
+ },
+ "a54be95e5e024493": {
+  "args": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "int32",
+      "name": "i",
+      "v": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "dtype": "float32",
+      "name": "f",
+      "v": [
+       1.5,
+       2.5,
+       3.5
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "d09a25fdc735485b74dc05152d6c31f4b0435f989c0249714ef7eb053539c05a",
+       "b7e272ce37100523d6d7c36591dddb43b7c625f83778d11cd07751e2cbd11c8b",
+       "0e0a477af70d235cf989f2796001337b728ad9fb8001d31f4b1b8240f817e7a7"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.829731+00:00",
+       "2026-08-15T10:18:02.829731+00:00",
+       "2026-08-15T10:18:02.829731+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "args_after": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "int32",
+      "name": "i",
+      "v": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "dtype": "float32",
+      "name": "f",
+      "v": [
+       1.5,
+       2.5,
+       3.5
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "d09a25fdc735485b74dc05152d6c31f4b0435f989c0249714ef7eb053539c05a",
+       "b7e272ce37100523d6d7c36591dddb43b7c625f83778d11cd07751e2cbd11c8b",
+       "0e0a477af70d235cf989f2796001337b728ad9fb8001d31f4b1b8240f817e7a7"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.829731+00:00",
+       "2026-08-15T10:18:02.829731+00:00",
+       "2026-08-15T10:18:02.829731+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "frame",
+   "columns": [
+    {
+     "dtype": "int32",
+     "name": "i",
+     "v": [
+      1,
+      2,
+      3
+     ]
+    },
+    {
+     "dtype": "float32",
+     "name": "f",
+     "v": [
+      1.5,
+      2.5,
+      3.5
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "row_hash",
+     "v": [
+      "d09a25fdc735485b74dc05152d6c31f4b0435f989c0249714ef7eb053539c05a",
+      "b7e272ce37100523d6d7c36591dddb43b7c625f83778d11cd07751e2cbd11c8b",
+      "0e0a477af70d235cf989f2796001337b728ad9fb8001d31f4b1b8240f817e7a7"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "_timestamp",
+     "v": [
+      "2026-08-15T10:18:02.829731+00:00",
+      "2026-08-15T10:18:02.829731+00:00",
+      "2026-08-15T10:18:02.829731+00:00"
+     ]
+    }
+   ],
+   "index": [
+    0,
+    1,
+    2
+   ],
+   "index_name": null
+  }
+ },
+ "abddba1dca2c5bf5": {
+  "args": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "object",
+      "name": "d",
+      "v": [
+       {
+        "__t__": "date",
+        "v": "2026-08-11"
+       },
+       {
+        "__t__": "date",
+        "v": "2020-01-01"
+       },
+       {
+        "__t__": "none"
+       }
+      ]
+     },
+     {
+      "dtype": "int64",
+      "name": "id",
+      "v": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "56dfd8d128a1689faa522490ad2b945a56a7b848ca5eff9df9a3bc95b5ff4d93",
+       "5da2adb6fb3cce4b247b0ffa7c4fd94050feeb3dbe0e3597440229b3e9c7e17f",
+       "9b13b54081b17a35b8388f9e59b95f9da8460d969c32ca2d9bc50ae07db5b400"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.820691+00:00",
+       "2026-08-15T10:18:02.820691+00:00",
+       "2026-08-15T10:18:02.820691+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "args_after": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "object",
+      "name": "d",
+      "v": [
+       {
+        "__t__": "date",
+        "v": "2026-08-11"
+       },
+       {
+        "__t__": "date",
+        "v": "2020-01-01"
+       },
+       {
+        "__t__": "none"
+       }
+      ]
+     },
+     {
+      "dtype": "int64",
+      "name": "id",
+      "v": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "56dfd8d128a1689faa522490ad2b945a56a7b848ca5eff9df9a3bc95b5ff4d93",
+       "5da2adb6fb3cce4b247b0ffa7c4fd94050feeb3dbe0e3597440229b3e9c7e17f",
+       "9b13b54081b17a35b8388f9e59b95f9da8460d969c32ca2d9bc50ae07db5b400"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.820691+00:00",
+       "2026-08-15T10:18:02.820691+00:00",
+       "2026-08-15T10:18:02.820691+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "frame",
+   "columns": [
+    {
+     "dtype": "object",
+     "name": "d",
+     "v": [
+      {
+       "__t__": "date",
+       "v": "2026-08-11"
+      },
+      {
+       "__t__": "date",
+       "v": "2020-01-01"
+      },
+      {
+       "__t__": "none"
+      }
+     ]
+    },
+    {
+     "dtype": "int64",
+     "name": "id",
+     "v": [
+      1,
+      2,
+      3
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "row_hash",
+     "v": [
+      "56dfd8d128a1689faa522490ad2b945a56a7b848ca5eff9df9a3bc95b5ff4d93",
+      "5da2adb6fb3cce4b247b0ffa7c4fd94050feeb3dbe0e3597440229b3e9c7e17f",
+      "9b13b54081b17a35b8388f9e59b95f9da8460d969c32ca2d9bc50ae07db5b400"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "_timestamp",
+     "v": [
+      "2026-08-15T10:18:02.820691+00:00",
+      "2026-08-15T10:18:02.820691+00:00",
+      "2026-08-15T10:18:02.820691+00:00"
+     ]
+    }
+   ],
+   "index": [
+    0,
+    1,
+    2
+   ],
+   "index_name": null
+  }
+ },
+ "b81c9ccaba757230": {
+  "args": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "object",
+      "name": "a",
+      "v": [
+       "",
+       {
+        "__t__": "none"
+       },
+       "x"
+      ]
+     },
+     {
+      "dtype": "int64",
+      "name": "b",
+      "v": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "927973d45328793a61dde55350ae9c3696dd128340239a9221abaeff301e6154",
+       "cade76fa404ebef2ffd7934a24e3d8d36daa1c4712c93a30bc4a2969147d603a",
+       "b080a861c6859a5bf4a9c818e1e1203990d044d98f67f3544f73eb07e9dc507b"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.838620+00:00",
+       "2026-08-15T10:18:02.838620+00:00",
+       "2026-08-15T10:18:02.838620+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "args_after": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "object",
+      "name": "a",
+      "v": [
+       "",
+       {
+        "__t__": "none"
+       },
+       "x"
+      ]
+     },
+     {
+      "dtype": "int64",
+      "name": "b",
+      "v": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "927973d45328793a61dde55350ae9c3696dd128340239a9221abaeff301e6154",
+       "cade76fa404ebef2ffd7934a24e3d8d36daa1c4712c93a30bc4a2969147d603a",
+       "b080a861c6859a5bf4a9c818e1e1203990d044d98f67f3544f73eb07e9dc507b"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.838620+00:00",
+       "2026-08-15T10:18:02.838620+00:00",
+       "2026-08-15T10:18:02.838620+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "frame",
+   "columns": [
+    {
+     "dtype": "object",
+     "name": "a",
+     "v": [
+      "",
+      {
+       "__t__": "none"
+      },
+      "x"
+     ]
+    },
+    {
+     "dtype": "int64",
+     "name": "b",
+     "v": [
+      1,
+      2,
+      3
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "row_hash",
+     "v": [
+      "927973d45328793a61dde55350ae9c3696dd128340239a9221abaeff301e6154",
+      "cade76fa404ebef2ffd7934a24e3d8d36daa1c4712c93a30bc4a2969147d603a",
+      "b080a861c6859a5bf4a9c818e1e1203990d044d98f67f3544f73eb07e9dc507b"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "_timestamp",
+     "v": [
+      "2026-08-15T10:18:02.838620+00:00",
+      "2026-08-15T10:18:02.838620+00:00",
+      "2026-08-15T10:18:02.838620+00:00"
+     ]
+    }
+   ],
+   "index": [
+    0,
+    1,
+    2
+   ],
+   "index_name": null
+  }
+ },
+ "be974b9f12a5d991": {
+  "args": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "datetime64[ns]",
+      "name": "kdy",
+      "v": [
+       {
+        "__t__": "timestamp",
+        "tz": null,
+        "v": "2026-08-11T00:00:00"
+       },
+       {
+        "__t__": "timestamp",
+        "tz": null,
+        "v": "2020-01-01T00:00:00"
+       },
+       {
+        "__t__": "timestamp",
+        "tz": null,
+        "v": "1999-12-31T00:00:00"
+       }
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "text",
+      "v": [
+       "a",
+       "b",
+       "c"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "aa6da9d912f1238871047cfe7321d9df24d2cf532aa27a303078e080a6187f24",
+       "b59bbe5e4e9e937441caed72f1d593ba6a0de091f05f1cee8cc5dad6140e2f35",
+       "e22fa518b65bfd05bd1d56d0d0a41904cbc74b58d2118768b5747f8920d408b9"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.814785+00:00",
+       "2026-08-15T10:18:02.814785+00:00",
+       "2026-08-15T10:18:02.814785+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "args_after": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "datetime64[ns]",
+      "name": "kdy",
+      "v": [
+       {
+        "__t__": "timestamp",
+        "tz": null,
+        "v": "2026-08-11T00:00:00"
+       },
+       {
+        "__t__": "timestamp",
+        "tz": null,
+        "v": "2020-01-01T00:00:00"
+       },
+       {
+        "__t__": "timestamp",
+        "tz": null,
+        "v": "1999-12-31T00:00:00"
+       }
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "text",
+      "v": [
+       "a",
+       "b",
+       "c"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "aa6da9d912f1238871047cfe7321d9df24d2cf532aa27a303078e080a6187f24",
+       "b59bbe5e4e9e937441caed72f1d593ba6a0de091f05f1cee8cc5dad6140e2f35",
+       "e22fa518b65bfd05bd1d56d0d0a41904cbc74b58d2118768b5747f8920d408b9"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.814785+00:00",
+       "2026-08-15T10:18:02.814785+00:00",
+       "2026-08-15T10:18:02.814785+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "frame",
+   "columns": [
+    {
+     "dtype": "datetime64[ns]",
+     "name": "kdy",
+     "v": [
+      {
+       "__t__": "timestamp",
+       "tz": null,
+       "v": "2026-08-11T00:00:00"
+      },
+      {
+       "__t__": "timestamp",
+       "tz": null,
+       "v": "2020-01-01T00:00:00"
+      },
+      {
+       "__t__": "timestamp",
+       "tz": null,
+       "v": "1999-12-31T00:00:00"
+      }
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "text",
+     "v": [
+      "a",
+      "b",
+      "c"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "row_hash",
+     "v": [
+      "aa6da9d912f1238871047cfe7321d9df24d2cf532aa27a303078e080a6187f24",
+      "b59bbe5e4e9e937441caed72f1d593ba6a0de091f05f1cee8cc5dad6140e2f35",
+      "e22fa518b65bfd05bd1d56d0d0a41904cbc74b58d2118768b5747f8920d408b9"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "_timestamp",
+     "v": [
+      "2026-08-15T10:18:02.814785+00:00",
+      "2026-08-15T10:18:02.814785+00:00",
+      "2026-08-15T10:18:02.814785+00:00"
+     ]
+    }
+   ],
+   "index": [
+    0,
+    1,
+    2
+   ],
+   "index_name": null
+  }
+ },
+ "c984ea41803f8d03": {
+  "args": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "bool",
+      "name": "vlajka",
+      "v": [
+       true,
+       false,
+       true
+      ]
+     },
+     {
+      "dtype": "int64",
+      "name": "id",
+      "v": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "2e04de001e51f4a55b94e5d1c6f62aa0b1d11bc5affce97c8d346779ebb7eda9",
+       "ad99bd7651ced28b27763410e32466f1d51ebdda3b20b5dd57d47f49175370c6",
+       "c737e2d77d9a4727468c6ed140c595b0b4a57c2841d4133f59487e23ab2b68a5"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.804906+00:00",
+       "2026-08-15T10:18:02.804906+00:00",
+       "2026-08-15T10:18:02.804906+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "args_after": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "bool",
+      "name": "vlajka",
+      "v": [
+       true,
+       false,
+       true
+      ]
+     },
+     {
+      "dtype": "int64",
+      "name": "id",
+      "v": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "2e04de001e51f4a55b94e5d1c6f62aa0b1d11bc5affce97c8d346779ebb7eda9",
+       "ad99bd7651ced28b27763410e32466f1d51ebdda3b20b5dd57d47f49175370c6",
+       "c737e2d77d9a4727468c6ed140c595b0b4a57c2841d4133f59487e23ab2b68a5"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.804906+00:00",
+       "2026-08-15T10:18:02.804906+00:00",
+       "2026-08-15T10:18:02.804906+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "frame",
+   "columns": [
+    {
+     "dtype": "bool",
+     "name": "vlajka",
+     "v": [
+      true,
+      false,
+      true
+     ]
+    },
+    {
+     "dtype": "int64",
+     "name": "id",
+     "v": [
+      1,
+      2,
+      3
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "row_hash",
+     "v": [
+      "2e04de001e51f4a55b94e5d1c6f62aa0b1d11bc5affce97c8d346779ebb7eda9",
+      "ad99bd7651ced28b27763410e32466f1d51ebdda3b20b5dd57d47f49175370c6",
+      "c737e2d77d9a4727468c6ed140c595b0b4a57c2841d4133f59487e23ab2b68a5"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "_timestamp",
+     "v": [
+      "2026-08-15T10:18:02.804906+00:00",
+      "2026-08-15T10:18:02.804906+00:00",
+      "2026-08-15T10:18:02.804906+00:00"
+     ]
+    }
+   ],
+   "index": [
+    0,
+    1,
+    2
+   ],
+   "index_name": null
+  }
+ },
+ "d6082a3aad73dab6": {
+  "args": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "object",
+      "name": "a",
+      "v": [
+       {
+        "__t__": "none"
+       },
+       {
+        "__t__": "none"
+       },
+       {
+        "__t__": "none"
+       }
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "b",
+      "v": [
+       {
+        "__t__": "none"
+       },
+       {
+        "__t__": "none"
+       },
+       {
+        "__t__": "none"
+       }
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "565d240f5343e625ae579a4d45a770f1f02c6368b5ed4d06da4fbe6f47c28866",
+       "565d240f5343e625ae579a4d45a770f1f02c6368b5ed4d06da4fbe6f47c28866",
+       "565d240f5343e625ae579a4d45a770f1f02c6368b5ed4d06da4fbe6f47c28866"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.846987+00:00",
+       "2026-08-15T10:18:02.846987+00:00",
+       "2026-08-15T10:18:02.846987+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "args_after": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "object",
+      "name": "a",
+      "v": [
+       {
+        "__t__": "none"
+       },
+       {
+        "__t__": "none"
+       },
+       {
+        "__t__": "none"
+       }
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "b",
+      "v": [
+       {
+        "__t__": "none"
+       },
+       {
+        "__t__": "none"
+       },
+       {
+        "__t__": "none"
+       }
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "row_hash",
+      "v": [
+       "565d240f5343e625ae579a4d45a770f1f02c6368b5ed4d06da4fbe6f47c28866",
+       "565d240f5343e625ae579a4d45a770f1f02c6368b5ed4d06da4fbe6f47c28866",
+       "565d240f5343e625ae579a4d45a770f1f02c6368b5ed4d06da4fbe6f47c28866"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "2026-08-15T10:18:02.846987+00:00",
+       "2026-08-15T10:18:02.846987+00:00",
+       "2026-08-15T10:18:02.846987+00:00"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2
+    ],
+    "index_name": null
+   },
+   "row_hash"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "frame",
+   "columns": [
+    {
+     "dtype": "object",
+     "name": "a",
+     "v": [
+      {
+       "__t__": "none"
+      },
+      {
+       "__t__": "none"
+      },
+      {
+       "__t__": "none"
+      }
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "b",
+     "v": [
+      {
+       "__t__": "none"
+      },
+      {
+       "__t__": "none"
+      },
+      {
+       "__t__": "none"
+      }
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "row_hash",
+     "v": [
+      "565d240f5343e625ae579a4d45a770f1f02c6368b5ed4d06da4fbe6f47c28866",
+      "565d240f5343e625ae579a4d45a770f1f02c6368b5ed4d06da4fbe6f47c28866",
+      "565d240f5343e625ae579a4d45a770f1f02c6368b5ed4d06da4fbe6f47c28866"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "_timestamp",
+     "v": [
+      "2026-08-15T10:18:02.846987+00:00",
+      "2026-08-15T10:18:02.846987+00:00",
+      "2026-08-15T10:18:02.846987+00:00"
+     ]
+    }
+   ],
+   "index": [
+    0,
+    1,
+    2
+   ],
+   "index_name": null
+  }
+ }
+}

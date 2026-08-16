@@ -1,0 +1,1199 @@
+{
+ "027924b3a9429d08": {
+  "args": [
+   [
+    "Cena"
+   ]
+  ],
+  "args_after": [
+   [
+    "Cena"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "Cena",
+     "cena"
+    ]
+   ]
+  }
+ },
+ "072ecff98d0c7872": {
+  "args": [
+   [
+    "CenaBezDPH"
+   ]
+  ],
+  "args_after": [
+   [
+    "CenaBezDPH"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "CenaBezDPH",
+     "cenabezdph"
+    ]
+   ]
+  }
+ },
+ "0f5e4e9e9de2896b": {
+  "args": [
+   [
+    "_timestamp"
+   ]
+  ],
+  "args_after": [
+   [
+    "_timestamp"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "_timestamp",
+     "timestamp"
+    ]
+   ]
+  }
+ },
+ "1e2daca556f54a80": {
+  "args": [
+   [
+    "cena(bez dph)"
+   ]
+  ],
+  "args_after": [
+   [
+    "cena(bez dph)"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "cena(bez dph)",
+     "cenabez_dph"
+    ]
+   ]
+  }
+ },
+ "28d6e702fd15ecaf": {
+  "args": [
+   [
+    "Ω"
+   ]
+  ],
+  "args_after": [
+   [
+    "Ω"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "Ω",
+     "ω"
+    ]
+   ]
+  }
+ },
+ "2922d5e739a4af98": {
+  "args": [
+   [
+    "a___b"
+   ]
+  ],
+  "args_after": [
+   [
+    "a___b"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "a___b",
+     "a_b"
+    ]
+   ]
+  }
+ },
+ "2b9fb3b1a5d678b1": {
+  "args": [
+   [
+    "1. čtvrtletí"
+   ]
+  ],
+  "args_after": [
+   [
+    "1. čtvrtletí"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "1. čtvrtletí",
+     "1_čtvrtletí"
+    ]
+   ]
+  }
+ },
+ "30ea4dec51853d82": {
+  "args": [
+   [
+    "_cena"
+   ]
+  ],
+  "args_after": [
+   [
+    "_cena"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "_cena",
+     "cena"
+    ]
+   ]
+  }
+ },
+ "33444eede64db665": {
+  "args": [
+   [
+    "cena%"
+   ]
+  ],
+  "args_after": [
+   [
+    "cena%"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "cena%",
+     "cena"
+    ]
+   ]
+  }
+ },
+ "358880999ed5ec1c": {
+  "args": [
+   [
+    "row_hash"
+   ]
+  ],
+  "args_after": [
+   [
+    "row_hash"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "row_hash",
+     "row_hash"
+    ]
+   ]
+  }
+ },
+ "40b073a59e5b5363": {
+  "args": [
+   [
+    ""
+   ]
+  ],
+  "args_after": [
+   [
+    ""
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "",
+     ""
+    ]
+   ]
+  }
+ },
+ "53cb00c0f66de833": {
+  "args": [
+   [
+    "id",
+    "cena",
+    "cena_bez_dph",
+    "Cena",
+    "CENA",
+    "CenaBezDPH",
+    "cena bez dph",
+    "cena  bez   dph",
+    " cena ",
+    "cena\tbez\ndph",
+    "cena-bez-dph",
+    "cena.bez.dph",
+    "cena/bez/dph",
+    "cena(bez dph)",
+    "cena%",
+    "#cislo",
+    "e-mail@domena.cz",
+    "50%_sleva",
+    "a__b",
+    "a___b",
+    "_cena",
+    "cena_",
+    "__cena__",
+    "_",
+    "___",
+    "čeština",
+    "Příjmení",
+    "cena_rozesílky",
+    "已经",
+    "Ω",
+    "2023",
+    "2023_trzby",
+    "1. čtvrtletí",
+    "",
+    "a",
+    "row_hash",
+    "_timestamp",
+    "_deleted_in_source"
+   ]
+  ],
+  "args_after": [
+   [
+    "id",
+    "cena",
+    "cena_bez_dph",
+    "Cena",
+    "CENA",
+    "CenaBezDPH",
+    "cena bez dph",
+    "cena  bez   dph",
+    " cena ",
+    "cena\tbez\ndph",
+    "cena-bez-dph",
+    "cena.bez.dph",
+    "cena/bez/dph",
+    "cena(bez dph)",
+    "cena%",
+    "#cislo",
+    "e-mail@domena.cz",
+    "50%_sleva",
+    "a__b",
+    "a___b",
+    "_cena",
+    "cena_",
+    "__cena__",
+    "_",
+    "___",
+    "čeština",
+    "Příjmení",
+    "cena_rozesílky",
+    "已经",
+    "Ω",
+    "2023",
+    "2023_trzby",
+    "1. čtvrtletí",
+    "",
+    "a",
+    "row_hash",
+    "_timestamp",
+    "_deleted_in_source"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "id",
+     "id"
+    ],
+    [
+     "cena",
+     "cena"
+    ],
+    [
+     "cena_bez_dph",
+     "cena_bez_dph"
+    ],
+    [
+     "Cena",
+     "cena"
+    ],
+    [
+     "CENA",
+     "cena"
+    ],
+    [
+     "CenaBezDPH",
+     "cenabezdph"
+    ],
+    [
+     "cena bez dph",
+     "cena_bez_dph"
+    ],
+    [
+     "cena  bez   dph",
+     "cena_bez_dph"
+    ],
+    [
+     " cena ",
+     "cena"
+    ],
+    [
+     "cena\tbez\ndph",
+     "cena_bez_dph"
+    ],
+    [
+     "cena-bez-dph",
+     "cenabezdph"
+    ],
+    [
+     "cena.bez.dph",
+     "cenabezdph"
+    ],
+    [
+     "cena/bez/dph",
+     "cenabezdph"
+    ],
+    [
+     "cena(bez dph)",
+     "cenabez_dph"
+    ],
+    [
+     "cena%",
+     "cena"
+    ],
+    [
+     "#cislo",
+     "cislo"
+    ],
+    [
+     "e-mail@domena.cz",
+     "emaildomenacz"
+    ],
+    [
+     "50%_sleva",
+     "50_sleva"
+    ],
+    [
+     "a__b",
+     "a_b"
+    ],
+    [
+     "a___b",
+     "a_b"
+    ],
+    [
+     "_cena",
+     "cena"
+    ],
+    [
+     "cena_",
+     "cena"
+    ],
+    [
+     "__cena__",
+     "cena"
+    ],
+    [
+     "_",
+     ""
+    ],
+    [
+     "___",
+     ""
+    ],
+    [
+     "čeština",
+     "čeština"
+    ],
+    [
+     "Příjmení",
+     "příjmení"
+    ],
+    [
+     "cena_rozesílky",
+     "cena_rozesílky"
+    ],
+    [
+     "已经",
+     "已经"
+    ],
+    [
+     "Ω",
+     "ω"
+    ],
+    [
+     "2023",
+     "2023"
+    ],
+    [
+     "2023_trzby",
+     "2023_trzby"
+    ],
+    [
+     "1. čtvrtletí",
+     "1_čtvrtletí"
+    ],
+    [
+     "",
+     ""
+    ],
+    [
+     "a",
+     "a"
+    ],
+    [
+     "row_hash",
+     "row_hash"
+    ],
+    [
+     "_timestamp",
+     "timestamp"
+    ],
+    [
+     "_deleted_in_source",
+     "deleted_in_source"
+    ]
+   ]
+  }
+ },
+ "56c9ba30418e4444": {
+  "args": [
+   [
+    "cena/bez/dph"
+   ]
+  ],
+  "args_after": [
+   [
+    "cena/bez/dph"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "cena/bez/dph",
+     "cenabezdph"
+    ]
+   ]
+  }
+ },
+ "58b58902f20ea4ca": {
+  "args": [
+   [
+    "CENA"
+   ]
+  ],
+  "args_after": [
+   [
+    "CENA"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "CENA",
+     "cena"
+    ]
+   ]
+  }
+ },
+ "6c312e4802516597": {
+  "args": [
+   [
+    "cena.bez.dph"
+   ]
+  ],
+  "args_after": [
+   [
+    "cena.bez.dph"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "cena.bez.dph",
+     "cenabezdph"
+    ]
+   ]
+  }
+ },
+ "7468498e571212bf": {
+  "args": [
+   [
+    "已经"
+   ]
+  ],
+  "args_after": [
+   [
+    "已经"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "已经",
+     "已经"
+    ]
+   ]
+  }
+ },
+ "88b7913e84465b0a": {
+  "args": [
+   [
+    "cena\tbez\ndph"
+   ]
+  ],
+  "args_after": [
+   [
+    "cena\tbez\ndph"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "cena\tbez\ndph",
+     "cena_bez_dph"
+    ]
+   ]
+  }
+ },
+ "8d7b8c3401e12322": {
+  "args": [
+   [
+    "Příjmení"
+   ]
+  ],
+  "args_after": [
+   [
+    "Příjmení"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "Příjmení",
+     "příjmení"
+    ]
+   ]
+  }
+ },
+ "9d812448aea6c548": {
+  "args": [
+   [
+    "a__b"
+   ]
+  ],
+  "args_after": [
+   [
+    "a__b"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "a__b",
+     "a_b"
+    ]
+   ]
+  }
+ },
+ "a5fc3f7dc3a1bc77": {
+  "args": [
+   [
+    "e-mail@domena.cz"
+   ]
+  ],
+  "args_after": [
+   [
+    "e-mail@domena.cz"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "e-mail@domena.cz",
+     "emaildomenacz"
+    ]
+   ]
+  }
+ },
+ "a69d62c8ee3d1406": {
+  "args": [
+   [
+    "cena_rozesílky"
+   ]
+  ],
+  "args_after": [
+   [
+    "cena_rozesílky"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "cena_rozesílky",
+     "cena_rozesílky"
+    ]
+   ]
+  }
+ },
+ "ad1067c5f2c0dfc4": {
+  "args": [
+   [
+    "cena_"
+   ]
+  ],
+  "args_after": [
+   [
+    "cena_"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "cena_",
+     "cena"
+    ]
+   ]
+  }
+ },
+ "b4eac2436ddda3eb": {
+  "args": [
+   [
+    "cena"
+   ]
+  ],
+  "args_after": [
+   [
+    "cena"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "cena",
+     "cena"
+    ]
+   ]
+  }
+ },
+ "b7330ebbc7294780": {
+  "args": [
+   [
+    "_deleted_in_source"
+   ]
+  ],
+  "args_after": [
+   [
+    "_deleted_in_source"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "_deleted_in_source",
+     "deleted_in_source"
+    ]
+   ]
+  }
+ },
+ "bf2899c7049057bd": {
+  "args": [
+   [
+    "id"
+   ]
+  ],
+  "args_after": [
+   [
+    "id"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "id",
+     "id"
+    ]
+   ]
+  }
+ },
+ "c7fd21569b804430": {
+  "args": [
+   [
+    "50%_sleva"
+   ]
+  ],
+  "args_after": [
+   [
+    "50%_sleva"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "50%_sleva",
+     "50_sleva"
+    ]
+   ]
+  }
+ },
+ "c8fac3ca803cf3be": {
+  "args": [
+   [
+    "___"
+   ]
+  ],
+  "args_after": [
+   [
+    "___"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "___",
+     ""
+    ]
+   ]
+  }
+ },
+ "cce945140f1128b0": {
+  "args": [
+   [
+    "cena  bez   dph"
+   ]
+  ],
+  "args_after": [
+   [
+    "cena  bez   dph"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "cena  bez   dph",
+     "cena_bez_dph"
+    ]
+   ]
+  }
+ },
+ "d02bac0a08333c9a": {
+  "args": [
+   [
+    "cena_bez_dph"
+   ]
+  ],
+  "args_after": [
+   [
+    "cena_bez_dph"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "cena_bez_dph",
+     "cena_bez_dph"
+    ]
+   ]
+  }
+ },
+ "d606bf9393dafe5e": {
+  "args": [
+   [
+    "__cena__"
+   ]
+  ],
+  "args_after": [
+   [
+    "__cena__"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "__cena__",
+     "cena"
+    ]
+   ]
+  }
+ },
+ "d6fac25fb8f03900": {
+  "args": [
+   [
+    "a"
+   ]
+  ],
+  "args_after": [
+   [
+    "a"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "a",
+     "a"
+    ]
+   ]
+  }
+ },
+ "deb9f2da38caa33c": {
+  "args": [
+   [
+    "#cislo"
+   ]
+  ],
+  "args_after": [
+   [
+    "#cislo"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "#cislo",
+     "cislo"
+    ]
+   ]
+  }
+ },
+ "dee8c292c907feaa": {
+  "args": [
+   [
+    " cena "
+   ]
+  ],
+  "args_after": [
+   [
+    " cena "
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     " cena ",
+     "cena"
+    ]
+   ]
+  }
+ },
+ "df785892fb9fa555": {
+  "args": [
+   [
+    "čeština"
+   ]
+  ],
+  "args_after": [
+   [
+    "čeština"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "čeština",
+     "čeština"
+    ]
+   ]
+  }
+ },
+ "e030adbcbc76290a": {
+  "args": [
+   [
+    "cena bez dph"
+   ]
+  ],
+  "args_after": [
+   [
+    "cena bez dph"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "cena bez dph",
+     "cena_bez_dph"
+    ]
+   ]
+  }
+ },
+ "e0764cdf02a78342": {
+  "args": [
+   [
+    "_"
+   ]
+  ],
+  "args_after": [
+   [
+    "_"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "_",
+     ""
+    ]
+   ]
+  }
+ },
+ "e1d1f2a9bf9ae6e8": {
+  "args": [
+   [
+    "2023_trzby"
+   ]
+  ],
+  "args_after": [
+   [
+    "2023_trzby"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "2023_trzby",
+     "2023_trzby"
+    ]
+   ]
+  }
+ },
+ "f1078604425c9f0f": {
+  "args": [
+   [
+    "2023"
+   ]
+  ],
+  "args_after": [
+   [
+    "2023"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "2023",
+     "2023"
+    ]
+   ]
+  }
+ },
+ "f3cd39558f7b4d6a": {
+  "args": [
+   [
+    "cena-bez-dph"
+   ]
+  ],
+  "args_after": [
+   [
+    "cena-bez-dph"
+   ]
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "dict",
+   "v": [
+    [
+     "cena-bez-dph",
+     "cenabezdph"
+    ]
+   ]
+  }
+ }
+}

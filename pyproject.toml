@@ -1,0 +1,150 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dbextractors"
+# The version has a **single** source: `src/dbextractors/__init__.py`, read
+# statically from the AST without importing the package. It used to be written
+# in both places and they drifted apart — the metadata said one version while
+# the running package logged another.
+dynamic = ["version"]
+description = "Table extraction from MySQL, MSSQL, PostgreSQL and Firebird into PostgreSQL"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Robert Junek", email = "robert@bisuperhero.cz" }]
+keywords = ["etl", "postgresql", "mysql", "mssql", "firebird", "data-pipeline", "mage"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Database",
+]
+
+# The target runtime is the Mage 0.9.79 image, which is Python 3.10.19 and
+# cannot be raised. The upper bound is deliberate: installation on 3.11+ should
+# fail at `pip install`, not later in production. An earlier attempt at this
+# problem used a library that targeted a newer ecosystem and died on exactly
+# that, so the wall belongs in the metadata, not only in CI.
+requires-python = ">=3.10,<3.11"
+
+# Pinned to what the target image actually ships, read off a running
+# container rather than guessed:
+#   Python 3.10.19 | pandas 1.5.3 | SQLAlchemy 1.4.54 | numpy 1.26.4
+#   psycopg2 2.9.3 | mysql-connector-python 8.4.0 | pymssql 2.3.13 | fdb 2.0.4
+# The package is installed INTO that image, so loose ranges would only add the
+# risk of pip pulling in something incompatible on the way.
+dependencies = [
+    "SQLAlchemy==1.4.54",
+    "pandas==1.5.3",
+    "numpy==1.26.4",
+]
+
+[project.optional-dependencies]
+# NOTE: inside the target image psycopg2 (2.9.3, built from source) and every
+# driver below are already installed. These extras are for running OUTSIDE it
+# (CI, local pytest). Install bare `dbextractors` into the image itself —
+# otherwise `psycopg2-binary` collides with the image's `psycopg2`.
+target = ["psycopg2-binary>=2.9.3,<2.10"]
+mysql = ["mysql-connector-python==8.4.0"]
+mssql = ["pymssql==2.3.13"]
+firebird = ["fdb==2.0.4"]
+
+# Empty on purpose, and kept rather than deleted so that `pip install
+# dbextractors[ssh]` does not break for anyone who already writes it.
+#
+# SSH tunnelling here is not a Python library. `core/tunnel.py` runs the OpenSSH
+# **binary** through `subprocess`, because the child needs `PR_SET_PDEATHSIG` —
+# without it a failed run leaves an orphaned process holding the forwarded port
+# open. Nothing in `src/` imports `paramiko` or `sshtunnel`; they were declared
+# here because the implementations this package replaced used them.
+#
+# Two unused packages are not free. Both carry published advisories
+# (CVE-2023-48795, and CVE-2026-44405 which has no fixed version at all), so
+# every vulnerability scan of a `[ssh]` install reported findings against code
+# that is never loaded. What tunnelling actually needs is an `ssh` client on
+# PATH — a system dependency, which cannot be expressed here.
+ssh = []
+
+# The comparison harness. It runs standalone — it is a tool, not a test.
+golden = ["psycopg2-binary>=2.9.3,<2.10", "PyYAML>=6.0,<7"]
+
+dev = [
+    # The source drivers are dev dependencies because the live source tests need
+    # them; a deployment installs only the extras for the sources it actually
+    # reads from.
+    "dbextractors[target,golden,mysql,mssql,firebird]",
+    "pytest==7.4.4",
+    "ruff==0.6.9",
+    "mypy==1.11.2",
+    "types-PyYAML",
+]
+
+[project.urls]
+Repository = "https://github.com/bisuperhero/dbextractors"
+Changelog = "https://github.com/bisuperhero/dbextractors/blob/main/CHANGELOG.md"
+Issues = "https://github.com/bisuperhero/dbextractors/issues"
+
+[project.scripts]
+dbx-golden = "dbextractors.golden.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "dbextractors.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["dbextractors*"]
+
+[tool.setuptools.package-data]
+dbextractors = ["py.typed"]
+
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+extend-exclude = []
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "RUF"]
+ignore = [
+    "UP006",  # `dict` vs `Dict` — fine on 3.10, but not in every runtime context
+    "UP007",  # `X | None` fails in annotations evaluated at run time on 3.10
+    "UP035",
+    # `isinstance(x, int | np.integer)` builds a type object on every call and
+    # is 1.9x slower than the tuple form (measured over 2M calls: 0.196 s vs
+    # 0.105 s). In `core/coerce.py` these checks run on every value of every
+    # column, so it matters there.
+    "UP038",
+    # Typographic characters (em dashes, curly quotes) are used throughout the
+    # prose in docstrings and comments.
+    "RUF001",  # ambiguous unicode in an identifier
+    "RUF002",  # ambiguous unicode in a docstring
+    "RUF003",  # ambiguous unicode in a comment
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["src"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+# Tightened gradually.
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "needs_pg: requires a live PostgreSQL (DBX_GOLDEN_TEST_DSN)",
+    "needs_mysql: requires a live MySQL (DBX_TEST_MYSQL_DSN)",
+    "needs_mssql: requires a live MSSQL (DBX_TEST_MSSQL_DSN)",
+    "needs_firebird: requires a live Firebird (DBX_TEST_FIREBIRD_DSN)",
+    "needs_mage: requires a Mage runtime (mage_ai importable)",
+]
+addopts = "-ra --strict-markers"

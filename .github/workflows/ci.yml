@@ -1,0 +1,337 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    # A release depends on the tag having its **own** green run. Without this,
+    # CI ran only on `main` and a tag rode on the commit's run — which the next
+    # push could cancel (see `cancel-in-progress` below), leaving a release with
+    # a "cancelled" record and no way to tell whether it was ever verified.
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+# Without this, parallel runs pile up on a pull request.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # A run over a tag is never cancelled. It is the only evidence that a release
+  # went out from a green state, and once cancelled it does not come back.
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  # The runtime this package targets. It cannot be raised — see the README.
+  PYTHON_VERSION: "3.10"
+
+jobs:
+  lint:
+    name: lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install ruff==0.6.9
+      - run: ruff check src tests scripts
+      - run: ruff format --check src tests scripts
+
+  types:
+    name: types (mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install -e ".[dev]"
+      - run: mypy
+
+  test:
+    name: pytest
+    runs-on: ubuntu-latest
+
+    # The comparison harness is ninety percent SQL: without a live database its
+    # tests would simply skip and the "test of the test" would verify nothing.
+    # Version 17 matches the production target.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: dbx
+          POSTGRES_PASSWORD: dbx
+          POSTGRES_DB: dbx
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      # The three sources are here for the one bug class that string tests
+      # cannot find: a type that maps correctly and whose value still does not
+      # survive the trip. Writing the first live MySQL test found exactly such a
+      # bug — see the charset entry in the changelog.
+      #
+      # Firebird is deliberately **not** a service: its driver is the most
+      # fragile of the set, and a source that fails to start should not take the
+      # whole job with it. It gets its own job below.
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: dbx
+          MYSQL_DATABASE: dbx_src
+          MYSQL_USER: dbx
+          MYSQL_PASSWORD: dbx
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -udbx -pdbx"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_PID: Developer
+          MSSQL_SA_PASSWORD: "dbxDBX123!"
+        ports: ["1433:1433"]
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P dbxDBX123! -Q 'SELECT 1' -b -o /dev/null"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 30
+          --health-start-period 30s
+
+    env:
+      # Two names on purpose, each with a different job:
+      #   `DBX_GOLDEN_TEST_DSN` is read by `tests/golden/conftest.py` — it is the
+      #     **switch** for those tests; without it they skip.
+      #   `DBX_GOLDEN_DSN` is read by `dbextractors.golden.session.resolve_dsn()`
+      #     — it is the tool's own **database access**; without it the tool fails.
+      # Tests that call `resolve_dsn()` directly need the second one, or they fail
+      # even though PostgreSQL is up.
+      DBX_GOLDEN_TEST_DSN: "host=127.0.0.1 port=5432 dbname=dbx user=dbx password=dbx"
+      DBX_GOLDEN_DSN: "host=127.0.0.1 port=5432 dbname=dbx user=dbx password=dbx"
+      DBX_TEST_MYSQL_DSN: "host=127.0.0.1 port=3306 database=dbx_src user=dbx password=dbx"
+      DBX_TEST_MSSQL_DSN: "host=127.0.0.1 port=1433 database=dbx_src user=sa password=dbxDBX123!"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install -e ".[dev]"
+
+      # Seeding is a separate step rather than an init-directory convention:
+      # MySQL's image honours one and MSSQL has none, and a seed that silently
+      # does nothing is worse than no seed at all — the tests then fail with
+      # "table does not exist" and point at the dialect instead of the fixture.
+      - name: Seed the sources
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq mysql-client
+          mysql -h 127.0.0.1 -P 3306 -udbx -pdbx dbx_src < docker/seed/mysql/001_types.sql
+          docker run --rm --network host -v "$PWD/docker/seed/mssql:/seed:ro" \
+            mcr.microsoft.com/mssql/server:2022-latest \
+            /opt/mssql-tools18/bin/sqlcmd -C -S 127.0.0.1 -U sa -P 'dbxDBX123!' -i /seed/001_types.sql -b
+
+      - run: pytest
+
+      # Database tests skip themselves when no database is reachable. That is
+      # right locally, but in CI it would be a silent loss of coverage — so here
+      # they are required to actually run.
+      - name: Database tests must not have been skipped
+        shell: bash
+        run: pytest tests/golden tests/target -q --no-header -p no:randomly | tee /tmp/db.log
+      - name: Verify that nothing was skipped
+        run: |
+          if grep -qE "[0-9]+ skipped" /tmp/db.log; then
+            echo "::error::Database tests skipped in CI — the database was not reachable."
+            exit 1
+          fi
+
+
+  # ---------------------------------------------------------------------
+  # Firebird has its own job for the same reason its driver install does: `fdb`
+  # is the oldest and most fragile of the set, and this is the source with the
+  # most surprises — negative NUMERIC scale, CHAR padded with spaces, days
+  # counted from 1858. Until recently it had no live test at all.
+  #
+  # `continue-on-error` on purpose: a Firebird image that will not start is a
+  # problem worth seeing, but not one that should block a release.
+  # ---------------------------------------------------------------------
+  firebird-source:
+    name: Firebird as a live source
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: dbx
+          POSTGRES_PASSWORD: dbx
+          POSTGRES_DB: dbx
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install -e ".[dev]"
+
+      - name: Start and seed Firebird
+        run: |
+          docker compose -f docker/compose.yml up -d --wait firebird
+          docker compose -f docker/compose.yml up --exit-code-from firebird-seed firebird-seed
+
+      - name: Live Firebird tests must not have been skipped
+        env:
+          DBX_TEST_FIREBIRD_DSN: >-
+            host=127.0.0.1 port=53050 database=/firebird/data/dbx_src.fdb
+            user=SYSDBA password=masterkey charset=WIN1250
+          # The end-to-end test also writes into a live target.
+          DBX_GOLDEN_TEST_DSN: "host=127.0.0.1 port=5432 dbname=dbx user=dbx password=dbx"
+        shell: bash
+        run: |
+          pytest -m needs_firebird -q --no-header | tee /tmp/fb.log
+          if grep -qE "[0-9]+ skipped" /tmp/fb.log; then
+            echo "::error::Firebird tests skipped — the source was not reachable."
+            exit 1
+          fi
+
+  # ---------------------------------------------------------------------
+  # Target column names must not change.
+  #
+  # `core/naming.py` reimplements the list of 825 reserved words rather than
+  # importing it, so that an upstream change cannot silently rename columns in
+  # hundreds of tables. The price is this job: the copy is compared against the
+  # **live** library. If they ever diverge, it fails here rather than in a
+  # downstream model.
+  #
+  # These tests skip locally, because the library is not installed in a dev
+  # environment — so this job is the only place they actually run, which is why
+  # it also checks that they were not skipped. See NOTICE.
+  #
+  # `tests/core/test_target_conn.py` is here for the second thing that only
+  # exists inside the image: `_from_io_config` reads the target out of Mage's own
+  # `io_config.yaml`, which is the primary production write path and returns
+  # `None` on its first line anywhere else. Its stand-in tests run everywhere;
+  # the two `needs_mage` ones check that the library's own loader still answers
+  # the way the stand-in pretends it does.
+  # ---------------------------------------------------------------------
+  mage-parity:
+    name: parity with the live library (0.9.79)
+    runs-on: ubuntu-latest
+    container:
+      image: mageai/mageai:0.9.79
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install pytest==7.4.4
+      - name: Tests against the live library
+        env:
+          PYTHONPATH: ${{ github.workspace }}/src
+        shell: bash
+        run: pytest tests/naming tests/core/test_target_conn.py -m needs_mage -q --no-header | tee /tmp/mage.log
+      - name: Verify that nothing was skipped
+        run: |
+          if grep -qE "[0-9]+ skipped" /tmp/mage.log; then
+            echo "::error::Parity tests skipped — the library was not in the image."
+            exit 1
+          fi
+
+  # ---------------------------------------------------------------------
+  # The wall an earlier attempt at this problem broke on.
+  #
+  # It installs the built wheel rather than `-e ".[dev]"` — exactly the way the
+  # package reaches the target image. If a dependency crept in that does not run
+  # on 3.10 with SQLAlchemy 1.4 and pandas 1.5,
+  # padne to tady, ne v produkci.
+  #
+  # The matrix has one entry on purpose: supporting more Python versions is not
+  # wanted, and `requires-python = ">=3.10,<3.11"` enforces it. The
+  # `reject-newer` job below verifies that the enforcement actually works.
+  # ---------------------------------------------------------------------
+  install-matrix:
+    name: install on py${{ matrix.python }} (wheel)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Postavit wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --wheel --outdir dist/
+
+      - name: Install the wheel into a clean environment
+        run: |
+          python -m venv /tmp/clean
+          /tmp/clean/bin/pip install --upgrade pip
+          /tmp/clean/bin/pip install dist/*.whl
+
+      - name: Verify dependency versions against the target image
+        run: /tmp/clean/bin/python scripts/verify_runtime.py
+
+      - name: Verify that the package imports
+        run: /tmp/clean/bin/python -c "import dbextractors; print('dbextractors', dbextractors.__version__)"
+
+      - name: Verify the source drivers
+        run: |
+          /tmp/clean/bin/pip install "$(ls dist/*.whl)[target,mysql,mssql,ssh]"
+          /tmp/clean/bin/python scripts/verify_runtime.py
+
+  # `fdb` (Firebird) gets its own job: it is the oldest and most fragile driver
+  # of the set, and its failure should not take the rest of the matrix down.
+  install-firebird:
+    name: Firebird driver installation
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install -e ".[firebird]"
+      - run: python -c "import fdb; print('fdb', fdb.__version__)"
+
+  # Verifies that the upper bound of `requires-python` actually holds. If anyone
+  # loosens it, this job turns green and says so.
+  reject-newer:
+    name: 3.12 must refuse to install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # `--no-deps` matters: without it the job would go green even when the
+      # install failed on building pandas 1.5.3, for which 3.12 has no wheel.
+      # That would look like a working wall while actually being luck, so the
+      # reason in the message is checked too.
+      - name: pip install must fail because of requires-python
+        run: |
+          set +e
+          out=$(pip install --no-deps -e . 2>&1)
+          rc=$?
+          set -e
+          echo "$out"
+          if [ $rc -eq 0 ]; then
+            echo "::error::Install on Python 3.12 succeeded. requires-python no longer holds — see the README."
+            exit 1
+          fi
+          if ! echo "$out" | grep -q "requires a different Python"; then
+            echo "::error::Install failed, but not because of requires-python, so the wall does not hold."
+            exit 1
+          fi
+          echo "Install on 3.12 refused because of requires-python, as intended."

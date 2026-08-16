@@ -1,0 +1,126 @@
+{
+ "170963d7fdf15942": {
+  "args": [
+   "/tmp/pytest-of-robert/pytest-93/test_normalize_private_key_con0/old_key"
+  ],
+  "args_after": [
+   "/tmp/pytest-of-robert/pytest-93/test_normalize_private_key_con0/old_key"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "none"
+  }
+ },
+ "1b7058592fe3d696": {
+  "args": [
+   "/tmp/pytest-of-robert/pytest-93/test_normalize_private_key_con3/old_key"
+  ],
+  "args_after": [
+   "/tmp/pytest-of-robert/pytest-93/test_normalize_private_key_con3/old_key"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "none"
+  }
+ },
+ "3acc2a3ed23cd53b": {
+  "args": [
+   "/tmp/pytest-of-robert/pytest-93/test_normalize_private_key_con1/old_key"
+  ],
+  "args_after": [
+   "/tmp/pytest-of-robert/pytest-93/test_normalize_private_key_con1/old_key"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "none"
+  }
+ },
+ "4ff4db6627c4e2ee": {
+  "args": [
+   "/tmp/pytest-of-robert/pytest-93/test_normalize_private_key_con5/neexistuje"
+  ],
+  "args_after": [
+   "/tmp/pytest-of-robert/pytest-93/test_normalize_private_key_con5/neexistuje"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "none"
+  }
+ },
+ "531aedc6ca826251": {
+  "args": [
+   {
+    "__t__": "none"
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "none"
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "none"
+  }
+ },
+ "7e2f79552e08ba74": {
+  "args": [
+   "/tmp/pytest-of-robert/pytest-93/test_normalize_private_key_con2/old_key"
+  ],
+  "args_after": [
+   "/tmp/pytest-of-robert/pytest-93/test_normalize_private_key_con2/old_key"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "none"
+  }
+ },
+ "a5368d6e9e0d03fe": {
+  "args": [
+   ""
+  ],
+  "args_after": [
+   ""
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "none"
+  }
+ },
+ "bea017ddafeaad50": {
+  "args": [
+   "/tmp/pytest-of-robert/pytest-93/test_normalize_private_key_con4/old_key"
+  ],
+  "args_after": [
+   "/tmp/pytest-of-robert/pytest-93/test_normalize_private_key_con4/old_key"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "none"
+  }
+ }
+}

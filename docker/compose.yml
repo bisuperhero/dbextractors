@@ -1,0 +1,158 @@
+# =============================================================================
+# Test databases: one target and all four sources.
+# =============================================================================
+#
+#   make db-up      start everything and wait until it is healthy
+#   make db-down    stop and discard the volumes
+#
+# Copy `.env.example` to `.env` and the test suite picks these up on its own.
+#
+# Why this exists: most of the suite runs on strings and needs no database at
+# all. But a type that maps correctly on paper and still fails on a real value
+# is precisely the bug class that string tests cannot find — and three of the
+# four sources had no live test whatsoever before this file.
+#
+# Ports are deliberately non-default so that a local MySQL or PostgreSQL you
+# already run does not collide with these.
+
+name: dbextractors-test
+
+services:
+
+  # --- the target -----------------------------------------------------------
+  # Version 17 matches the production target.
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: dbx
+      POSTGRES_PASSWORD: dbx
+      POSTGRES_DB: dbx
+    ports: ["${PG_PORT:-55432}:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dbx -d dbx"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - ./seed/postgres:/docker-entrypoint-initdb.d:ro
+
+  # --- sources --------------------------------------------------------------
+
+  mysql:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: dbx
+      MYSQL_DATABASE: dbx_src
+      MYSQL_USER: dbx
+      MYSQL_PASSWORD: dbx
+    command:
+      # utf8mb4 end to end: the conversion layer has a whole branch for
+      # four-byte characters, and the default server charset would hide it.
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      # The predecessors read with server-side cursors; without this a large
+      # batch is silently buffered in the client instead.
+      - --local-infile=1
+    ports: ["${MYSQL_PORT:-53306}:3306"]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-udbx", "-pdbx"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - ./seed/mysql:/docker-entrypoint-initdb.d:ro
+
+  mssql:
+    # The developer edition is free for development and testing; accepting the
+    # EULA is what MSSQL_PID + ACCEPT_EULA below do.
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: "dbxDBX123!"
+      # Czech-language sources are why collation matters here: the type mapping
+      # has to survive a non-UTF-8 collation on the server side.
+      MSSQL_COLLATION: SQL_Czech_CP1250_CI_AS
+    ports: ["${MSSQL_PORT:-51433}:1433"]
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$$MSSQL_SA_PASSWORD"
+          -Q "SELECT 1" -b -o /dev/null
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    volumes:
+      - ./seed/mssql:/seed:ro
+
+  # MSSQL has no init-directory convention, so the seed runs as a one-shot
+  # container once the server is healthy.
+  mssql-seed:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    depends_on:
+      mssql: {condition: service_healthy}
+    environment:
+      MSSQL_SA_PASSWORD: "dbxDBX123!"
+    entrypoint:
+      - /bin/bash
+      - -c
+      - >-
+        /opt/mssql-tools18/bin/sqlcmd -C -S mssql -U sa -P "$$MSSQL_SA_PASSWORD"
+        -i /seed/001_types.sql -b
+    volumes:
+      - ./seed/mssql:/seed:ro
+    restart: "no"
+
+  # Version 2.5 on purpose: the client is `fdb`, which talks to
+  # `libfbclient.so.2`. Firebird 3.0 also works, but only with Legacy_Auth and
+  # WireCrypt disabled — see the commented-out variables.
+  firebird:
+    image: jacobalberty/firebird:2.5-ss
+    environment:
+      ISC_PASSWORD: masterkey
+      FIREBIRD_DATABASE: dbx_src.fdb
+      # For Firebird 3.0+, uncomment together with changing the image tag:
+      # EnableLegacyClientAuth: "true"
+      # EnableWireCrypt: "Disabled"
+    ports: ["${FIREBIRD_PORT:-53050}:3050"]
+    healthcheck:
+      # isql has no flag for inline SQL (`-e` means echo), so the query goes in
+      # on stdin. `$$` escapes Compose, so `RDB$DATABASE` arrives intact.
+      test:
+        - CMD-SHELL
+        - >-
+          echo 'SELECT 1 FROM RDB$$DATABASE;' |
+          /usr/local/firebird/bin/isql -q -b -user SYSDBA -password masterkey
+          "localhost:/firebird/data/dbx_src.fdb"
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    volumes:
+      - firebird_data:/firebird/data
+      - ./seed/firebird:/seed:ro
+
+  # Like MSSQL, Firebird gets an explicit one-shot seed rather than relying on
+  # an init-directory convention. The image mounts such a directory but does not
+  # run what is in it, and a seed that silently does nothing is worse than none:
+  # the tests then fail with "table does not exist" and point at the dialect.
+  firebird-seed:
+    image: jacobalberty/firebird:2.5-ss
+    depends_on:
+      firebird: {condition: service_healthy}
+    entrypoint:
+      - /bin/bash
+      - -c
+      - >-
+        /usr/local/firebird/bin/isql -q -b
+        -user SYSDBA -password masterkey
+        -i /seed/001_types.sql
+        firebird:/firebird/data/dbx_src.fdb
+    volumes:
+      - ./seed/firebird:/seed:ro
+    restart: "no"
+
+volumes:
+  firebird_data:

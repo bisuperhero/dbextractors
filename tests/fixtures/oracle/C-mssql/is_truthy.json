@@ -1,0 +1,350 @@
+{
+ "0c0e8243d9365b45": {
+  "args": [
+   0
+  ],
+  "args_after": [
+   0
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": false
+ },
+ "1dfa8ea1acbd7a27": {
+  "args": [
+   3.14
+  ],
+  "args_after": [
+   3.14
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": false
+ },
+ "219d2e67e6aee277": {
+  "args": [
+   false
+  ],
+  "args_after": [
+   false
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": false
+ },
+ "28c92e73b9abe442": {
+  "args": [
+   "NE"
+  ],
+  "args_after": [
+   "NE"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": false
+ },
+ "2f056b419b1336b1": {
+  "args": [
+   "TRUE"
+  ],
+  "args_after": [
+   "TRUE"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": true
+ },
+ "31d2d2083c5ad3c0": {
+  "args": [
+   "a"
+  ],
+  "args_after": [
+   "a"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": true
+ },
+ "3dd360122c15347d": {
+  "args": [
+   "  "
+  ],
+  "args_after": [
+   "  "
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": false
+ },
+ "4742c79f972ee65c": {
+  "args": [
+   "Ano"
+  ],
+  "args_after": [
+   "Ano"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": true
+ },
+ "4e6560e31f67ca1f": {
+  "args": [
+   "1"
+  ],
+  "args_after": [
+   "1"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": true
+ },
+ "5017b0b32c4fae10": {
+  "args": [
+   "0"
+  ],
+  "args_after": [
+   "0"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": false
+ },
+ "531aedc6ca826251": {
+  "args": [
+   {
+    "__t__": "none"
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "none"
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": false
+ },
+ "53acd974a5e69784": {
+  "args": [
+   -1
+  ],
+  "args_after": [
+   -1
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": false
+ },
+ "618afd9d167a5963": {
+  "args": [
+   "no"
+  ],
+  "args_after": [
+   "no"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": false
+ },
+ "898c0482204edfe9": {
+  "args": [
+   "ano"
+  ],
+  "args_after": [
+   "ano"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": true
+ },
+ "8cf1ce1be06e1e23": {
+  "args": [
+   2
+  ],
+  "args_after": [
+   2
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": false
+ },
+ "9432a92b74c6b4ee": {
+  "args": [
+   "t"
+  ],
+  "args_after": [
+   "t"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": true
+ },
+ "a10cfc56ed03069b": {
+  "args": [
+   []
+  ],
+  "args_after": [
+   []
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": false
+ },
+ "a5368d6e9e0d03fe": {
+  "args": [
+   ""
+  ],
+  "args_after": [
+   ""
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": false
+ },
+ "a5dbf4637db3a42b": {
+  "args": [
+   "nope"
+  ],
+  "args_after": [
+   "nope"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": false
+ },
+ "a9cf7b854a77ecd7": {
+  "args": [
+   " Yes "
+  ],
+  "args_after": [
+   " Yes "
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": true
+ },
+ "c2c73a6a0e136566": {
+  "args": [
+   "yes"
+  ],
+  "args_after": [
+   "yes"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": true
+ },
+ "cf3a06fed6cad2d2": {
+  "args": [
+   true
+  ],
+  "args_after": [
+   true
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": true
+ },
+ "d0b98d20e3d37468": {
+  "args": [
+   "true"
+  ],
+  "args_after": [
+   "true"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": true
+ },
+ "e10e9d4f51d5957d": {
+  "args": [
+   "false"
+  ],
+  "args_after": [
+   "false"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": false
+ },
+ "e3a83fd72242fb63": {
+  "args": [
+   {
+    "__t__": "dict",
+    "v": []
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "dict",
+    "v": []
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": false
+ },
+ "fc085d3a300d1cd8": {
+  "args": [
+   1
+  ],
+  "args_after": [
+   1
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": true
+ }
+}

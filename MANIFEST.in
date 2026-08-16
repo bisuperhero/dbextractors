@@ -1,0 +1,39 @@
+# What goes into the source distribution.
+#
+# Without this file setuptools would ship things that do not belong in a
+# release and would leave out LICENSE and NOTICE, which Apache-2.0 requires.
+
+include LICENSE
+include NOTICE
+include README.md
+include CHANGELOG.md
+include ARCHITECTURE.md
+include CONTRIBUTING.md
+include SECURITY.md
+include CODE_OF_CONDUCT.md
+include pyproject.toml
+recursive-include src/dbextractors py.typed
+
+# Tests and their fixtures do not belong in the wheel, but they earn their
+# place in the sdist: whoever repackages this has something to verify with.
+recursive-include tests *.py *.json
+
+# The README links into `docs/`, and NOTICE names a file there as the
+# attributed Mage material. Shipping neither would leave both pointing at
+# nothing in the archive that a redistributor actually receives.
+recursive-include docs *.md
+
+# --- never shipped -----------------------------------------------------------
+#
+# `docs/data/` is pruned wholesale so that anything dropped in there later has
+# to be shipped on purpose. The two Mage-derived files are the exception: they
+# are the material NOTICE attributes, and a redistributor who gets the NOTICE
+# without them gets a pointer to nothing.
+prune docs/data
+include docs/data/mage_sql_reserved_words.json
+include docs/data/mage_clean_name.py.txt
+
+prune build
+prune dist
+exclude .env .env.*
+global-exclude *.py[cod] __pycache__/* .DS_Store

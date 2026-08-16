@@ -1,0 +1,123 @@
+{
+ "96a84b1adae38db0": {
+  "args": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "int64",
+      "name": "id",
+      "v": [
+       1
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_mage_created_at",
+      "v": [
+       "x"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_mage_updated_at",
+      "v": [
+       "y"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_mage_cokoliv",
+      "v": [
+       "z"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "t"
+      ]
+     }
+    ],
+    "index": [
+     0
+    ],
+    "index_name": null
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "int64",
+      "name": "id",
+      "v": [
+       1
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_mage_created_at",
+      "v": [
+       "x"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_mage_updated_at",
+      "v": [
+       "y"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_mage_cokoliv",
+      "v": [
+       "z"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "_timestamp",
+      "v": [
+       "t"
+      ]
+     }
+    ],
+    "index": [
+     0
+    ],
+    "index_name": null
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "frame",
+   "columns": [
+    {
+     "dtype": "int64",
+     "name": "id",
+     "v": [
+      1
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "_timestamp",
+     "v": [
+      "t"
+     ]
+    }
+   ],
+   "index": [
+    0
+   ],
+   "index_name": null
+  }
+ }
+}

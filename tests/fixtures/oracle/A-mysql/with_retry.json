@@ -1,0 +1,210 @@
+{
+ "152237cf929fa7a4": {
+  "args": [
+   {
+    "__t__": "callable",
+    "name": "test_with_retry_charakterizace_hranicni_pripad_nula_pokusu.<locals>.fn"
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "callable",
+    "name": "test_with_retry_charakterizace_hranicni_pripad_nula_pokusu.<locals>.fn"
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": [
+    [
+     "attempts",
+     0
+    ]
+   ]
+  },
+  "result": {
+   "__t__": "none"
+  }
+ },
+ "4626d62f78a7ade2": {
+  "args": [
+   {
+    "__t__": "callable",
+    "name": "test_with_retry_charakterizace_uspech_po_selhanich.<locals>.make_fn.<locals>.fn"
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "callable",
+    "name": "test_with_retry_charakterizace_uspech_po_selhanich.<locals>.make_fn.<locals>.fn"
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": [
+    [
+     "attempts",
+     4
+    ],
+    [
+     "base_delay",
+     0.001
+    ],
+    [
+     "max_delay",
+     0.01
+    ],
+    [
+     "jitter",
+     0
+    ],
+    [
+     "desc",
+     "x"
+    ]
+   ]
+  },
+  "result": "done"
+ },
+ "5b09ab499a44363d": {
+  "args": [
+   {
+    "__t__": "callable",
+    "name": "test_with_retry_charakterizace_presne_zpozdeni_s_jitterem.<locals>.fn_old"
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": [
+    [
+     "attempts",
+     3
+    ],
+    [
+     "base_delay",
+     1.0
+    ],
+    [
+     "max_delay",
+     30.0
+    ],
+    [
+     "jitter",
+     0.25
+    ],
+    [
+     "desc",
+     "x"
+    ]
+   ]
+  },
+  "raises": {
+   "msg": "x",
+   "type": "ValueError"
+  }
+ },
+ "76e1e8222c437e3d": {
+  "args": [
+   {
+    "__t__": "callable",
+    "name": "_flaky_target.<locals>.target"
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "callable",
+    "name": "_flaky_target.<locals>.target"
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": [
+    [
+     "attempts",
+     3
+    ],
+    [
+     "base_delay",
+     0.001
+    ],
+    [
+     "max_delay",
+     0.01
+    ],
+    [
+     "jitter",
+     0
+    ],
+    [
+     "desc",
+     "x"
+    ]
+   ]
+  },
+  "result": "ok"
+ },
+ "7efd6966a36cedcd": {
+  "args": [
+   {
+    "__t__": "callable",
+    "name": "test_with_retry_charakterizace_vycerpani_pokusu.<locals>.make_fn.<locals>.fn"
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": [
+    [
+     "attempts",
+     3
+    ],
+    [
+     "base_delay",
+     0.001
+    ],
+    [
+     "max_delay",
+     0.01
+    ],
+    [
+     "jitter",
+     0
+    ],
+    [
+     "desc",
+     "x"
+    ]
+   ]
+  },
+  "raises": {
+   "msg": "always fails",
+   "type": "RuntimeError"
+  }
+ },
+ "915a1fbaaa7f7948": {
+  "args": [
+   {
+    "__t__": "callable",
+    "name": "test_with_retry_charakterizace_uspech_napoprve.<locals>.fn"
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "callable",
+    "name": "test_with_retry_charakterizace_uspech_napoprve.<locals>.fn"
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": [
+    [
+     "attempts",
+     3
+    ],
+    [
+     "desc",
+     "x"
+    ]
+   ]
+  },
+  "result": 42
+ }
+}

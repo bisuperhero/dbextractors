@@ -1,0 +1,531 @@
+{
+ "01f59b95d01afa3f": {
+  "args": [
+   [
+    "id",
+    "nazev",
+    "cena",
+    "row_hash",
+    "interni"
+   ],
+   "row_hash",
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "only_selected_columns",
+      true
+     ],
+     [
+      "selected_columns",
+      [
+       "id",
+       "cena"
+      ]
+     ]
+    ]
+   },
+   {
+    "__t__": "dict",
+    "v": []
+   }
+  ],
+  "args_after": [
+   [
+    "id",
+    "nazev",
+    "cena",
+    "row_hash",
+    "interni"
+   ],
+   "row_hash",
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "only_selected_columns",
+      true
+     ],
+     [
+      "selected_columns",
+      [
+       "id",
+       "cena"
+      ]
+     ]
+    ]
+   },
+   {
+    "__t__": "dict",
+    "v": []
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": [
+   "id",
+   "cena"
+  ]
+ },
+ "2aa4f0360b4773bb": {
+  "args": [
+   [
+    "id",
+    "nazev",
+    "cena",
+    "row_hash",
+    "interni"
+   ],
+   "row_hash",
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "only_selected_columns",
+      false
+     ],
+     [
+      "selected_columns",
+      [
+       "id"
+      ]
+     ]
+    ]
+   },
+   {
+    "__t__": "dict",
+    "v": []
+   }
+  ],
+  "args_after": [
+   [
+    "id",
+    "nazev",
+    "cena",
+    "row_hash",
+    "interni"
+   ],
+   "row_hash",
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "only_selected_columns",
+      false
+     ],
+     [
+      "selected_columns",
+      [
+       "id"
+      ]
+     ]
+    ]
+   },
+   {
+    "__t__": "dict",
+    "v": []
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": [
+   "id",
+   "nazev",
+   "cena",
+   "interni"
+  ]
+ },
+ "65fb8825b9904bbc": {
+  "args": [
+   [
+    "id",
+    "nazev",
+    "cena",
+    "row_hash",
+    "interni"
+   ],
+   "row_hash",
+   {
+    "__t__": "dict",
+    "v": []
+   },
+   {
+    "__t__": "dict",
+    "v": []
+   }
+  ],
+  "args_after": [
+   [
+    "id",
+    "nazev",
+    "cena",
+    "row_hash",
+    "interni"
+   ],
+   "row_hash",
+   {
+    "__t__": "dict",
+    "v": []
+   },
+   {
+    "__t__": "dict",
+    "v": []
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": [
+   "id",
+   "nazev",
+   "cena",
+   "interni"
+  ]
+ },
+ "7fb44f97d48ed622": {
+  "args": [
+   [
+    "id",
+    "nazev",
+    "cena",
+    "row_hash",
+    "interni"
+   ],
+   "row_hash",
+   {
+    "__t__": "dict",
+    "v": []
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "hash_exclude_columns",
+      {
+       "__t__": "none"
+      }
+     ]
+    ]
+   }
+  ],
+  "args_after": [
+   [
+    "id",
+    "nazev",
+    "cena",
+    "row_hash",
+    "interni"
+   ],
+   "row_hash",
+   {
+    "__t__": "dict",
+    "v": []
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "hash_exclude_columns",
+      {
+       "__t__": "none"
+      }
+     ]
+    ]
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": [
+   "id",
+   "nazev",
+   "cena",
+   "interni"
+  ]
+ },
+ "92a530506c7bfe18": {
+  "args": [
+   [
+    "id",
+    "nazev",
+    "cena",
+    "row_hash",
+    "interni"
+   ],
+   "row_hash",
+   {
+    "__t__": "dict",
+    "v": []
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "hash_include_columns",
+      [
+       "id",
+       "nazev"
+      ]
+     ],
+     [
+      "hash_exclude_columns",
+      [
+       "nazev"
+      ]
+     ]
+    ]
+   }
+  ],
+  "args_after": [
+   [
+    "id",
+    "nazev",
+    "cena",
+    "row_hash",
+    "interni"
+   ],
+   "row_hash",
+   {
+    "__t__": "dict",
+    "v": []
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "hash_include_columns",
+      [
+       "id",
+       "nazev"
+      ]
+     ],
+     [
+      "hash_exclude_columns",
+      [
+       "nazev"
+      ]
+     ]
+    ]
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": [
+   "id"
+  ]
+ },
+ "d3bd2e2288a3758c": {
+  "args": [
+   [
+    "id",
+    "nazev",
+    "cena",
+    "row_hash",
+    "interni"
+   ],
+   "row_hash",
+   {
+    "__t__": "dict",
+    "v": []
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "hash_include_columns",
+      [
+       "id",
+       "nazev"
+      ]
+     ]
+    ]
+   }
+  ],
+  "args_after": [
+   [
+    "id",
+    "nazev",
+    "cena",
+    "row_hash",
+    "interni"
+   ],
+   "row_hash",
+   {
+    "__t__": "dict",
+    "v": []
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "hash_include_columns",
+      [
+       "id",
+       "nazev"
+      ]
+     ]
+    ]
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": [
+   "id",
+   "nazev"
+  ]
+ },
+ "eaa9c6e07f595415": {
+  "args": [
+   [
+    "id",
+    "nazev",
+    "cena",
+    "row_hash",
+    "interni"
+   ],
+   "row_hash",
+   {
+    "__t__": "dict",
+    "v": []
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "hash_exclude_columns",
+      [
+       "interni"
+      ]
+     ]
+    ]
+   }
+  ],
+  "args_after": [
+   [
+    "id",
+    "nazev",
+    "cena",
+    "row_hash",
+    "interni"
+   ],
+   "row_hash",
+   {
+    "__t__": "dict",
+    "v": []
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "hash_exclude_columns",
+      [
+       "interni"
+      ]
+     ]
+    ]
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": [
+   "id",
+   "nazev",
+   "cena"
+  ]
+ },
+ "fdf8d8de46cb2b1f": {
+  "args": [
+   [
+    "id",
+    "nazev",
+    "cena",
+    "row_hash",
+    "interni"
+   ],
+   "row_hash",
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "only_selected_columns",
+      true
+     ],
+     [
+      "selected_columns",
+      [
+       "id",
+       "cena"
+      ]
+     ]
+    ]
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "hash_include_columns",
+      [
+       "nazev"
+      ]
+     ]
+    ]
+   }
+  ],
+  "args_after": [
+   [
+    "id",
+    "nazev",
+    "cena",
+    "row_hash",
+    "interni"
+   ],
+   "row_hash",
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "only_selected_columns",
+      true
+     ],
+     [
+      "selected_columns",
+      [
+       "id",
+       "cena"
+      ]
+     ]
+    ]
+   },
+   {
+    "__t__": "dict",
+    "v": [
+     [
+      "hash_include_columns",
+      [
+       "nazev"
+      ]
+     ]
+    ]
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": [
+   "nazev"
+  ]
+ }
+}

@@ -1,0 +1,81 @@
+{
+ "531aedc6ca826251": {
+  "args": [
+   {
+    "__t__": "none"
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "none"
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "none"
+  }
+ },
+ "7547093372c5ec0b": {
+  "args": [
+   "/tmp/pytest-of-robert/pytest-93/test_ensure_private_key_permis0/old_key"
+  ],
+  "args_after": [
+   "/tmp/pytest-of-robert/pytest-93/test_ensure_private_key_permis0/old_key"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "none"
+  }
+ },
+ "87e49fd3932e8413": {
+  "args": [
+   "/tmp/pytest-of-robert/pytest-93/test_ensure_private_key_permis1/old_key"
+  ],
+  "args_after": [
+   "/tmp/pytest-of-robert/pytest-93/test_ensure_private_key_permis1/old_key"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "none"
+  }
+ },
+ "a5368d6e9e0d03fe": {
+  "args": [
+   ""
+  ],
+  "args_after": [
+   ""
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "none"
+  }
+ },
+ "e594f72aa80dfef9": {
+  "args": [
+   "/tmp/pytest-of-robert/pytest-93/test_ensure_private_key_permis2/neexistuje_old"
+  ],
+  "args_after": [
+   "/tmp/pytest-of-robert/pytest-93/test_ensure_private_key_permis2/neexistuje_old"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "none"
+  }
+ }
+}

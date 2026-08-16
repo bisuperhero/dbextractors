@@ -1,0 +1,68 @@
+{
+ "6a859dea534494ae": {
+  "args": [
+   12345
+  ],
+  "args_after": [
+   12345
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": [
+    [
+     "host",
+     "127.0.0.1"
+    ],
+    [
+     "timeout",
+     1
+    ]
+   ]
+  },
+  "result": true
+ },
+ "aa3119839f13fffc": {
+  "args": [
+   12345
+  ],
+  "args_after": [
+   12345
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": [
+    [
+     "host",
+     "127.0.0.1"
+    ],
+    [
+     "timeout",
+     0.05
+    ]
+   ]
+  },
+  "result": false
+ },
+ "e080b8db94897767": {
+  "args": [
+   1
+  ],
+  "args_after": [
+   1
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": [
+    [
+     "host",
+     "127.0.0.1"
+    ],
+    [
+     "timeout",
+     0.02
+    ]
+   ]
+  },
+  "result": false
+ }
+}

@@ -1,0 +1,26 @@
+dbextractors
+Copyright 2026 Robert Junek
+
+This product includes software developed at Mage (https://www.mage.ai/),
+licensed under the Apache License, Version 2.0.
+
+Two parts of this package are derived from Mage (mageai/mageai 0.9.79):
+
+1. src/dbextractors/core/_reserved_words.py
+   The list of 825 SQL reserved words, taken verbatim from
+   mage_ai/io/base.py. It is generated from
+   docs/data/mage_sql_reserved_words.json by scripts/gen_reserved_words.py.
+
+2. src/dbextractors/core/naming.py
+   The column-name normalisation reimplements mage_ai.data_cleaner.column_types
+   .column_type_detector.clean_name and the underscore-prefixing that
+   mage_ai.io.postgres.Postgres.export applies to reserved words. A verbatim
+   copy of the original function is kept for reference in
+   docs/data/mage_clean_name.py.txt.
+
+Why it is copied rather than imported: the target column names produced by
+this behaviour are depended upon by a large dbt layer, so they must not change
+silently when the upstream library changes. The copy is verified against the
+live library inside the mageai/mageai:0.9.79 image by a dedicated CI job
+(tests/naming/test_reserved_words.py, marker `needs_mage`), which fails if the
+two ever diverge.

@@ -1,0 +1,78 @@
+name: Bug report
+description: Something extracted wrongly, failed, or was slower than it should be.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Most interesting bugs in this package live in the mapping between a
+        source type and the PostgreSQL target. If a value crossed that boundary
+        wrongly, the source column type is the single most useful thing you can
+        give us.
+
+        **Do not paste credentials.** Redact `password`, and any host you would
+        rather not publish.
+
+  - type: input
+    id: version
+    attributes:
+      label: dbextractors version
+      placeholder: "1.0.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: dialect
+    attributes:
+      label: Source dialect
+      options: [mysql, mssql, postgres, firebird]
+    validations:
+      required: true
+
+  - type: input
+    id: load_method
+    attributes:
+      label: load_method
+      placeholder: "full | incremental | hash_diff (hash) | id_watermark | full_by_source | parent_incremental"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened
+      description: What you expected, and what you got instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration dict
+      description: Credentials removed. The whole dict, not the part you suspect.
+      render: python
+
+  - type: textarea
+    id: source_types
+    attributes:
+      label: Source column types
+      description: >
+        For a wrong value or a failed COPY: the DDL of the affected columns in
+        the source, and the value that caused it if you have it.
+      render: sql
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log output
+      description: >
+        With `DEBUG` on if you can. Passwords are redacted by the package
+        itself — if you find one in the log, do not post it here, see
+        SECURITY.md.
+      render: text
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: "Python 3.10.19, pandas 1.5.3, running under Mage 0.9.79 / standalone"

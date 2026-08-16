@@ -1,0 +1,93 @@
+{
+ "4a44672dae6a84e9": {
+  "args": [
+   "a b"
+  ],
+  "args_after": [
+   "a b"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "\"a b\""
+ },
+ "65b361f5fd02bcd2": {
+  "args": [
+   "cena"
+  ],
+  "args_after": [
+   "cena"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "\"cena\""
+ },
+ "a5368d6e9e0d03fe": {
+  "args": [
+   ""
+  ],
+  "args_after": [
+   ""
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "\"\""
+ },
+ "a59c0fbf9b87fe8f": {
+  "args": [
+   "_type"
+  ],
+  "args_after": [
+   "_type"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "\"_type\""
+ },
+ "b506d124a158046c": {
+  "args": [
+   "již"
+  ],
+  "args_after": [
+   "již"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "\"již\""
+ },
+ "ed3a7296b06f7a48": {
+  "args": [
+   "Cena"
+  ],
+  "args_after": [
+   "Cena"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "\"Cena\""
+ },
+ "ef418b91d695209f": {
+  "args": [
+   "uvozovka\"uvnitr"
+  ],
+  "args_after": [
+   "uvozovka\"uvnitr"
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": "\"uvozovka\"\"uvnitr\""
+ }
+}

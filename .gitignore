@@ -1,0 +1,27 @@
+.vscode/
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+reports/
+mage_test/
+firebird_test/
+
+# The predecessor sources. They are not part of this repository and never will
+# be, but the characterisation tests switch from replaying frozen fixtures to
+# calling the real functions when this directory exists — so anyone verifying a
+# change against the implementation this package replaces will drop a copy in
+# here. It must not be possible to commit it by accident.
+reference/
+toolbox-dbx-dev.yaml

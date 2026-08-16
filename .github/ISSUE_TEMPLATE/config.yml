@@ -1,0 +1,15 @@
+# NOTE: `contact_links` only accepts absolute URLs, so the repository slug is
+# hard-coded below. It is a guess until the public repository actually exists —
+# check both links resolve before the first release announcement.
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/bisuperhero/dbextractors/blob/main/SECURITY.md
+    about: >
+      Do not open an issue. Credentials, SSH tunnelling and SQL construction
+      are covered in SECURITY.md, along with the address to mail.
+  - name: Backward compatibility of older configuration
+    url: https://github.com/bisuperhero/dbextractors/blob/main/docs/legacy-compat.md
+    about: >
+      Top-level legacy keys (CONNECTION_PARAMS, SSH_PARAMS, BATCH_SIZE and the
+      rest) are documented here before you report them as unrecognised.

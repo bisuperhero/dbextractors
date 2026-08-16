@@ -1,0 +1,42 @@
+{
+ "76e1e8222c437e3d": {
+  "args": [
+   {
+    "__t__": "callable",
+    "name": "_flaky_target.<locals>.target"
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "callable",
+    "name": "_flaky_target.<locals>.target"
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": [
+    [
+     "attempts",
+     3
+    ],
+    [
+     "base_delay",
+     0.001
+    ],
+    [
+     "max_delay",
+     0.01
+    ],
+    [
+     "jitter",
+     0
+    ],
+    [
+     "desc",
+     "x"
+    ]
+   ]
+  },
+  "result": "ok"
+ }
+}

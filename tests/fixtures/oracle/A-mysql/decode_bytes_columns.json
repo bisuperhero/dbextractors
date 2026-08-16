@@ -1,0 +1,294 @@
+{
+ "c419aa50ba4f7002": {
+  "args": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "int64",
+      "name": "id",
+      "v": [
+       1,
+       2,
+       3,
+       4
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "cislo",
+      "v": [
+       "1",
+       "3.5",
+       "",
+       {
+        "__t__": "none"
+       }
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "datum",
+      "v": [
+       "2026-08-07",
+       "0000-00-00",
+       "9999-12-31",
+       {
+        "__t__": "none"
+       }
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "cas",
+      "v": [
+       "12:34:56",
+       "25:00:00",
+       {
+        "__t__": "none"
+       },
+       "abc"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "text",
+      "v": [
+       "a\r\nb",
+       "c\rd",
+       {
+        "__t__": "none"
+       },
+       "ž"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "bajty",
+      "v": [
+       "abc",
+       {
+        "__t__": "none"
+       },
+       "xyz",
+       ""
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "vlajka",
+      "v": [
+       "true",
+       "f",
+       {
+        "__t__": "none"
+       },
+       "mozna"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2,
+     3
+    ],
+    "index_name": null
+   }
+  ],
+  "args_after": [
+   {
+    "__t__": "frame",
+    "columns": [
+     {
+      "dtype": "int64",
+      "name": "id",
+      "v": [
+       1,
+       2,
+       3,
+       4
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "cislo",
+      "v": [
+       "1",
+       "3.5",
+       "",
+       {
+        "__t__": "none"
+       }
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "datum",
+      "v": [
+       "2026-08-07",
+       "0000-00-00",
+       "9999-12-31",
+       {
+        "__t__": "none"
+       }
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "cas",
+      "v": [
+       "12:34:56",
+       "25:00:00",
+       {
+        "__t__": "none"
+       },
+       "abc"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "text",
+      "v": [
+       "a\r\nb",
+       "c\rd",
+       {
+        "__t__": "none"
+       },
+       "ž"
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "bajty",
+      "v": [
+       "abc",
+       {
+        "__t__": "none"
+       },
+       "xyz",
+       ""
+      ]
+     },
+     {
+      "dtype": "object",
+      "name": "vlajka",
+      "v": [
+       "true",
+       "f",
+       {
+        "__t__": "none"
+       },
+       "mozna"
+      ]
+     }
+    ],
+    "index": [
+     0,
+     1,
+     2,
+     3
+    ],
+    "index_name": null
+   }
+  ],
+  "kwargs": {
+   "__t__": "dict",
+   "v": []
+  },
+  "result": {
+   "__t__": "frame",
+   "columns": [
+    {
+     "dtype": "int64",
+     "name": "id",
+     "v": [
+      1,
+      2,
+      3,
+      4
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "cislo",
+     "v": [
+      "1",
+      "3.5",
+      "",
+      {
+       "__t__": "none"
+      }
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "datum",
+     "v": [
+      "2026-08-07",
+      "0000-00-00",
+      "9999-12-31",
+      {
+       "__t__": "none"
+      }
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "cas",
+     "v": [
+      "12:34:56",
+      "25:00:00",
+      {
+       "__t__": "none"
+      },
+      "abc"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "text",
+     "v": [
+      "a\r\nb",
+      "c\rd",
+      {
+       "__t__": "none"
+      },
+      "ž"
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "bajty",
+     "v": [
+      "abc",
+      {
+       "__t__": "none"
+      },
+      "xyz",
+      ""
+     ]
+    },
+    {
+     "dtype": "object",
+     "name": "vlajka",
+     "v": [
+      "true",
+      "f",
+      {
+       "__t__": "none"
+      },
+      "mozna"
+     ]
+    }
+   ],
+   "index": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "index_name": null
+  }
+ }
+}
