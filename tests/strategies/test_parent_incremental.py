@@ -222,6 +222,35 @@ def test_a_stream_failure_does_not_delete_the_window(conn, schema) -> None:
     assert target_pg.find_stale_shadows(conn, schema) == []
 
 
+def test_a_parent_copy_lagging_behind_the_source_does_not_collide(conn, schema) -> None:
+    """**The race between the parent's run and the child's.**
+
+    The two windows share a cutoff but are built over two different tables: the
+    source's live parent, and the parent's copy in the target that its own,
+    separate run refreshes. Correct an order after the parent has finished but
+    before the child reads the source, and it is inside the first window and
+    outside the second -- the rows are read again, the old ones are not deleted,
+    and `_insert_from_staging` (deliberately without `ON CONFLICT`) hits the
+    unique index. A retry cannot help: the copy stays stale until the parent runs.
+
+    Here parent 20 is corrected in the source only. Before the fix this run died
+    with a duplicate key on `cil.id`; a fallback older than the correction does
+    not save it either, which is why the window cannot simply be widened.
+    """
+    source = _fake(parents=_parents(rows=((10, IN_WINDOW), (20, OUT_OF_WINDOW))))
+    FullLoadStrategy().run(_ctx(conn, schema, source))
+    # The copy as the parent's last run left it -- 20 was still outside the window.
+    _parent_in_target(conn, schema)
+    # ... and only afterwards is 20 corrected, in the source alone.
+    source.parents = _parents(rows=((10, IN_WINDOW), (20, IN_WINDOW)))
+    source.update(3, "descr", "corrected")
+
+    result = ParentIncrementalStrategy().run(_ctx(conn, schema, source))
+
+    assert result.rows_written == 3, "the children of both parents were in the window"
+    assert _rows(conn, schema) == [(1, 10, "a"), (2, 10, "b"), (3, 20, "corrected")]
+
+
 def test_without_a_parent_in_the_configuration_it_fails(conn, schema) -> None:
     source = _fake()
     ctx = make_context(

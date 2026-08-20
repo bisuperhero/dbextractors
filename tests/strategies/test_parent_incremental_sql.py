@@ -141,7 +141,10 @@ def _delete_sql(**extra_settings) -> str:
     ctx = _ctx(**extra_settings)
     ctx.target_conn = _RecordingConn()
     ParentIncrementalStrategy()._delete_window(
-        ctx, date(2026, 1, 1), TargetRef(schema="raw_source", table="orders")
+        ctx,
+        date(2026, 1, 1),
+        TargetRef(schema="raw_source", table="orders"),
+        TargetRef(schema="raw_source", table="dbx_shadow_order_lines_1"),
     )
     return ctx.target_conn.sql
 
@@ -166,6 +169,34 @@ def test_a_configured_foreign_key_reaches_the_delete_as_well() -> None:
 
     assert '"order_id" IN (SELECT "order_no" FROM "raw_source"."orders"' in sql
     assert "parent_id" not in sql
+
+
+def test_the_delete_also_covers_what_staging_is_about_to_insert() -> None:
+    """The branch that closes the race between the parent's run and the child's.
+
+    The window over the source is built from the live parent, the window over the
+    target from the parent's **copy**, which its own run refreshes separately.
+    A correction landing between the two runs is inside the first window and
+    outside the second: the rows come back, the old ones are not deleted, and the
+    `INSERT` without `ON CONFLICT` hits the unique index. Deleting whatever
+    staging holds removes the gap.
+    """
+    sql = _delete_sql()
+
+    assert '"parent_id" IN (SELECT "id" FROM "raw_source"."orders"' in sql
+    assert (
+        'OR "parent_id" IN (SELECT DISTINCT "parent_id" FROM '
+        '"raw_source"."dbx_shadow_order_lines_1")' in sql
+    )
+
+
+def test_the_original_branch_survives_next_to_the_staging_one() -> None:
+    """A parent inside the window whose children have all vanished from the source
+    leaves nothing in staging -- its stale rows are the first branch's job."""
+    sql = _delete_sql()
+
+    assert sql.count("DELETE FROM") == 1, "both branches stay in one statement"
+    assert '"corrected_at" >= %s OR "created_at" >= %s' in sql
 
 
 def test_the_keys_are_not_reported_as_unknown(caplog) -> None:

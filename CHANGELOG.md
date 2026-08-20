@@ -7,6 +7,52 @@ Every release is tagged, and the tag is what a deployment pins in `requirements.
 **Every change carries a note on what it breaks** — roughly 670 tables depend on
 this package.
 
+## [1.0.1]
+
+### Fixed
+
+- **`parent_incremental`: the race between the parent's run and the child's.**
+  The strategy builds two windows from one cutoff, but over two different
+  tables: the condition against the source narrows the child by the **live**
+  parent, while the `DELETE` narrows the target by the parent's **copy**, which
+  its own, separate pipeline refreshes. Correct a row in the source after the
+  parent's run has finished and before the child reads the source — in
+  production a gap of roughly 35 minutes — and that parent is inside the first
+  window and outside the second. The rows are read again, the old ones are not
+  deleted, and `_insert_from_staging` (deliberately without `ON CONFLICT`) hits
+  the unique index:
+
+      duplicate key value violates unique constraint "idx_<table>_id_unique"
+
+  Retrying cannot help, because the copy stays stale until the parent runs
+  again — hence the observed pattern of three consecutive failures followed by a
+  green cycle. Seen twice on `receivedorders2` against ABRA (16 and 19 August
+  2026), each time on a correction landing in that gap; the `created_at`
+  fallback does not catch it either, because the orders themselves are older
+  than the window.
+
+  The `DELETE` now has a second branch, `parent_id IN (SELECT DISTINCT
+  parent_id FROM <staging>)`, which removes exactly what is about to be
+  inserted. The original branch stays for the case only it covers: a parent
+  inside the window whose children have all vanished from the source leaves
+  nothing in staging, and its stale rows still have to go. Both remain in the
+  one transaction, and the missing `ON CONFLICT` keeps its meaning — a conflict
+  now really does mean the `DELETE` did not take effect. Pinned by
+  `test_a_parent_copy_lagging_behind_the_source_does_not_collide`, which
+  reproduces the production error without the fix.
+
+  Two things deliberately not done: raising `incremental_lookback_hours` (it
+  would have to be weeks and it inflates every run), and adding `ON CONFLICT DO
+  UPDATE` on its own (it would also mask a `DELETE` that genuinely failed).
+
+  **What breaks: nothing.** No configuration key changes and no data moves that
+  did not move before — the extra branch deletes only rows the same transaction
+  re-inserts. It does cost one more index scan of the staging table per run.
+  There was no data loss from the bug either: the whole transaction rolls back,
+  and the next successful cycle catches up. What it cost was failed runs, noise
+  in error tracking, and a window in which the child table lagged behind its
+  parent.
+
 ## [1.0.0]
 
 ### Added

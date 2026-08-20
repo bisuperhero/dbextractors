@@ -285,7 +285,7 @@ class ParentIncrementalStrategy(LoadStrategy):
                 target_pg.copy_from_stdin(conn, staging, export_df, columns)
                 progress.tick(rows_read)
 
-            deleted = self._delete_window(ctx, cutoff, parent_ref)
+            deleted = self._delete_window(ctx, cutoff, parent_ref, staging)
             rows_written = _insert_from_staging(conn, staging, ctx.target, columns)
             target_pg.drop_shadow_table(conn, staging)
             conn.commit()
@@ -308,7 +308,9 @@ class ParentIncrementalStrategy(LoadStrategy):
             phase_metrics={"deleted": deleted},
         )
 
-    def _delete_window(self, ctx: LoadContext, cutoff: date, parent_ref: TargetRef) -> int:
+    def _delete_window(
+        self, ctx: LoadContext, cutoff: date, parent_ref: TargetRef, staging: TargetRef
+    ) -> int:
         """Delete from the target the child rows whose parent falls inside the window.
 
         The parent's column names are taken **in target naming** (`core.naming`),
@@ -321,6 +323,27 @@ class ParentIncrementalStrategy(LoadStrategy):
         mix-up but it is right: the target holds a copy of the source column, so
         on Firebird it is a count of days since the epoch just as in the source.
         Using a date here would compare against nothing.
+
+        ## Why the window is taken from `staging` as well
+
+        The two windows — the one over the source and the one over the target's
+        copy of the parent — are built with the same cutoff but over **two
+        different tables**, and the parent's copy is refreshed by its own,
+        separate run. Correct an order in the source after the parent's run has
+        finished but before this child reads the source, and it falls inside the
+        source's window and outside the target's: the rows are read again, the
+        old ones are not deleted, and `_insert_from_staging` — deliberately
+        without ``ON CONFLICT`` — hits the unique index. A retry does not help,
+        because the parent's copy stays stale until the parent runs again.
+        Observed in production twice, each time on a correction landing in the
+        ~35-minute gap between the two runs.
+
+        The second branch therefore deletes exactly what is about to be
+        inserted, which is what closes the race. The first branch stays for the
+        opposite case: a parent inside the window whose children have all
+        vanished from the source leaves nothing in staging, and its stale rows
+        still have to go — that is the whole reason this strategy deletes rather
+        than upserts.
         """
         from dbextractors.core import naming
 
@@ -333,6 +356,8 @@ class ParentIncrementalStrategy(LoadStrategy):
         sql = (
             f"DELETE FROM {target_pg.qualify(ctx.target)} WHERE {fk_col} IN "
             f"(SELECT {parent_id_col} FROM {target_pg.qualify(parent_ref)} WHERE {conditions})"
+            f" OR {fk_col} IN "
+            f"(SELECT DISTINCT {fk_col} FROM {target_pg.qualify(staging)})"
         )
         with ctx.target_conn.cursor() as cur:
             cur.execute(sql, tuple([value] * len(columns)))
