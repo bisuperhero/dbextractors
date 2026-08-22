@@ -7,6 +7,51 @@ Every release is tagged, and the tag is what a deployment pins in `requirements.
 **Every change carries a note on what it breaks** — roughly 670 tables depend on
 this package.
 
+## [1.0.2]
+
+### Fixed
+
+- **`read_with_resume`: a dropped connection before the first batch now restarts
+  the query instead of failing the run.** The source in production is a MariaDB
+  10.4.11 FederatedX proxy that dies and restarts silently (`exit=0`, 433
+  restarts since 2025-07-08), most nights, and often within a couple of seconds
+  of a query starting. Every one of dbextractors's `hash_diff` scans of
+  `vw_usr_contracts` — the table the proxy dies fastest on — was failing there:
+  the module refused to resume because it only ever tracked one flag
+  (``saw_row``) for two different facts, "a key was captured" and "a batch was
+  already handed to the caller", and a drop before the first row set neither.
+
+  ``saw_row`` now means only the first of those two facts and feeds keyset
+  resume as before; a new ``yielded_any`` flag tracks the second and gates a
+  new kind of resume — restarting the identical query from scratch — which is
+  safe **only** while nothing has gone out yet, because there is nothing yet to
+  duplicate. Once a single batch has been yielded, a source with no usable key
+  still fails the run exactly as before; that includes a batch that arrives
+  empty or without the primary-key column, which previously left ``saw_row``
+  ``False`` and could have been mistaken for "nothing yielded yet". Also
+  benefits: the surrogate-key scan path in `hash_diff` (`pk_in_batch=None`)
+  gains a retry it never had, as long as it fails before its first batch.
+
+  Pinned by `test_a_dropout_before_the_first_row_restarts_from_scratch`,
+  `test_a_dropout_before_the_first_row_restarts_even_without_a_key`,
+  `test_batches_without_the_pk_column_still_block_a_later_restart` and
+  `test_restart_from_scratch_is_bounded_by_attempts` in `tests/core/test_reading.py`;
+  `test_without_a_key_there_is_no_resume` still pins the case that must keep
+  failing.
+
+- **The retry defaults for reading raised from `attempts=3, base_delay=2.0` to
+  `attempts=5, base_delay=5.0, max_delay=60.0`.** The old numbers (inherited
+  from the predecessor) wait ~2 s and ~4 s between attempts, so all three
+  attempts landed inside the FederatedX proxy's own restart window and the run
+  failed regardless of the fix above. The new numbers wait 5/10/20/40/60 s
+  (~135 s total before jitter), long enough for the last one or two attempts to
+  land after the proxy has come back. This is a behaviour change on the failure
+  path for every one of the ~670 dependent tables: a source that drops the
+  connection now takes longer to give up before failing the run. Two new
+  `LOAD_SETTINGS` keys, `read_retry_attempts` and `read_retry_base_delay`, let
+  one table override the new defaults without moving them for the rest; absent,
+  both default to `None` and change nothing.
+
 ## [1.0.1]
 
 ### Fixed

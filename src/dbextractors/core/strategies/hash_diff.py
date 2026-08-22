@@ -321,6 +321,7 @@ class HashDiffStrategy(LoadStrategy):
                 build_sql=_build_scan_sql,
                 pk_in_batch=pk_source if not ctx.surrogate else None,
                 log=ctx.log,
+                **reading.retry_kwargs_from_settings(ctx.settings),
             ):
                 batch = batch.rename(columns=ctx.name_map)
                 if hash_in_pandas:

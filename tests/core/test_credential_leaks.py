@@ -476,6 +476,11 @@ def test_a_read_that_cannot_be_resumed_does_not_log_the_connection(
                 100,
                 build_sql=lambda key: "SELECT * FROM t",
                 pk_in_batch=None,
+                # `attempts=1`: nothing has been yielded, so this is now the
+                # restart-from-scratch case (`core.reading`) rather than an
+                # immediate refusal — the exhausted-attempts failure is what is
+                # under test here, not the resume logic itself.
+                attempts=1,
             )
         )
 

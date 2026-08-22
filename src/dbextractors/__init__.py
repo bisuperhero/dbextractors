@@ -20,4 +20,4 @@ from dbextractors.entrypoint import run
 
 __all__ = ["run", "__version__"]
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"

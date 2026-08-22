@@ -75,6 +75,8 @@ LOAD_SETTINGS_KEYS: frozenset[str] = frozenset(
         "num_parallel",
         "strict_integer_precision",
         "convert_nchar_to_varchar",
+        "read_retry_attempts",
+        "read_retry_base_delay",
         # An older spelling of the incremental window. Different names for the
         # same idea, but **not** the same window semantics — see
         # `IncrementalStrategy._build_where`. Without them the keys were
@@ -361,6 +363,13 @@ class LoadSettingsConfig:
     #: The other three dialects have no national-character types and ignore it —
     #: `LoadStrategy.validate` says so out loud rather than staying silent.
     convert_nchar_to_varchar: bool = False
+    #: Override `core.reading.DEFAULT_ATTEMPTS` / `DEFAULT_BASE_DELAY` per table.
+    #: ``None`` means the module default applies. Added alongside raising that
+    #: default (see `core.reading`, the FederatedX proxy that dies and restarts
+    #: silently most nights) so one unusually slow-to-recover source can be
+    #: tuned without moving the default for the other ~670 tables.
+    read_retry_attempts: Optional[int] = None
+    read_retry_base_delay: Optional[float] = None
     #: An older spelling of the incremental window. **Not** aliases of
     #: `updated_at_column` / `created_at_column` — the window is built
     #: differently, see `IncrementalStrategy._build_where` and
@@ -624,6 +633,8 @@ def parse(config: dict) -> ParsedConfig:
         num_parallel=load_cfg.get("num_parallel"),
         strict_integer_precision=is_truthy(load_cfg.get("strict_integer_precision", False)),
         convert_nchar_to_varchar=is_truthy(load_cfg.get("convert_nchar_to_varchar", False)),
+        read_retry_attempts=load_cfg.get("read_retry_attempts"),
+        read_retry_base_delay=load_cfg.get("read_retry_base_delay"),
         incremental_date_column=load_cfg.get("incremental_date_column") or None,
         incremental_date_column_fallback=load_cfg.get("incremental_date_column_fallback") or None,
         incremental_lookback_hours=load_cfg.get("incremental_lookback_hours") or None,

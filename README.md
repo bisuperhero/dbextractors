@@ -222,6 +222,10 @@ config = {
                                             # Off = the inherited truncation. Turning it on
                                             # means reloading that table — see "MSSQL and
                                             # NVARCHAR text".
+        'read_retry_attempts': None,        # override core.reading.DEFAULT_ATTEMPTS for this
+                                            # table; None = the module default.
+        'read_retry_base_delay': None,      # override core.reading.DEFAULT_BASE_DELAY (seconds);
+                                            # None = the module default.
     },
 
     # ── top-level keys ─────────────────────────────────────────────────────

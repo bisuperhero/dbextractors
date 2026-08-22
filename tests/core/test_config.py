@@ -116,6 +116,9 @@ def test_modern_config_has_safe_load_settings_defaults() -> None:
     # Off for the same reason: on, it changes what an MSSQL N-typed column holds
     # in the target, which is a reload of that table.
     assert parsed.load_settings.convert_nchar_to_varchar is False
+    # `None` means "the module default applies" — see `core.reading`.
+    assert parsed.load_settings.read_retry_attempts is None
+    assert parsed.load_settings.read_retry_base_delay is None
     # `None`, not the strategy's constants: the parser must not know
     # `parent_id`/`id`, and `None` is what makes the strategy's own defaults win
     # for every configuration that stays silent about them.
@@ -646,6 +649,8 @@ def _full_config() -> dict:
             "num_parallel": 4,
             "strict_integer_precision": True,
             "convert_nchar_to_varchar": True,
+            "read_retry_attempts": 7,
+            "read_retry_base_delay": 12.5,
             "incremental_date_column": "inc_date",
             "incremental_date_column_fallback": "inc_date_fb",
             "incremental_lookback_hours": 48,
@@ -733,6 +738,8 @@ def test_full_roundtrip_of_the_load_settings_section() -> None:
     assert ls.num_parallel == 4
     assert ls.strict_integer_precision is True
     assert ls.convert_nchar_to_varchar is True
+    assert ls.read_retry_attempts == 7
+    assert ls.read_retry_base_delay == 12.5
     assert ls.incremental_date_column == "inc_date"
     assert ls.incremental_date_column_fallback == "inc_date_fb"
     assert ls.incremental_lookback_hours == 48

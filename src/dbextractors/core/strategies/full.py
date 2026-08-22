@@ -342,6 +342,7 @@ class FullLoadStrategy(LoadStrategy):
             build_sql=build_select,
             pk_in_batch=pk_source,
             log=ctx.log,
+            **reading.retry_kwargs_from_settings(ctx.settings),
         )
 
     def _prepare(
