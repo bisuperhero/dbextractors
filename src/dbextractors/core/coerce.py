@@ -48,7 +48,11 @@ from __future__ import annotations
 import json
 import math
 import re
+from datetime import date as dt_date
+from datetime import datetime as dt_datetime
 from datetime import time as dt_time
+from datetime import timedelta as dt_timedelta
+from decimal import Decimal
 from typing import Any, Iterable, Optional, Sequence
 
 import numpy as np
@@ -271,6 +275,108 @@ def to_bool(x: Any) -> Optional[bool]:
     return None
 
 
+# --- Parsing date text the way pandas 1.5 did ----------------------------------
+#
+# Every `row_hash` and every value in the targets was produced by pandas 1.5.3,
+# so what it accepted as a date — and what it made of it — is the specification.
+# pandas 2 differs from it in three places, all measured against a battery of
+# ~1 700 strings in all four forms this module parses them in:
+#
+# 1. **A column is no longer parsed element by element.** pandas 2 infers one
+#    format from the first value and turns everything that does not fit it into
+#    ``NaT``: ``["2026-08-07", "07/08/2026", "2026-08-07 12:00:00"]`` keeps only
+#    its first value. ``format="mixed"`` is how pandas 2 is told to parse each
+#    value on its own, which is what 1.5 always did (the option does not exist
+#    there). With it, every string of the battery parses to the same value on
+#    both versions, alone and inside a column — except for the next two.
+# 2. ``"now"`` is the current **UTC** wall clock in 1.5 and the local one in 2.
+# 3. A time-zone abbreviation of the machine's own zone, when that zone has
+#    daylight saving time (``"… CEST"`` on a Prague host): dateutil hands back
+#    ``tzlocal()``, which pandas 2 cannot take an offset from and raises
+#    ``AttributeError`` — for the whole column. pandas 1.5 accepted such a value.
+#
+# `_parse_text` and `_parse_texts` are the only places that call
+# ``pd.to_datetime`` on text, and they cover all three.
+
+#: See (1) above. Empty on pandas 1.5, where per-element parsing is the default.
+_PER_ELEMENT: dict[str, str] = {} if pd.__version__.startswith("1.") else {"format": "mixed"}
+
+
+def _utc_now() -> pd.Timestamp:
+    """What pandas 1.5 made of ``"now"``: the UTC wall clock, without a zone."""
+    return pd.Timestamp.now(tz="UTC").tz_localize(None)
+
+
+#: What pandas 1.5 passed dateutil as ``default`` (`parsing._DEFAULT_DATETIME`).
+_DATEUTIL_DEFAULT = dt_datetime(1, 1, 1)
+
+
+def _with_numeric_offset(text: str) -> Optional[str]:
+    """Text whose zone dateutil resolves to ``tzlocal()`` — see (3) above.
+
+    Returns the same instant as ISO text with a numeric UTC offset, which
+    pandas 2 can take, or ``None`` when dateutil cannot parse it. pandas 1.5
+    parsed such text with dateutil too, with this default for the missing parts,
+    and kept exactly this offset — so the value, and the handling of a column
+    mixing offsets, stay what they were.
+    """
+    from dateutil import parser as du_parser
+
+    try:
+        return du_parser.parse(text, default=_DATEUTIL_DEFAULT).isoformat()
+    except (ValueError, OverflowError):
+        return None
+
+
+def _parse_text(text: str, errors: str = "coerce") -> Any:
+    """``pd.to_datetime`` of one string, with pandas 1.5 semantics.
+
+    With ``errors="raise"`` it raises what ``pd.to_datetime`` raises, so the
+    callers keep catching the same exceptions.
+    """
+    if text == "now":
+        return _utc_now()
+    try:
+        return pd.to_datetime(text, errors=errors, **_PER_ELEMENT)
+    except AttributeError:
+        defused = _with_numeric_offset(text)
+        if defused is None:
+            if errors == "raise":
+                raise ValueError(f"Unknown datetime string format: {text!r}") from None
+            return pd.NaT
+        return pd.to_datetime(defused, errors=errors, **_PER_ELEMENT)
+
+
+def _defuse(value: Any) -> Any:
+    """`_with_numeric_offset` for a value that trips pandas 2, the value otherwise."""
+    if not isinstance(value, str):
+        return value
+    try:
+        pd.to_datetime(value, errors="coerce", **_PER_ELEMENT)
+    except AttributeError:
+        return _with_numeric_offset(value)
+    return value
+
+
+def _parse_texts(values: pd.Series) -> Any:
+    """``pd.to_datetime`` of a column, with pandas 1.5 semantics.
+
+    Returns what ``pd.to_datetime`` returns for a series: ``datetime64`` when
+    every value fits one zone, an ``object`` series of datetimes when the values
+    carry different UTC offsets.
+    """
+    try:
+        parsed = pd.to_datetime(values, errors="coerce", **_PER_ELEMENT)
+    except AttributeError:
+        # Rare enough (see (3) above) to afford a second pass over the column.
+        parsed = pd.to_datetime(values.map(_defuse), errors="coerce", **_PER_ELEMENT)
+    if parsed.dtype.kind == "M" and parsed.dt.tz is None:
+        now = values == "now"
+        if now.any():
+            parsed = parsed.where(~now, _utc_now())
+    return parsed
+
+
 def to_date_str(x: Any) -> Optional[str]:
     """To ``YYYY-MM-DD``. Invalid and sentinel dates become ``None``.
 
@@ -282,7 +388,7 @@ def to_date_str(x: Any) -> Optional[str]:
         text = x.strip()
         if text == "" or text in INVALID_DATE_STRINGS:
             return None
-        parsed = pd.to_datetime(text, errors="coerce")
+        parsed = _parse_text(text)
         return parsed.strftime("%Y-%m-%d") if pd.notna(parsed) else None
     if hasattr(x, "strftime"):
         return x.strftime("%Y-%m-%d")
@@ -300,11 +406,48 @@ def to_datetime_str(x: Any) -> Optional[str]:
         text = x.strip()
         if text == "" or text in INVALID_DATETIME_STRINGS:
             return None
-        parsed = pd.to_datetime(text, errors="coerce")
+        parsed = _parse_text(text)
         return parsed.strftime("%Y-%m-%d %H:%M:%S") if pd.notna(parsed) else None
     if hasattr(x, "strftime"):
         return x.strftime("%Y-%m-%d %H:%M:%S")
     return None
+
+
+#: A number and the unit after it, in the text ``pd.to_timedelta`` reads.
+_TIMEDELTA_TOKEN = re.compile(r"(\d+(?:\.\d*)?)(\s*)([A-Za-z]+)")
+
+#: Seconds in pandas 1.5's ``Y`` — 365.2425 days.
+_SECONDS_PER_YEAR = 31_556_952
+
+
+def _timedelta_text(text: str) -> Optional[str]:
+    """``text`` rewritten so ``pd.to_timedelta`` reads it as pandas 1.5 did.
+
+    pandas 1.5 and 2 disagree on three unit letters: 1.5 reads ``Y``/``y`` as
+    365.2425 days and ``M`` as a minute and rejects ``A``/``a``; pandas 2
+    rejects the first three and reads ``A``/``a`` as a year. The first three are
+    rewritten into units both read the same, and text with the last is
+    rejected (``None``). Anything else is returned unchanged.
+    """
+    if not any(letter in text for letter in "yYMaA"):
+        return text
+    parts = []
+    last = 0
+    for match in _TIMEDELTA_TOKEN.finditer(text):
+        number, space, unit = match.groups()
+        if unit in ("a", "A"):
+            return None
+        if unit in ("y", "Y"):
+            replacement = f"{Decimal(number) * _SECONDS_PER_YEAR}{space}s"
+        elif unit == "M":
+            replacement = f"{number}{space}min"
+        else:
+            continue
+        parts.append(text[last : match.start()])
+        parts.append(replacement)
+        last = match.end()
+    parts.append(text[last:])
+    return "".join(parts)
 
 
 def to_time_str(x: Any) -> Optional[str]:
@@ -326,8 +469,11 @@ def to_time_str(x: Any) -> Optional[str]:
         match = _TIME_WITH_DAYS.match(stripped)
         if match:
             return match.group(2)
+        text = _timedelta_text(x)
+        if text is None:
+            return None
         try:
-            total_seconds = int(pd.to_timedelta(x).total_seconds())
+            total_seconds = int(pd.to_timedelta(text).total_seconds())
         except (ValueError, TypeError):
             return None
     elif isinstance(x, pd.Timedelta):
@@ -386,7 +532,7 @@ def _fast_temporal_series(series: pd.Series, invalid: frozenset[str], fmt: str) 
     candidates = stripped.where(~blocked, None)
 
     try:
-        parsed = pd.to_datetime(candidates, errors="coerce")
+        parsed = _parse_texts(candidates)
     except (ValueError, TypeError, OverflowError):
         return None
     if not pd.api.types.is_datetime64_any_dtype(parsed):
@@ -529,7 +675,7 @@ def clean_invalid_date(value: Any) -> Any:
         if stripped == "" or any(p.match(stripped) for p in INVALID_DATE_PATTERNS):
             return None
         try:
-            pd.to_datetime(stripped, errors="raise")
+            _parse_text(stripped, errors="raise")
         except (ValueError, TypeError, OverflowError, pd.errors.ParserError):
             return None
         # The **stripped** value is returned, not the original one. `'  2026-08-07  '`
@@ -700,8 +846,9 @@ def fix_invalid_dates(df: pd.DataFrame, date_like_columns: Optional[set] = None)
         series = df[column].map(_strip_sentinel_dates)
 
         try:
-            parsed = pd.to_datetime(series, errors="coerce")
-            keep = parsed.notna() | series.isna() | (series.astype(str).str.strip() == "")
+            parsed = _accepted_as_dates(series)
+            text = series.map(str) if series.dtype == object else series.astype(str)
+            keep = parsed | series.isna() | (text.str.strip() == "")
             series = series.where(keep, None)
         except (ValueError, TypeError, OverflowError) as err:
             # A column that cannot be parsed as a whole (mixed types, for example).
@@ -712,6 +859,140 @@ def fix_invalid_dates(df: pd.DataFrame, date_like_columns: Optional[set] = None)
         series = series.replace(dict.fromkeys(_REPLACED_DATE_VALUES, None))
         df[column] = series.map(lambda value: None if _is_missing(value) else value)
     return df
+
+
+#: The range a ``datetime64[ns]`` holds. pandas 1.5 turned anything outside it
+#: into ``NaT``.
+_NS_MIN, _NS_MAX = pd.Timestamp.min.to_pydatetime(), pd.Timestamp.max.to_pydatetime()
+
+
+def _in_ns_bounds(value: Any) -> bool:
+    if isinstance(value, pd.Timestamp):
+        return True
+    if not isinstance(value, dt_datetime):
+        value = dt_datetime(value.year, value.month, value.day)
+    naive = value.replace(tzinfo=None) - (value.utcoffset() or dt_timedelta(0))
+    return _NS_MIN <= naive <= _NS_MAX
+
+
+#: pandas 1.5's message for aware datetimes it could not put in one column.
+_MIXED_ZONES = "Tz-aware datetime.datetime cannot be converted to datetime64 unless utc=True"
+
+
+def _same_zone(a: Any, b: Any) -> bool:
+    return a is b or a == b or str(a) == str(b)
+
+
+def _accepted_as_dates(series: pd.Series) -> pd.Series:
+    """Which values ``pd.to_datetime(series, errors="coerce")`` accepted in pandas 1.5.
+
+    A boolean series, ``True`` where the value parsed. Raises ``ValueError``
+    where pandas 1.5 raised — the caller then goes element by element, as it did.
+
+    Text goes through `_parse_texts`. Everything else is decided here, by the
+    rules of pandas 1.5's ``array_to_datetime``, because pandas 2 decides some
+    of it differently and **silently**: a column of aware datetimes with two
+    UTC offsets (a ``timestamptz`` across a daylight-saving change) raised in
+    1.5, so every value was kept; pandas 2 keeps the first offset and turns the
+    rest into ``NaT``. The rules:
+
+    - datetimes, dates and ``datetime64`` parse when inside the ``datetime64[ns]``
+      range; aware and naive datetimes together, or aware ones in two zones,
+      raise;
+    - numbers parse as nanoseconds since the epoch — unless the column also
+      holds a datetime, in which case they do not;
+    - text with two different UTC offsets (or with and without one) switches
+      the whole column to a mode where everything that is neither text nor a
+      datetime is accepted as is;
+    - anything else does not parse.
+    """
+    if series.dtype != object:
+        return pd.to_datetime(series, errors="coerce").notna()
+
+    values = series.tolist()
+    accepted = [False] * len(values)
+    text_positions: list[int] = []
+    number_positions: list[int] = []
+    datetime_positions: list[int] = []
+    other_seen = False
+    datetime_seen = False
+    zone: Any = None
+    naive_seen = False
+
+    for i, value in enumerate(values):
+        if isinstance(value, str):
+            text_positions.append(i)
+        elif (
+            value is None
+            or value is pd.NaT
+            or value is pd.NA
+            or (isinstance(value, float) and value != value)
+        ):
+            continue
+        elif isinstance(value, dt_datetime):
+            datetime_seen = True
+            if value.tzinfo is None:
+                if zone is not None:
+                    raise ValueError("Cannot mix tz-aware with tz-naive values")
+                naive_seen = True
+            else:
+                if naive_seen or (zone is not None and not _same_zone(zone, value.tzinfo)):
+                    raise ValueError(_MIXED_ZONES)
+                zone = value.tzinfo
+            datetime_positions.append(i)
+            accepted[i] = _in_ns_bounds(value)
+        elif isinstance(value, dt_date):
+            datetime_seen = True
+            other_seen = True
+            accepted[i] = _in_ns_bounds(value)
+        elif isinstance(value, np.datetime64):
+            datetime_seen = True
+            other_seen = True
+            accepted[i] = not np.isnat(value) and _NS_MIN <= pd.Timestamp(value) <= _NS_MAX
+        elif isinstance(value, (int, float, np.integer, np.floating)) and not isinstance(
+            value, (bool, np.bool_)
+        ):
+            other_seen = True
+            number_positions.append(i)
+        else:
+            other_seen = True
+
+    if text_positions:
+        texts = pd.Series([values[i] for i in text_positions], dtype="object")
+        parsed = _parse_texts(texts)
+        if parsed.dtype == object and other_seen:
+            # The object mode of pandas 1.5: it gave up at the first value that
+            # was neither text nor a datetime and returned the input unchanged.
+            return pd.Series(True, index=series.index)
+        if parsed.dtype == object:
+            # The same mode without such a value: datetimes are taken as they are.
+            for i in datetime_positions:
+                accepted[i] = True
+        for position, ok in zip(text_positions, parsed.notna(), strict=True):
+            accepted[position] = bool(ok)
+
+    if not datetime_seen:
+        for i in number_positions:
+            accepted[i] = _number_is_a_timestamp(values[i])
+
+    return pd.Series(accepted, index=series.index)
+
+
+def _number_is_a_timestamp(value: Any) -> bool:
+    """A number read as nanoseconds since the epoch, as pandas 1.5 did."""
+    if isinstance(value, (float, np.floating)):
+        if value != value:
+            return False
+        if value in (float("inf"), float("-inf")):
+            return False
+    try:
+        return int(value) != _NAT_NS and -(2**63) <= int(value) < 2**63
+    except (OverflowError, ValueError):
+        return False
+
+
+#: The integer pandas uses for ``NaT``.
+_NAT_NS = -(2**63)
 
 
 def _strip_sentinel_dates(value: Any) -> Any:

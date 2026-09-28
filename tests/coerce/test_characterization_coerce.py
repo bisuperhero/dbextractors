@@ -483,6 +483,183 @@ def test_the_fast_path_really_is_used_when_it_can_be() -> None:
     )
 
 
+# --- Date text parsed exactly as pandas 1.5.3 parsed it ----------------------
+# Every expected value below was produced by dbextractors v1.0.2 under pandas 1.5.3,
+# and is hard-coded so the tests hold on any pandas: the oracle above replays recorded
+# answers but cannot tell which pandas the *new* side runs on. pandas 2 differs from
+# 1.5 here in ways that do not raise — a column parsed with one inferred format loses
+# every value in another format, silently.
+
+_DATE_TEXT = [
+    # text, to_date_str, to_datetime_str, clean_invalid_date
+    ("2026-08-07 12:34:56", "2026-08-07", "2026-08-07 12:34:56", "2026-08-07 12:34:56"),
+    ("2026-08-07T12:34:56", "2026-08-07", "2026-08-07 12:34:56", "2026-08-07T12:34:56"),
+    ("07/08/2026", "2026-07-08", "2026-07-08 00:00:00", "07/08/2026"),
+    ("  2026-08-07  ", "2026-08-07", "2026-08-07 00:00:00", "2026-08-07"),
+    ("13/01/2026", "2026-01-13", "2026-01-13 00:00:00", "13/01/2026"),
+    ("2026-08-07T12:00:00+02:00", "2026-08-07", "2026-08-07 12:00:00", "2026-08-07T12:00:00+02:00"),
+    ("Aug 7 2026", "2026-08-07", "2026-08-07 00:00:00", "Aug 7 2026"),
+    ("not a date", None, None, None),
+    ("NaT", None, None, "NaT"),
+]
+
+
+@pytest.mark.parametrize(("text", "date", "stamp", "clean"), _DATE_TEXT)
+def test_a_date_string_parses_as_under_pandas_1_5(text, date, stamp, clean) -> None:
+    assert coerce.to_date_str(text) == date
+    assert coerce.to_datetime_str(text) == stamp
+    assert coerce.clean_invalid_date(text) == clean
+
+
+_DATE_COLUMNS = {
+    # pandas 2 infers "%Y-%m-%d" from the first value and would drop the rest.
+    "ISO first": (
+        [
+            "2026-08-07",
+            "2026-08-07 12:34:56",
+            "2026-08-07T12:34:56",
+            "07/08/2026",
+            "  2026-08-07  ",
+            None,
+        ],
+        ["2026-08-07", "2026-08-07", "2026-08-07", "2026-07-08", "2026-08-07", None],
+        [
+            "2026-08-07 00:00:00",
+            "2026-08-07 12:34:56",
+            "2026-08-07 12:34:56",
+            "2026-07-08 00:00:00",
+            "2026-08-07 00:00:00",
+            None,
+        ],
+        [
+            "2026-08-07",
+            "2026-08-07 12:34:56",
+            "2026-08-07T12:34:56",
+            "07/08/2026",
+            "  2026-08-07  ",
+            None,
+        ],
+    ),
+    "slash first": (
+        ["07/08/2026", "2026-08-07", "13/01/2026", "2026-08-07 12:34:56"],
+        ["2026-07-08", "2026-08-07", "2026-01-13", "2026-08-07"],
+        [
+            "2026-07-08 00:00:00",
+            "2026-08-07 00:00:00",
+            "2026-01-13 00:00:00",
+            "2026-08-07 12:34:56",
+        ],
+        ["07/08/2026", "2026-08-07", "13/01/2026", "2026-08-07 12:34:56"],
+    ),
+    # Two UTC offsets switch pandas 1.5 into its object mode, in which the text
+    # "NaT" and "nan" survive `fix_invalid_dates`.
+    "two offsets": (
+        ["2026-01-07T12:00:00+01:00", "2026-08-07T12:00:00+02:00", "NaT", "nan", "abc"],
+        ["2026-01-07", "2026-08-07", None, None, None],
+        ["2026-01-07 12:00:00", "2026-08-07 12:00:00", None, None, None],
+        ["2026-01-07T12:00:00+01:00", "2026-08-07T12:00:00+02:00", "NaT", "nan", None],
+    ),
+}
+
+
+@pytest.mark.parametrize("name", sorted(_DATE_COLUMNS))
+def test_a_date_column_parses_as_under_pandas_1_5(name: str) -> None:
+    values, dates, stamps, fixed = _DATE_COLUMNS[name]
+    series = pd.Series(values, dtype="object")
+    assert coerce.to_date_str_series(series) == dates
+    assert coerce.to_datetime_str_series(series) == stamps
+    frame = coerce.fix_invalid_dates(pd.DataFrame({"d": series}), {"d"})
+    assert frame["d"].tolist() == fixed
+
+
+def test_aware_datetimes_with_two_offsets_all_survive() -> None:
+    """A ``timestamptz`` read across a daylight-saving change.
+
+    pandas 1.5 refused to convert the column as a whole, so every value went
+    through the per-element path and survived. pandas 2 converts it and turns
+    every value with the second offset into ``NaT`` — without an error.
+    """
+    winter = dt.datetime(2026, 1, 7, 12, tzinfo=dt.timezone(dt.timedelta(hours=1)))
+    summer = dt.datetime(2026, 8, 7, 12, tzinfo=dt.timezone(dt.timedelta(hours=2)))
+    frame = coerce.fix_invalid_dates(pd.DataFrame({"d": [winter, summer, None]}), {"d"})
+    assert frame["d"].tolist() == [winter, summer, None]
+
+
+def test_numbers_next_to_datetimes_do_not_parse() -> None:
+    """pandas 1.5 read a number as epoch nanoseconds — unless the column held a datetime."""
+    with_datetime = pd.Series([dt.datetime(2026, 8, 7, 12), 1234567890, None], dtype="object")
+    frame = coerce.fix_invalid_dates(pd.DataFrame({"d": with_datetime}), {"d"})
+    assert frame["d"].tolist()[:1] == [pd.Timestamp("2026-08-07 12:00:00")]
+    assert frame["d"].isna().tolist() == [False, True, True]
+
+    with_text = pd.Series([1234567890, "2026-08-07", None], dtype="object")
+    frame = coerce.fix_invalid_dates(pd.DataFrame({"d": with_text}), {"d"})
+    assert frame["d"].tolist() == [1234567890, "2026-08-07", None]
+
+
+def test_now_is_the_utc_wall_clock() -> None:
+    """pandas 1.5 read ``"now"`` as UTC; pandas 2 reads it as local time."""
+    before = pd.Timestamp.now(tz="UTC").tz_localize(None).floor("s")
+    parsed = pd.Timestamp(coerce.to_datetime_str("now"))
+    after = pd.Timestamp.now(tz="UTC").tz_localize(None).ceil("s")
+    assert before <= parsed <= after
+
+
+@pytest.fixture()
+def prague_time(monkeypatch):
+    """The machine's zone set to one with daylight saving time."""
+    import time
+
+    if not hasattr(time, "tzset"):
+        pytest.skip("time.tzset is not available on this platform")
+    monkeypatch.setenv("TZ", "Europe/Prague")
+    time.tzset()
+    yield
+    monkeypatch.undo()
+    time.tzset()
+
+
+def test_the_local_zone_abbreviation_parses(prague_time) -> None:
+    """dateutil resolves CET/CEST on a Prague machine to ``tzlocal()``, which pandas 2
+    cannot take an offset from — it raised ``AttributeError`` for the whole column."""
+    del prague_time
+    assert coerce.to_date_str("2026-08-07 12:34:56 CEST") == "2026-08-07"
+    assert coerce.to_datetime_str("2026-01-07 12:34:56 CET") == "2026-01-07 12:34:56"
+    assert coerce.clean_invalid_date("2026-08-07 12:34:56 CEST") == "2026-08-07 12:34:56 CEST"
+
+    series = pd.Series(
+        ["2026-08-07 12:34:56 CEST", "2026-01-07 12:34:56 CET", "2026-01-01", "NaT"], dtype="object"
+    )
+    assert coerce.to_datetime_str_series(series) == [
+        "2026-08-07 12:34:56",
+        "2026-01-07 12:34:56",
+        "2026-01-01 00:00:00",
+        None,
+    ]
+    frame = coerce.fix_invalid_dates(pd.DataFrame({"d": series}), {"d"})
+    assert frame["d"].tolist() == [
+        "2026-08-07 12:34:56 CEST",
+        "2026-01-07 12:34:56 CET",
+        "2026-01-01",
+        "NaT",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("12y", "105189:50:24"),  # pandas 1.5: a year is 365.2425 days
+        ("1.5Y", "13148:43:48"),
+        ("12M", "00:12:00"),  # pandas 1.5: M is a minute
+        ("12a", None),  # pandas 2 reads this as twelve years
+        ("1y 2d", "8813:49:12"),
+        ("90 min", "01:30:00"),
+    ],
+)
+def test_a_timedelta_unit_reads_as_under_pandas_1_5(text, expected) -> None:
+    assert coerce.to_time_str(text) == expected
+
+
 #: The type map `fix_column_values` is compared against the reference on.
 #: The time column is in it on purpose: the reference **does not** handle it (that is
 #: `convert_time_columns`' job), and the text column is deliberately **absent** — it has
