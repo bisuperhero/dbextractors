@@ -7,7 +7,7 @@ Every release is tagged, and the tag is what a deployment pins in `requirements.
 **Every change carries a note on what it breaks** — roughly 670 tables depend on
 this package.
 
-## [Unreleased]
+## [2.0.0]
 
 The runtime moves from the Mage 0.9.79 image to a current stack for Dagster.
 **The data does not change:** values and `row_hash` are what v1.0.2 produces
