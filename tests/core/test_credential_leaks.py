@@ -17,7 +17,7 @@ Two kinds of test live here and the difference matters when one of them fails:
   observed and the test pins the fix.
 - **A path that is safe only because a driver happens not to talk about its own
   connection string.** Checked live against psycopg2 2.9.12, mysql-connector,
-  pymssql and fdb: none of the four puts the DSN or the URL into a failed
+  pymssql and fdb, later firebird-driver 1.10: none of them puts the DSN or the URL into a failed
   connection's message. That is not a guarantee, it is today's behaviour of four
   third-party packages — so it is pinned here and a driver upgrade that changes
   it fails a test instead of filling a production log.
@@ -611,7 +611,7 @@ def test_an_engine_never_renders_its_password(dialect_name: str, params: dict, p
     dialect = resolve_dialect(dialect_name)
     url = dialect.build_conn_str({**params, "password": CANARY}, "db.example.com", port)
     with warnings.catch_warnings():
-        # The SQLAlchemy 1.4 Firebird dialect warns that it is deprecated.
+        # Some dialects warn on creation (the SQLAlchemy 1.4 Firebird one did).
         warnings.simplefilter("ignore")
         engine = create_engine(url, poolclass=NullPool, connect_args=dict(dialect.connect_args))
 

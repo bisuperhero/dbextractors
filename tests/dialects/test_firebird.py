@@ -340,7 +340,7 @@ def test_the_password_is_escaped(dialect) -> None:
 
 
 def test_an_absolute_path_gives_a_double_slash(dialect) -> None:
-    """``fdb`` recognises an absolute path precisely by the double slash.
+    """An absolute path is recognised precisely by the double slash.
 
     Escaping the path would turn it into ``%2Fvar%2Fdb…`` and the database would
     not be found — which is why it is the only part of the URL left as it is.
@@ -348,7 +348,7 @@ def test_an_absolute_path_gives_a_double_slash(dialect) -> None:
     url = dialect.build_conn_str(
         {"user": "u", "password": "p", "database": "/var/db/x.fdb"}, "h", 3050
     )
-    assert url.startswith("firebird+fdb://u:p@h:3050//var/db/x.fdb?")
+    assert url.startswith("firebird+firebird://u:p@h:3050//var/db/x.fdb?")
 
 
 def test_doubled_backslashes_in_the_path_are_flattened(dialect) -> None:

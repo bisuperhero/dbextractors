@@ -124,8 +124,11 @@ class FirebirdDialect(SourceDialect):
 
     name: str = "firebird"
     default_port: int = 3050
-    #: Exactly as the predecessors spell it.
-    sqlalchemy_driver: str = "firebird+fdb"
+    #: ``firebird-driver`` through ``sqlalchemy-firebird`` 2. The predecessors used
+    #: ``firebird+fdb``, which has no SQLAlchemy 2 dialect; ``firebird-driver`` is
+    #: its maintained successor and needs the Firebird 3+ client library
+    #: (``libfbclient.so.2``) — it still talks to a 2.5 server.
+    sqlalchemy_driver: str = "firebird+firebird"
     quote_char: str = '"'
     #: Without ``hash_diff`` (the source cannot hash) and without
     #: ``partition_by_source``. ``keyset`` is here: the predecessor has it
@@ -142,8 +145,8 @@ class FirebirdDialect(SourceDialect):
 
     #: **Deliberately empty.** The Firebird predecessor has no counterpart to
     #: ``TEXT_LIKE_MYSQL_TYPES``, so forcing a text dtype would change values
-    #: against today — and with ``fdb`` it is not a risk anyway: both ``CHAR`` and
-    #: ``VARCHAR`` come out of it as ``str``, not as a number.
+    #: against today — and it is not a risk anyway: both ``CHAR`` and ``VARCHAR``
+    #: come out of the driver as ``str``, not as a number.
     text_like_types: frozenset = frozenset()
 
     #: Firebird has no zero date (unlike MySQL).
@@ -160,7 +163,7 @@ class FirebirdDialect(SourceDialect):
     # -- connecting --------------------------------------------------------
 
     def build_conn_str(self, params: dict, host: str, port: int) -> str:
-        """Build the SQLAlchemy URL for ``firebird+fdb``.
+        """Build the SQLAlchemy URL for ``firebird+firebird``.
 
         Firebird is addressed by the **path to the database file**, not by a name.
         The path is normalised here rather than at the caller: forgetting
@@ -170,8 +173,9 @@ class FirebirdDialect(SourceDialect):
         The path goes into the URL **unescaped**, verbatim as in the predecessor.
         That is deliberate: an absolute path starts with a slash, so
         ``…{port}/{path}`` becomes ``…{port}//var/db/x.fdb`` — and the double
-        slash is exactly what tells ``fdb`` the path is absolute. Escaping would
-        turn it into ``%2F`` and the database would not be found.
+        slash is exactly what keeps the path absolute once SQLAlchemy strips the
+        separator. Escaping would turn it into ``%2F`` and the database would not
+        be found.
 
         Unlike MSSQL, ``SOURCE_DB.charset`` **is** read — the predecessor really
         does put it into the URL for Firebird, and the ``WIN1250`` default applies
@@ -478,8 +482,9 @@ class FirebirdDialect(SourceDialect):
         **Not verified against a live source** — this session had no access to a
         Firebird instance. MySQL looked exactly like this until it turned out that
         SQLAlchemy 1.4 holds a buffered cursor underneath it and 6 M rows cost
-        4.7 GB (see `scripts/bench_hash_memory.py`). With ``fdb`` that is not a
-        risk in itself (it fetches by ``arraysize``), but it has to be measured.
+        4.7 GB (see `scripts/bench_hash_memory.py`). The Firebird driver fetches
+        by ``arraysize``, so that is not a risk in itself, but it has to be
+        measured.
         """
         with engine.connect() as con:
             for batch in pd.read_sql(sql, con, chunksize=int(batch_size)):
@@ -529,7 +534,7 @@ class FirebirdDialect(SourceDialect):
         Taken verbatim from the predecessor's ``_normalize_db_path``. The
         configuration holds a Windows path with single backslashes, but passing
         the dict between Mage blocks occasionally doubles them
-        (``D:\\\\data\\\\...``). ``fdb`` needs the original form, and a disk path
+        (``D:\\\\data\\\\...``). The driver needs the original form, and a disk path
         never legitimately contains a doubled separator, so the repair is safe.
         """
         if not isinstance(database, str):

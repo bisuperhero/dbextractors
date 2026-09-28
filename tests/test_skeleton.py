@@ -136,7 +136,9 @@ DRIVERS = {
     "mysql": ("mysql+mysqlconnector", 3306),
     "mssql": ("mssql+pymssql", 1433),
     "postgres": ("postgresql+psycopg2", 5432),
-    "firebird": ("firebird+fdb", 3050),
+    # Not the predecessors' `firebird+fdb`: fdb has no SQLAlchemy 2 dialect, and
+    # `firebird-driver` is its maintained successor.
+    "firebird": ("firebird+firebird", 3050),
 }
 
 

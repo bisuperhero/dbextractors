@@ -123,7 +123,7 @@ class SourceDialect(ABC):
     #: The default port, used when the configuration does not give one.
     default_port: int
     #: SQLAlchemy dialect+driver exactly as the predecessors use it:
-    #: mysql+mysqlconnector | mssql+pymssql | postgresql+psycopg2 | firebird+fdb
+    #: mysql+mysqlconnector | mssql+pymssql | postgresql+psycopg2 | firebird+firebird
     sqlalchemy_driver: str
     #: The character identifiers are quoted with. MSSQL overrides `quote_ident`.
     quote_char: str = '"'

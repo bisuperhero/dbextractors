@@ -39,7 +39,7 @@ def get_dialect(name: str) -> SourceDialect:
     `run` needs it before anything else. This function is only a pass-through
     name for a caller that would rather not import `entrypoint` itself.
 
-    The import is deliberately made inside the function: the drivers (`fdb`,
+    The import is deliberately made inside the function: the drivers (`firebird-driver`,
     `pymssql`) need not be installed in every environment, and there is no point
     pulling one in for a dialect nobody asked for.
     """

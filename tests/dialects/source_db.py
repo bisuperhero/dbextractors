@@ -28,7 +28,7 @@ import pytest
 SOURCES: dict[str, tuple[str, str]] = {
     "mysql": ("DBX_TEST_MYSQL_DSN", "mysql.connector"),
     "mssql": ("DBX_TEST_MSSQL_DSN", "pymssql"),
-    "firebird": ("DBX_TEST_FIREBIRD_DSN", "fdb"),
+    "firebird": ("DBX_TEST_FIREBIRD_DSN", "firebird.driver"),
 }
 
 

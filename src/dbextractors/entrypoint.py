@@ -40,7 +40,7 @@ if TYPE_CHECKING:  # pragma: no cover
 _log = logging.getLogger(__name__)
 
 #: All four sources. The module is imported only in `resolve_dialect`, because
-#: the driver (`fdb`, `pymssql`) need not be installed in every environment.
+#: the driver (`firebird-driver`, `pymssql`) need not be installed in every environment.
 DIALECTS = {
     "mysql": "dbextractors.dialects.mysql:MySQLDialect",
     "mssql": "dbextractors.dialects.mssql:MSSQLDialect",
@@ -660,10 +660,11 @@ def _attach_session_sql(engine, source_dialect, logger: logging.Logger | None = 
         except Exception as err:
             # `err` comes straight from the driver. None of the four puts the
             # connection string into a statement error today (checked live against
-            # mysql-connector 9, psycopg2 2.9, pymssql 2.3 and fdb 2.0), but this
-            # listener sits on the connection and a driver that started quoting its
-            # own DSN back would leak it once per batch. The commands themselves
-            # are dialect constants, so nothing is lost by redacting them too.
+            # mysql-connector 9, psycopg2 2.9, pymssql 2.3, fdb 2.0 and
+            # firebird-driver 1.10), but this listener sits on the connection and a
+            # driver that started quoting its own DSN back would leak it once per
+            # batch. The commands themselves are dialect constants, so nothing is
+            # lost by redacting them too.
             if logger:
                 logger.warning(
                     "⚠️ The source session setting failed (%s): %s",
