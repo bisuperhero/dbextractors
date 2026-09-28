@@ -130,13 +130,35 @@ def encode(value: Any) -> Any:
     return {TAG: "opaque", "type": type(value).__name__, "repr": repr(value)}
 
 
+#: The masked ("nullable") arrays behind ``Int*``, ``UInt*``, ``Float*`` and
+#: ``boolean``.
+_MASKED_ARRAYS = (pd.arrays.IntegerArray, pd.arrays.FloatingArray, pd.arrays.BooleanArray)
+
+
+def _elements(series: pd.Series) -> list:
+    """The elements of ``series``, boxed by its dtype rather than by pandas.
+
+    ``Series.tolist()`` on a masked array returns **numpy** scalars in pandas
+    1.5 (``numpy.int64``) and **Python** scalars in pandas 2.x (``int``). The
+    encoded form differs between the two, so does the call fingerprint, and a
+    recording made on one version is not found on the other. The fixtures were
+    recorded under pandas 1.5, so its boxing is the one kept: a numpy scalar of
+    the array's ``numpy_dtype``, and ``pd.NA`` for a missing value.
+    """
+    values = series.tolist()
+    if not isinstance(series.array, _MASKED_ARRAYS):
+        return values
+    numpy_type = series.dtype.numpy_dtype.type
+    return [value if value is pd.NA else numpy_type(value) for value in values]
+
+
 def _encode_series(series: pd.Series) -> dict:
     return {
         TAG: "series",
         "name": series.name,
         "dtype": str(series.dtype),
         "index": [encode(x) for x in series.index],
-        "v": [encode(x) for x in series.tolist()],
+        "v": [encode(x) for x in _elements(series)],
     }
 
 
@@ -149,7 +171,7 @@ def _encode_frame(frame: pd.DataFrame) -> dict:
             {
                 "name": encode(name),
                 "dtype": str(frame[name].dtype),
-                "v": [encode(x) for x in frame[name].tolist()],
+                "v": [encode(x) for x in _elements(frame[name])],
             }
             for name in frame.columns
         ],

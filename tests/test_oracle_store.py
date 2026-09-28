@@ -298,6 +298,29 @@ def test_an_empty_frame_keeps_its_column_dtypes(record) -> None:
     assert len(restored) == 0
 
 
+def test_a_nullable_fingerprint_does_not_depend_on_the_pandas_version() -> None:
+    """The recordings were made under pandas 1.5; they must be found under 2.x.
+
+    ``tolist()`` on a masked array boxes its elements as numpy scalars in 1.5
+    and as Python scalars in 2.x, which changed the fingerprint and made every
+    recorded call with an ``Int64`` argument unfindable. The expected values
+    were computed under pandas 1.5.3 by the store as it was before the fix.
+    """
+    frame = pd.DataFrame(
+        {
+            "i64": pd.array([1, None, -7], dtype="Int64"),
+            "i32": pd.array([2, 3, None], dtype="Int32"),
+            "u8": pd.array([None, 4, 5], dtype="UInt8"),
+            "f64": pd.array([1.5, None, 0.0], dtype="Float64"),
+            "b": pd.array([True, None, False], dtype="boolean"),
+            "plain": [1, 2, 3],
+        }
+    )
+
+    assert oracle_store.fingerprint((frame,), {}) == "55b9f29e3576748a"
+    assert oracle_store.fingerprint((frame["i64"],), {"flag": frame["b"]}) == "e8a2213e1023a5a2"
+
+
 def test_a_series_keeps_its_name_index_and_dtype() -> None:
     series = pd.Series([1, None], index=["x", "y"], name="values", dtype="Int64")
 
