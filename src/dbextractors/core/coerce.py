@@ -40,7 +40,11 @@ Both agreed.
 ``coerce`` knows nothing about dialects — it is handed both as parameters and the
 dialect supplies the values.
 
-Mind pandas 1.5.3 (not 2.0): no ``dtype_backend``.
+The specification is pandas 1.5.3, not the pandas installed: every value in the
+targets and every ``row_hash`` was produced under it. Where pandas 2 would
+produce something else, the difference is handled here explicitly — see
+"Parsing date text the way pandas 1.5 did" below — and the tests hard-code the
+1.5.3 results.
 """
 
 from __future__ import annotations
@@ -53,7 +57,7 @@ from datetime import datetime as dt_datetime
 from datetime import time as dt_time
 from datetime import timedelta as dt_timedelta
 from decimal import Decimal
-from typing import Any, Iterable, Optional, Sequence
+from typing import Any, Iterable, Sequence
 
 import numpy as np
 import pandas as pd
@@ -166,7 +170,7 @@ def _is_missing(x: Any) -> bool:
 # --- Scalar converters -------------------------------------------------------
 
 
-def to_int_or_none(x: Any) -> Optional[int]:
+def to_int_or_none(x: Any) -> int | None:
     """To an integer, otherwise ``None``.
 
     A non-integral float (``3.5``) yields ``None``, not a rounded value — the
@@ -198,7 +202,7 @@ def to_int_or_none(x: Any) -> Optional[int]:
     return None
 
 
-def to_int_or_na(x: Any) -> Optional[int]:
+def to_int_or_na(x: Any) -> int | None:
     """Like ``to_int_or_none``, but it also tries types outside the list.
 
     The difference is the last branch: anything that is not ``int``, ``float`` or
@@ -233,7 +237,7 @@ def to_int_or_na(x: Any) -> Optional[int]:
     return int(value) if value.is_integer() else None
 
 
-def to_str_or_none(x: Any) -> Optional[str]:
+def to_str_or_none(x: Any) -> str | None:
     """To text; an empty string and ``nan`` become ``None``.
 
     An integral float is printed without the decimal part (``3.0`` -> ``'3'``),
@@ -251,7 +255,7 @@ def to_str_or_none(x: Any) -> Optional[str]:
     return None if stripped == "" or stripped.lower() == "nan" else text
 
 
-def to_bool(x: Any) -> Optional[bool]:
+def to_bool(x: Any) -> bool | None:
     """To a boolean. Unknown text yields ``None``, not ``False``.
 
     ``t``/``f`` are in the list because that is how PostgreSQL prints booleans.
@@ -298,8 +302,8 @@ def to_bool(x: Any) -> Optional[bool]:
 # `_parse_text` and `_parse_texts` are the only places that call
 # ``pd.to_datetime`` on text, and they cover all three.
 
-#: See (1) above. Empty on pandas 1.5, where per-element parsing is the default.
-_PER_ELEMENT: dict[str, str] = {} if pd.__version__.startswith("1.") else {"format": "mixed"}
+#: See (1) above.
+_PER_ELEMENT: dict[str, str] = {"format": "mixed"}
 
 
 def _utc_now() -> pd.Timestamp:
@@ -311,7 +315,7 @@ def _utc_now() -> pd.Timestamp:
 _DATEUTIL_DEFAULT = dt_datetime(1, 1, 1)
 
 
-def _with_numeric_offset(text: str) -> Optional[str]:
+def _with_numeric_offset(text: str) -> str | None:
     """Text whose zone dateutil resolves to ``tzlocal()`` — see (3) above.
 
     Returns the same instant as ISO text with a numeric UTC offset, which
@@ -377,7 +381,7 @@ def _parse_texts(values: pd.Series) -> Any:
     return parsed
 
 
-def to_date_str(x: Any) -> Optional[str]:
+def to_date_str(x: Any) -> str | None:
     """To ``YYYY-MM-DD``. Invalid and sentinel dates become ``None``.
 
     2 variants in the predecessor, 12 lines.
@@ -395,7 +399,7 @@ def to_date_str(x: Any) -> Optional[str]:
     return None
 
 
-def to_datetime_str(x: Any) -> Optional[str]:
+def to_datetime_str(x: Any) -> str | None:
     """To ``YYYY-MM-DD HH:MM:SS``. Invalid and sentinel values become ``None``.
 
     2 variants in the predecessor, 12 lines.
@@ -420,7 +424,7 @@ _TIMEDELTA_TOKEN = re.compile(r"(\d+(?:\.\d*)?)(\s*)([A-Za-z]+)")
 _SECONDS_PER_YEAR = 31_556_952
 
 
-def _timedelta_text(text: str) -> Optional[str]:
+def _timedelta_text(text: str) -> str | None:
     """``text`` rewritten so ``pd.to_timedelta`` reads it as pandas 1.5 did.
 
     pandas 1.5 and 2 disagree on three unit letters: 1.5 reads ``Y``/``y`` as
@@ -450,7 +454,7 @@ def _timedelta_text(text: str) -> Optional[str]:
     return "".join(parts)
 
 
-def to_time_str(x: Any) -> Optional[str]:
+def to_time_str(x: Any) -> str | None:
     """To ``HH:MM:SS``.
 
     It also copes with ``timedelta`` (that is how MySQL returns ``TIME``, which
@@ -490,7 +494,7 @@ def to_time_str(x: Any) -> Optional[str]:
     return f"{hours:02}:{minutes:02}:{seconds:02}"
 
 
-def to_jsonb(x: Any, *, ensure_ascii: bool = True) -> Optional[str]:
+def to_jsonb(x: Any, *, ensure_ascii: bool = True) -> str | None:
     """To text for a ``jsonb`` column.
 
     ``ensure_ascii`` is a parameter because two PostgreSQL extractors set it to
@@ -507,7 +511,7 @@ def to_jsonb(x: Any, *, ensure_ascii: bool = True) -> Optional[str]:
     return str(x)
 
 
-def _fast_temporal_series(series: pd.Series, invalid: frozenset[str], fmt: str) -> Optional[list]:
+def _fast_temporal_series(series: pd.Series, invalid: frozenset[str], fmt: str) -> list | None:
     """Vectorised conversion of a date column, or ``None`` when it is not possible.
 
     ``pd.to_datetime`` over a whole series is an order of magnitude faster than
@@ -554,7 +558,7 @@ def to_datetime_str_series(series: pd.Series) -> list:
     return fast if fast is not None else [to_datetime_str(v) for v in series]
 
 
-def fmt_int_for_csv(x: Any) -> Optional[str]:
+def fmt_int_for_csv(x: Any) -> str | None:
     """An integer for ``COPY``. The predecessor's ``_fmt_int_for_csv``.
 
     Mind the last branch: for an unknown type it returns an **empty string**, not
@@ -807,7 +811,7 @@ def _fix_carriage_returns(value: Any) -> Any:
     return value
 
 
-def fix_invalid_dates(df: pd.DataFrame, date_like_columns: Optional[set] = None) -> pd.DataFrame:
+def fix_invalid_dates(df: pd.DataFrame, date_like_columns: set | None = None) -> pd.DataFrame:
     """Invalid and sentinel dates to ``None``.
 
     This is not a plain sentinel substitution but a **four-step pass**, and the
@@ -863,7 +867,8 @@ def fix_invalid_dates(df: pd.DataFrame, date_like_columns: Optional[set] = None)
 
 #: The range a ``datetime64[ns]`` holds. pandas 1.5 turned anything outside it
 #: into ``NaT``.
-_NS_MIN, _NS_MAX = pd.Timestamp.min.to_pydatetime(), pd.Timestamp.max.to_pydatetime()
+_NS_MIN = pd.Timestamp.min.to_pydatetime(warn=False)
+_NS_MAX = pd.Timestamp.max.to_pydatetime(warn=False)
 
 
 def _in_ns_bounds(value: Any) -> bool:
@@ -1030,7 +1035,7 @@ _REPLACED_DATE_VALUES: tuple[str, ...] = (
 
 
 def convert_time_columns(
-    df: pd.DataFrame, overwrite_types: dict, orig_type_map: Optional[dict] = None
+    df: pd.DataFrame, overwrite_types: dict, orig_type_map: dict | None = None
 ) -> pd.DataFrame:
     """``TIME`` columns to ``HH:MM:SS``.
 
@@ -1192,7 +1197,7 @@ def _iter_column_types(definitions: Any) -> Iterable[tuple[Any, Any]]:
 def create_safe_dtype_mapping_from_definitions(
     all_columns: Sequence[str],
     original_column_types: Any,
-    type_map: Optional[dict] = None,
+    type_map: dict | None = None,
     show_debug: bool = False,
 ) -> dict:
     """Turn column definitions into a ``column -> target type`` map.

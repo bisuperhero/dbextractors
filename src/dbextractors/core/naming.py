@@ -55,23 +55,23 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Dict, Iterable, List, Optional, Sequence
+from typing import Dict, Iterable, List, Sequence
 
 from dbextractors.core._reserved_words import SQL_RESERVED_WORDS
 
 _log = logging.getLogger(__name__)
 
 __all__ = [
-    "SQL_RESERVED_WORDS",
     "DEFAULT_HASH_COLUMN",
     "METADATA_COLUMNS",
+    "SQL_RESERVED_WORDS",
     "ColumnNameCollision",
-    "create_column_mapping",
-    "mage_clean_name",
     "apply_reserved_word_prefix",
     "clean_column_name",
-    "target_column_names",
+    "create_column_mapping",
     "load_reserved_words",
+    "mage_clean_name",
+    "target_column_names",
 ]
 
 #: Name of the hash column when the configuration does not give one. In the
@@ -179,7 +179,7 @@ def clean_column_name(name: str, *, case_sensitive: bool = False) -> str:
 
 def target_column_names(
     src_columns: Sequence[str],
-    hash_column: Optional[str] = None,
+    hash_column: str | None = None,
     *,
     metadata: Iterable[str] = METADATA_COLUMNS,
 ) -> List[str]:

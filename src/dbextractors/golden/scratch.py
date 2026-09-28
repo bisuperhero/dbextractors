@@ -23,8 +23,8 @@ import os
 import re
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Iterator, Optional
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Iterator
 
 if TYPE_CHECKING:  # pragma: no cover
     import psycopg2.extensions
@@ -39,14 +39,14 @@ class UnsafeSchemaError(RuntimeError):
     """An attempt to touch a schema that does not belong to the golden test."""
 
 
-def scratch_schema_name(label: str = "", *, now: Optional[datetime] = None) -> str:
+def scratch_schema_name(label: str = "", *, now: datetime | None = None) -> str:
     """Builds a scratch schema name for which a collision is practically ruled out.
 
     Args:
         label: Optional label (typically the table name), so that it is possible
             to tell in the database what a schema belongs to.
     """
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     stamp = now.strftime("%Y%m%d%H%M%S")
     seed = f"{label}|{os.getpid()}|{uuid.uuid4()}"
     digest = hashlib.sha256(seed.encode("utf-8")).hexdigest()[:8]

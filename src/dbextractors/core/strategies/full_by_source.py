@@ -67,7 +67,7 @@ other strategies.
 
 from __future__ import annotations
 
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Tuple
 
 from dbextractors.core import status, target_pg
 from dbextractors.core.strategies.base import (
@@ -158,7 +158,7 @@ class FullBySourceStrategy(LoadStrategy):
 
     # -- steps -------------------------------------------------------------
 
-    def _fingerprint(self, ctx: LoadContext) -> Tuple[Optional[str], dict]:
+    def _fingerprint(self, ctx: LoadContext) -> Tuple[str | None, dict]:
         """A cheap fingerprint of the source, or ``(None, {})`` when off or failed.
 
         **A failed fingerprint never brings down the extraction.** It is an
@@ -173,7 +173,7 @@ class FullBySourceStrategy(LoadStrategy):
 
         by_lower_name = {c.lower(): c for c in ctx.source_names}
 
-        def find_column(name: Optional[str]) -> Optional[str]:
+        def find_column(name: str | None) -> str | None:
             if not name:
                 return None
             actual = by_lower_name.get(str(name).lower())
@@ -217,7 +217,7 @@ class FullBySourceStrategy(LoadStrategy):
         }
         return _fingerprint_key(parts), parts
 
-    def _can_skip(self, ctx: LoadContext, fingerprint: Optional[str]) -> bool:
+    def _can_skip(self, ctx: LoadContext, fingerprint: str | None) -> bool:
         """May this source be skipped?
 
         Three conditions, and all three must hold: a fingerprint exists, it
@@ -289,7 +289,7 @@ class FullBySourceStrategy(LoadStrategy):
         ctx: LoadContext,
         target_exists: bool,
         partitioned: bool,
-        fingerprint: Optional[str],
+        fingerprint: str | None,
         parts: dict,
     ) -> LoadResult:
         """The source reports zero rows. What happens to the target depends on whether it exists.
@@ -364,7 +364,7 @@ class FullBySourceStrategy(LoadStrategy):
         ctx: LoadContext,
         batch_size: int,
         partitioned: bool,
-        fingerprint: Optional[str],
+        fingerprint: str | None,
         parts: dict,
     ) -> LoadResult:
         """Stream the source into a staging table and swap the target's slice for it.
@@ -479,7 +479,7 @@ class FullBySourceStrategy(LoadStrategy):
         if ctx.source_label:
             target_pg.ensure_source_index(conn, ctx.target)
 
-    def _finish(self, ctx: LoadContext, fingerprint: Optional[str], parts: dict) -> None:
+    def _finish(self, ctx: LoadContext, fingerprint: str | None, parts: dict) -> None:
         """The fingerprint and the unique index. Both only **after** a successful transfer."""
         conn = ctx.target_conn
         if fingerprint and ctx.source_label:
@@ -528,7 +528,7 @@ def _hash_plan(ctx: LoadContext) -> Tuple[str, bool]:
     return str(name), flag is not None and _is_truthy(flag)
 
 
-def _all_columns(ctx: LoadContext, hash_column: Optional[str]) -> List[str]:
+def _all_columns(ctx: LoadContext, hash_column: str | None) -> List[str]:
     """Target columns. Multi-source adds ``_source`` at the end.
 
     It is added **only** for multi-source tables — giving it to all of them would

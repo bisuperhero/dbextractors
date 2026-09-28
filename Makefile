@@ -1,15 +1,16 @@
 .PHONY: venv install lint fix types test test-mage bench bench-write check verify-runtime db-up db-down clean
 
-# The runtime this package targets. The parity tests for `core/naming.py`
+# The image `core/naming.py` and the write path were replicated from. It is no
+# longer the runtime (that is v1.0.x), but the parity tests for the replicas
 # cannot run anywhere else — see NOTICE.
 MAGE_IMAGE := mageai/mageai:0.9.79
 
-PY := 3.10
+PY := 3.11
 VENV := .venv
 BIN := $(VENV)/bin
 
-# The target image is Python 3.10.19; uv fetches that exact version so that
-# development does not happen on something other than what this will run on.
+# The oldest supported Python, so that development does not quietly depend on
+# something newer. CI covers the newer ones.
 venv:
 	uv venv --python $(PY) $(VENV)
 

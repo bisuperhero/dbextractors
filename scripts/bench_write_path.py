@@ -35,7 +35,7 @@ import string
 import sys
 import time
 from pathlib import Path
-from typing import Callable, List, Optional, Sequence, Tuple
+from typing import Callable, List, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -144,7 +144,7 @@ def _timeit(fn: Callable[[], object], repeats: int = REPEATS) -> float:
 # --- Part 1: overhead around COPY, without a database -----------------------
 
 
-def bench_cpu(df: pd.DataFrame) -> Optional[List[Tuple[str, float]]]:
+def bench_cpu(df: pd.DataFrame) -> List[Tuple[str, float]] | None:
     try:
         from mage_ai.io.export_utils import clean_df_for_export, infer_dtypes
         from mage_ai.io.postgres import Postgres
@@ -196,7 +196,7 @@ class _FakeConn:
 # --- Part 2: real COPY throughput -------------------------------------------
 
 
-def bench_db(df: pd.DataFrame, dsn: Optional[str]) -> Optional[Tuple[float, int]]:
+def bench_db(df: pd.DataFrame, dsn: str | None) -> Tuple[float, int] | None:
     try:
         import psycopg2
 
@@ -241,7 +241,7 @@ def bench_db(df: pd.DataFrame, dsn: Optional[str]) -> Optional[Tuple[float, int]
         conn.close()
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rows", type=int, default=100_000)
     parser.add_argument(

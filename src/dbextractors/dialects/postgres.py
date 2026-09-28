@@ -50,7 +50,7 @@ from __future__ import annotations
 import logging
 import socket
 import urllib.parse
-from typing import TYPE_CHECKING, ClassVar, Iterator, List, Optional, Sequence
+from typing import TYPE_CHECKING, ClassVar, Iterator, List, Sequence
 
 import pandas as pd
 from sqlalchemy import text
@@ -224,9 +224,9 @@ class PostgresDialect(DictTypeMapDialect):
         self,
         engine: Engine,
         ref: TableRef,
-        where: Optional[str] = None,
+        where: str | None = None,
         *,
-        known_total_rows: Optional[int] = None,
+        known_total_rows: int | None = None,
         sample_size: int = 100,
     ) -> SizeEstimate:
         """``COUNT(*)`` plus a sample to estimate the row size.
@@ -273,11 +273,11 @@ class PostgresDialect(DictTypeMapDialect):
         self,
         columns: Sequence[str],
         ref: TableRef,
-        where: Optional[str] = None,
-        order_by: Optional[Sequence[str]] = None,
-        surrogate: Optional[SurrogateKey] = None,
+        where: str | None = None,
+        order_by: Sequence[str] | None = None,
+        surrogate: SurrogateKey | None = None,
         *,
-        column_types: Optional[dict] = None,
+        column_types: dict | None = None,
         convert_nchar: bool = False,
     ) -> str:
         clause = self.render_select_clause(
@@ -294,7 +294,7 @@ class PostgresDialect(DictTypeMapDialect):
         self,
         hashed_columns: Sequence[str],
         alias: str,
-        column_types: Optional[dict] = None,
+        column_types: dict | None = None,
     ) -> str:
         """**Does not exist.** For PostgreSQL the hash is computed in pandas.
 
@@ -312,10 +312,10 @@ class PostgresDialect(DictTypeMapDialect):
         self,
         ref: TableRef,
         *,
-        pk: Optional[str] = None,
-        timestamp_column: Optional[str] = None,
+        pk: str | None = None,
+        timestamp_column: str | None = None,
         aggregate_columns: Sequence[str] = (),
-        where: Optional[str] = None,
+        where: str | None = None,
     ) -> str:
         """As in the base class, only with a qualified table name."""
         sql = super().render_fingerprint(
@@ -354,4 +354,4 @@ def _schema(ref: TableRef) -> str:
     return ref.schema or DEFAULT_SOURCE_SCHEMA
 
 
-__all__ = ["PostgresDialect", "DEFAULT_SOURCE_SCHEMA"]
+__all__ = ["DEFAULT_SOURCE_SCHEMA", "PostgresDialect"]

@@ -60,7 +60,7 @@ import datetime as _dt
 import hashlib
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, List, Tuple
 
 from dbextractors.core.target_pg import (
     MAX_IDENTIFIER_LENGTH,
@@ -112,7 +112,7 @@ class PartitionSpec:
         }
 
 
-def parse_spec(value: Any, *, legacy_by_source: bool = False) -> Optional[PartitionSpec]:
+def parse_spec(value: Any, *, legacy_by_source: bool = False) -> PartitionSpec | None:
     """``partition_by`` from the configuration -> `PartitionSpec`, or ``None``.
 
     ``legacy_by_source`` is the existing ``partition_by_source: true``. It applies
@@ -155,7 +155,7 @@ def parse_spec(value: Any, *, legacy_by_source: bool = False) -> Optional[Partit
     )
 
 
-def from_settings(settings: dict) -> Optional[PartitionSpec]:
+def from_settings(settings: dict) -> PartitionSpec | None:
     """`PartitionSpec` from ``ctx.settings``, as a strategy sees it.
 
     ``settings`` is a flat dict (``dataclasses.asdict`` in the entry point), so the
@@ -269,9 +269,7 @@ def create_parent(conn: Any, target: TargetRef, like: TargetRef, spec: Partition
     )
 
 
-def ensure_default_partition(
-    conn: Any, target: TargetRef, spec: PartitionSpec
-) -> Optional[TargetRef]:
+def ensure_default_partition(conn: Any, target: TargetRef, spec: PartitionSpec) -> TargetRef | None:
     """Creates the catch-all ``DEFAULT`` partition if the spec asks for it.
 
     Without it, a single row that fits no partition brings the run down — including
@@ -356,7 +354,7 @@ def ensure_partitions_from_table(
     return [ensure_partition_for(conn, target, spec, v) for v in values if v is not None]
 
 
-def partition_key(conn: Any, target: TargetRef) -> Optional[str]:
+def partition_key(conn: Any, target: TargetRef) -> str | None:
     """What the target is really partitioned by, or ``None`` for an ordinary table.
 
     Takes only the first column of the key — the package never creates more than one.
@@ -376,8 +374,8 @@ def partition_key(conn: Any, target: TargetRef) -> Optional[str]:
 
 
 def effective_spec(
-    conn: Any, target: TargetRef, spec: Optional[PartitionSpec], log: Any = None
-) -> Optional[PartitionSpec]:
+    conn: Any, target: TargetRef, spec: PartitionSpec | None, log: Any = None
+) -> PartitionSpec | None:
     """The partitioning that actually applies. For an existing table, the table decides.
 
     Three cases:
@@ -421,7 +419,7 @@ def effective_spec(
     return spec
 
 
-def unique_index_columns(spec: Optional[PartitionSpec], pk: str) -> List[str]:
+def unique_index_columns(spec: PartitionSpec | None, pk: str) -> List[str]:
     """Columns of the unique index over a (possibly partitioned) target.
 
     PostgreSQL requires a unique index on a partitioned table to contain the
@@ -493,18 +491,18 @@ __all__ = [
     "RANGE_MODES",
     "VALID_MODES",
     "PartitionSpec",
-    "parse_spec",
-    "from_settings",
-    "period_start",
-    "period_bounds",
-    "partition_suffix",
-    "partition_ref",
-    "default_ref",
     "create_parent",
+    "default_ref",
+    "effective_spec",
     "ensure_default_partition",
     "ensure_partition_for",
     "ensure_partitions_from_table",
+    "from_settings",
+    "parse_spec",
     "partition_key",
-    "effective_spec",
+    "partition_ref",
+    "partition_suffix",
+    "period_bounds",
+    "period_start",
     "unique_index_columns",
 ]

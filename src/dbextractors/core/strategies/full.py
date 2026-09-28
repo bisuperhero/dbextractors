@@ -31,7 +31,7 @@ docs/legacy-compat.md.
 
 from __future__ import annotations
 
-from typing import List, Optional, Sequence
+from typing import List, Sequence
 
 import pandas as pd
 
@@ -243,11 +243,11 @@ class FullLoadStrategy(LoadStrategy):
     def _build_select(
         self,
         ctx: LoadContext,
-        hash_column: Optional[str],
+        hash_column: str | None,
         *,
         compute_hash: bool = True,
-        order_by: Optional[Sequence[str]] = None,
-        resume_from: Optional[tuple] = None,
+        order_by: Sequence[str] | None = None,
+        resume_from: tuple | None = None,
     ) -> str:
         """SELECT against the source, optionally carrying the ``row_hash`` expression.
 
@@ -308,7 +308,7 @@ class FullLoadStrategy(LoadStrategy):
     def read_batches(
         self,
         ctx: LoadContext,
-        hash_column: Optional[str],
+        hash_column: str | None,
         batch_size: int,
         *,
         compute_hash: bool = True,
@@ -349,8 +349,8 @@ class FullLoadStrategy(LoadStrategy):
         self,
         ctx: LoadContext,
         batch: pd.DataFrame,
-        hash_column: Optional[str],
-        promoted: Optional[dict] = None,
+        hash_column: str | None,
+        promoted: dict | None = None,
         *,
         compute_hash: bool = True,
     ) -> pd.DataFrame:
@@ -399,7 +399,7 @@ class FullLoadStrategy(LoadStrategy):
             strict_integer_precision=_is_truthy(ctx.settings.get("strict_integer_precision")),
         )
 
-    def _ensure_managed_columns(self, ctx: LoadContext, hash_column: Optional[str]) -> None:
+    def _ensure_managed_columns(self, ctx: LoadContext, hash_column: str | None) -> None:
         """Add `row_hash`, `_timestamp` and `_deleted_in_source` **before** the shadow.
 
         The shadow is created with ``LIKE <target>``, so it inherits the shape of
@@ -460,7 +460,7 @@ class FullLoadStrategy(LoadStrategy):
             )
             ctx.target_conn.commit()
 
-    def _finish(self, ctx: LoadContext, hash_column: Optional[str]) -> None:
+    def _finish(self, ctx: LoadContext, hash_column: str | None) -> None:
         """Generated columns and the unique index. Every strategy owes the target both."""
         conn = ctx.target_conn
         target_pg.ensure_generated_columns(
@@ -509,7 +509,7 @@ def _is_truthy(value: object) -> bool:
     return coerce.to_bool(value) is True
 
 
-def _pk_in_source(ctx: LoadContext) -> Optional[str]:
+def _pk_in_source(ctx: LoadContext) -> str | None:
     """The primary key under its **source** name, or ``None`` when it cannot be used.
 
     A query against the source needs the source name, not the target one: in the
@@ -528,7 +528,7 @@ def _pk_in_source(ctx: LoadContext) -> Optional[str]:
     return str(raw) if str(raw) in ctx.source_names else None
 
 
-def _resolved_pk(ctx: LoadContext) -> Optional[str]:
+def _resolved_pk(ctx: LoadContext) -> str | None:
     """The primary key in **target** naming.
 
     The configuration gives it under its source name, and that name may be a
@@ -541,7 +541,7 @@ def _resolved_pk(ctx: LoadContext) -> Optional[str]:
     return ctx.name_map.get(raw, raw)
 
 
-def _hash_column(ctx: LoadContext) -> Optional[str]:
+def _hash_column(ctx: LoadContext) -> str | None:
     """Name of the hash column in the target, or ``None`` when no hash is computed.
 
     ``compute_row_hash=False`` (used by a single forked predecessor) disables the
@@ -560,7 +560,7 @@ def _hash_column(ctx: LoadContext) -> Optional[str]:
     return ctx.name_map.get(configured, configured)
 
 
-def column_types(ctx: LoadContext, hash_column: Optional[str]) -> dict:
+def column_types(ctx: LoadContext, hash_column: str | None) -> dict:
     """Types of every target column — those from the source and those the package adds.
 
     ``ctx.overwrite_types`` only knows the source columns. Without the additions
@@ -577,7 +577,7 @@ def column_types(ctx: LoadContext, hash_column: Optional[str]) -> dict:
     return types
 
 
-def _all_columns(ctx: LoadContext, hash_column: Optional[str]) -> List[str]:
+def _all_columns(ctx: LoadContext, hash_column: str | None) -> List[str]:
     """Target table columns in the right order. The order is part of the contract.
 
     When the target already exists, **its** order is adopted — this package never
@@ -607,7 +607,7 @@ def _integer_columns(types: dict) -> dict:
 INT_PROMOTION_THRESHOLD = int(2_147_483_647 * 0.9)
 
 
-def _promote_types(ctx: LoadContext, batch: pd.DataFrame, hash_column: Optional[str]) -> dict:
+def _promote_types(ctx: LoadContext, batch: pd.DataFrame, hash_column: str | None) -> dict:
     """Promote types from the **first batch**, the way the predecessor does.
 
     Two promotions, both driven by actual data rather than by the catalogue:
@@ -662,7 +662,7 @@ def _binary_columns(types: dict) -> List[str]:
     return [name for name, pg_type in types.items() if (pg_type or "").upper().startswith("BYTEA")]
 
 
-def _pandas_hash_columns(ctx: LoadContext, hash_column: Optional[str]) -> Optional[List[str]]:
+def _pandas_hash_columns(ctx: LoadContext, hash_column: str | None) -> List[str] | None:
     """Which columns feed the hash when pandas computes it.
 
     Without this, a dialect with `hash_in_pandas` would ignore

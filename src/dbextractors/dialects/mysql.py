@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 import socket
 import urllib.parse
-from typing import TYPE_CHECKING, Any, ClassVar, Iterator, List, Optional, Sequence
+from typing import TYPE_CHECKING, Any, ClassVar, Iterator, List, Sequence
 
 import pandas as pd
 from sqlalchemy import text
@@ -73,7 +73,7 @@ class MySQLDialect(DictTypeMapDialect):
     )
 
     #: MySQL can store a date that is not NULL and does not exist either.
-    zero_datetime_literal: Optional[str] = "0000-00-00 00:00:00"
+    zero_datetime_literal: str | None = "0000-00-00 00:00:00"
 
     #: **Without this the whole result is pulled into the client's RAM.**
     #: SQLAlchemy 1.4 takes a buffered cursor for `mysqlconnector`, so
@@ -218,9 +218,9 @@ class MySQLDialect(DictTypeMapDialect):
         self,
         engine: Engine,
         ref: TableRef,
-        where: Optional[str] = None,
+        where: str | None = None,
         *,
-        known_total_rows: Optional[int] = None,
+        known_total_rows: int | None = None,
         sample_size: int = 100,
     ) -> SizeEstimate:
         """``COUNT(*)`` plus a sample to estimate the row size.
@@ -262,11 +262,11 @@ class MySQLDialect(DictTypeMapDialect):
         self,
         columns: Sequence[str],
         ref: TableRef,
-        where: Optional[str] = None,
-        order_by: Optional[Sequence[str]] = None,
-        surrogate: Optional[SurrogateKey] = None,
+        where: str | None = None,
+        order_by: Sequence[str] | None = None,
+        surrogate: SurrogateKey | None = None,
         *,
-        column_types: Optional[dict] = None,
+        column_types: dict | None = None,
         convert_nchar: bool = False,
     ) -> str:
         clause = self.render_select_clause(
@@ -283,7 +283,7 @@ class MySQLDialect(DictTypeMapDialect):
         self,
         hashed_columns: Sequence[str],
         alias: str,
-        column_types: Optional[dict] = None,
+        column_types: dict | None = None,
     ) -> str:
         """``SHA2(CONCAT_WS('||', COALESCE(CAST(`c` AS CHAR), '')…), 256)``.
 

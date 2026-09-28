@@ -29,7 +29,7 @@ import re
 import sys
 import time
 from pathlib import Path
-from typing import Any, List, Optional, Sequence, Tuple
+from typing import Any, List, Sequence, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
@@ -78,7 +78,7 @@ def expand_env(value: Any) -> Any:
 PERTURB_MARKER = "DBX_PERTURB"
 
 
-def _text_column(conn, schema: str, table: str, pk: str) -> Optional[str]:
+def _text_column(conn, schema: str, table: str, pk: str) -> str | None:
     """A text column that can be broken. Not the PK and nothing the package manages."""
     with conn.cursor() as cur:
         cur.execute(
@@ -94,7 +94,7 @@ def _text_column(conn, schema: str, table: str, pk: str) -> Optional[str]:
     return row[0] if row else None
 
 
-def perturb(conn, schema: str, table: str, pk: str, limit: int) -> Tuple[Optional[str], int]:
+def perturb(conn, schema: str, table: str, pk: str, limit: int) -> Tuple[str | None, int]:
     """Break part of the target so that the hash diff has something to repair.
 
     With no change in the source a hash run **transfers nothing** — which is the
@@ -159,7 +159,7 @@ def count_marker(conn, schema: str, table: str, column: str) -> int:
         return int(cur.fetchone()[0])
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", required=True, help="JSON: a list of {label, block, config}")
     parser.add_argument("--dialect", default="mysql")
@@ -226,7 +226,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                         f"{row['load_method']} is what gets tested)"
                     )
 
-                broken_column: Optional[str] = None
+                broken_column: str | None = None
                 if row["load_method"] == "hash" and args.perturb:
                     table = runners.target_table_name(config)
                     pk = _target_pk(config)
@@ -350,7 +350,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     for row in results:
         second = row.get("second_run_rows")
         note = "" if second is None else f"   2nd run: {second} rows"
-        print(f"  {row.get('verdict', '?'):<7} {row['label']:<32} " f"{row['load_method']}{note}")
+        print(f"  {row.get('verdict', '?'):<7} {row['label']:<32} {row['load_method']}{note}")
 
     from dbextractors.golden.model import VERDICT_MATCH_WITH_DEVIATIONS
 

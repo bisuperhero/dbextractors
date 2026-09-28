@@ -29,7 +29,7 @@ roughly once per batch, not once per row.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 __all__ = ["LoggerAdapter", "adapt"]
 
@@ -89,7 +89,7 @@ class LoggerAdapter:
         self._emit("exception", message, *args, **kwargs)
 
 
-def adapt(logger: Optional[Any]) -> Optional[Any]:
+def adapt(logger: Any | None) -> Any | None:
     """Wraps the logger if it needs wrapping. ``None`` stays ``None``.
 
     A standard `logging.Logger` needs no wrapper — it handles positional arguments

@@ -18,6 +18,6 @@ logger through so its output lands in the pipeline log::
 
 from dbextractors.entrypoint import run
 
-__all__ = ["run", "__version__"]
+__all__ = ["__version__", "run"]
 
 __version__ = "1.0.2"

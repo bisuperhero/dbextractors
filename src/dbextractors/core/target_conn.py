@@ -41,7 +41,7 @@ thing, nothing changes — `io_config.yaml` wins with the identical value.
 from __future__ import annotations
 
 import os
-from typing import Any, Mapping, Optional
+from typing import Any, Mapping
 
 from dbextractors.core import secrets
 
@@ -54,7 +54,7 @@ class TargetConnectionError(RuntimeError):
     """The target to write to could not be determined."""
 
 
-def _from_io_config(profile: str) -> Optional[str]:
+def _from_io_config(profile: str) -> str | None:
     """DSN from Mage's `io_config.yaml`, or ``None`` when it cannot be read.
 
     Returns ``None`` (not an exception) in every case where `io_config.yaml` is
@@ -130,7 +130,7 @@ def _quote(value: Any) -> str:
     return f"'{escaped}'"
 
 
-def _from_env_vars(source: Mapping[str, str]) -> Optional[str]:
+def _from_env_vars(source: Mapping[str, str]) -> str | None:
     host = source.get("POSTGRES_HOST")
     database = source.get("POSTGRES_DB")
     user = source.get("POSTGRES_USER")
@@ -141,9 +141,7 @@ def _from_env_vars(source: Mapping[str, str]) -> Optional[str]:
     return build_dsn(host, port, database, user, password)
 
 
-def resolve_target_dsn(
-    env: Optional[Mapping[str, str]] = None, *, profile: Optional[str] = None
-) -> str:
+def resolve_target_dsn(env: Mapping[str, str] | None = None, *, profile: str | None = None) -> str:
     """Where writing goes. The order of sources is described in the module header.
 
     ``profile`` is the root-level ``TARGET_PROFILE`` key from the pipeline

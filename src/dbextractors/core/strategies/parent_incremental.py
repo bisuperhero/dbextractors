@@ -59,7 +59,7 @@ closing the gap means changing that test on purpose.
 from __future__ import annotations
 
 from datetime import date
-from typing import Any, List, Optional
+from typing import Any, List
 
 from dbextractors.core import status, target_pg
 from dbextractors.core.strategies.base import (
@@ -130,8 +130,7 @@ class ParentIncrementalStrategy(LoadStrategy):
             )
         if not ctx.settings.get("incremental_parent_date_column"):
             raise StrategyError(
-                "parent_incremental: incremental_parent_date_column is missing from "
-                "LOAD_SETTINGS."
+                "parent_incremental: incremental_parent_date_column is missing from LOAD_SETTINGS."
             )
 
         fk_column = _parent_key(ctx)
@@ -241,7 +240,7 @@ class ParentIncrementalStrategy(LoadStrategy):
         cutoff: date,
         parent_ref: TargetRef,
         *,
-        total_rows: Optional[int] = None,
+        total_rows: int | None = None,
     ) -> LoadResult:
         """Load the window into a staging table and only then delete and insert.
 
@@ -432,4 +431,4 @@ def _insert_from_staging(conn: Any, staging: Any, target: Any, columns: List[str
         return int(cur.rowcount)
 
 
-__all__ = ["ParentIncrementalStrategy", "DEFAULT_PARENT_KEY", "DEFAULT_PARENT_ID"]
+__all__ = ["DEFAULT_PARENT_ID", "DEFAULT_PARENT_KEY", "ParentIncrementalStrategy"]

@@ -22,7 +22,7 @@ import socket
 import subprocess
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -102,7 +102,7 @@ def test_ensure_private_key_permissions_characterisation_mode_already_right(
 
 @pytest.mark.parametrize("key_path", ["", None])
 def test_ensure_private_key_permissions_characterisation_empty_path(
-    key_path: Optional[str],
+    key_path: str | None,
 ) -> None:
     old = ro.get("A-mysql", "ensure_private_key_permissions")
     # It must not fail, and it must not do anything.
@@ -167,7 +167,7 @@ def test_normalize_private_key_contents_characterisation(tmp_path: Path, content
 
 @pytest.mark.parametrize("key_path", ["", None])
 def test_normalize_private_key_contents_characterisation_empty_path(
-    key_path: Optional[str],
+    key_path: str | None,
 ) -> None:
     old = ro.get("A-mysql", "normalize_private_key_contents")
     assert old(key_path) is None
@@ -349,17 +349,17 @@ class _FakeProc:
     def __init__(self) -> None:
         self.pid = 424242
         self.terminate_calls = 0
-        self.wait_calls: list[Optional[float]] = []
+        self.wait_calls: list[float | None] = []
         self.communicate_calls = 0
 
     def terminate(self) -> None:
         self.terminate_calls += 1
 
-    def wait(self, timeout: Optional[float] = None) -> int:
+    def wait(self, timeout: float | None = None) -> int:
         self.wait_calls.append(timeout)
         return 0
 
-    def communicate(self, timeout: Optional[float] = None) -> tuple[bytes, bytes]:
+    def communicate(self, timeout: float | None = None) -> tuple[bytes, bytes]:
         self.communicate_calls += 1
         return (b"", b"")
 

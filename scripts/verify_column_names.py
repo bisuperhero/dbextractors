@@ -43,7 +43,7 @@ import argparse
 import sys
 from collections import Counter
 from pathlib import Path
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Sequence, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
@@ -155,7 +155,7 @@ def check(columns: Sequence[Column]) -> Tuple[int, List[str]]:
     return len(findings), lines
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--dsn", help="DSN of the target PostgreSQL; otherwise POSTGRES_* from the environment"

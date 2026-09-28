@@ -348,9 +348,9 @@ def test_days_back_does_not_affect_the_parent_window(conn, schema) -> None:
 
     result = ParentIncrementalStrategy().run(_ctx(conn, schema, source, settings=without_lookback))
 
-    assert (
-        result.rows_written > 0
-    ), "the parent is outside `days_back` but inside the deep cutoff -- it belongs in the window"
+    assert result.rows_written > 0, (
+        "the parent is outside `days_back` but inside the deep cutoff -- it belongs in the window"
+    )
 
 
 def test_a_legacy_target_without_row_hash_is_extended_before_staging(conn, schema) -> None:

@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, List, Tuple
 
 from dbextractors.golden.model import Difference, Level
 
@@ -218,7 +218,7 @@ def classify(
     return real, accepted
 
 
-def match(level: Level, diff: Difference) -> Optional[Deviation]:
+def match(level: Level, diff: Difference) -> Deviation | None:
     """Which rule covers the difference, or ``None``."""
     for rule in DEVIATIONS:
         if rule.level == level and rule.matches(diff):

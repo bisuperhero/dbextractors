@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar, Iterator, Optional, Sequence
+from typing import TYPE_CHECKING, Any, ClassVar, Iterator, Sequence
 
 if TYPE_CHECKING:  # pragma: no cover
     import pandas as pd
@@ -57,8 +57,8 @@ class TableRef:
     """
 
     name: str
-    schema: Optional[str] = None
-    database: Optional[str] = None
+    schema: str | None = None
+    database: str | None = None
 
 
 @dataclass(frozen=True)
@@ -84,7 +84,7 @@ class ColumnDef:
     #: Firebird needs the subtype and scale, MSSQL the length of binary types,
     #: MySQL the unsigned flag. It goes in here so the signature does not swell.
     meta: dict = field(default_factory=dict)
-    target_name: Optional[str] = None
+    target_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -108,8 +108,8 @@ class SurrogateKey:
     """Surrogate key configuration (``surrogate_key_enabled``/``_definition``)."""
 
     enabled: bool
-    alias: Optional[str] = None
-    expr: Optional[str] = None
+    alias: str | None = None
+    expr: str | None = None
 
 
 # --- The interface ---------------------------------------------------------
@@ -154,7 +154,7 @@ class SourceDialect(ABC):
     #: `0000-00-00 00:00:00`; the incremental window has to flatten it to NULL,
     #: otherwise `COALESCE` would never reach for `created_at`. The other
     #: dialects have no zero date and leave `None`.
-    zero_datetime_literal: Optional[str] = None
+    zero_datetime_literal: str | None = None
 
     #: Is ``row_hash`` computed in pandas instead of on the source side? For
     #: PostgreSQL it is, and **that is not a choice**: the pandas digest is the
@@ -211,9 +211,9 @@ class SourceDialect(ABC):
         self,
         engine: Engine,
         ref: TableRef,
-        where: Optional[str] = None,
+        where: str | None = None,
         *,
-        known_total_rows: Optional[int] = None,
+        known_total_rows: int | None = None,
         sample_size: int = 100,
     ) -> SizeEstimate:
         """Estimate the row count and the volume of data.
@@ -251,7 +251,7 @@ class SourceDialect(ABC):
         """
         return self.quote_ident(name)
 
-    def render_column_expr(self, column_name: str, surrogate: Optional[SurrogateKey]) -> str:
+    def render_column_expr(self, column_name: str, surrogate: SurrogateKey | None) -> str:
         """One expression for the SELECT list, honouring the surrogate key.
 
         The predecessors have 5 variants of this, but they all differ **only in
@@ -281,9 +281,9 @@ class SourceDialect(ABC):
     def render_select_clause(
         self,
         column_names: Sequence[str],
-        surrogate: Optional[SurrogateKey] = None,
+        surrogate: SurrogateKey | None = None,
         *,
-        column_types: Optional[dict] = None,
+        column_types: dict | None = None,
         convert_nchar: bool = False,
     ) -> str:
         """The SELECT list. Identical across all 15 predecessor files bar the quoting.
@@ -322,10 +322,10 @@ class SourceDialect(ABC):
         self,
         ref: TableRef,
         *,
-        pk: Optional[str] = None,
-        timestamp_column: Optional[str] = None,
+        pk: str | None = None,
+        timestamp_column: str | None = None,
         aggregate_columns: Sequence[str] = (),
-        where: Optional[str] = None,
+        where: str | None = None,
     ) -> str:
         """A single aggregate query that tells whether the source has changed.
 
@@ -374,7 +374,7 @@ class SourceDialect(ABC):
         """
         return cutoff.strftime("%Y-%m-%d") if hasattr(cutoff, "strftime") else cutoff
 
-    def render_key_expr(self, pk: str, surrogate: Optional[SurrogateKey] = None) -> str:
+    def render_key_expr(self, pk: str, surrogate: SurrogateKey | None = None) -> str:
         """The expression that addresses the primary key in a ``WHERE`` clause.
 
         It differs from `render_column_expr` in having no ``AS`` — an alias is a
@@ -386,7 +386,7 @@ class SourceDialect(ABC):
         return self.quote_ident(pk)
 
     def render_key_filter(
-        self, pk: str, keys: Sequence[Any], surrogate: Optional[SurrogateKey] = None
+        self, pk: str, keys: Sequence[Any], surrogate: SurrogateKey | None = None
     ) -> str:
         """``pk IN (…)`` for fetching specific rows by key.
 
@@ -411,11 +411,11 @@ class SourceDialect(ABC):
         self,
         columns: Sequence[str],
         ref: TableRef,
-        where: Optional[str] = None,
-        order_by: Optional[Sequence[str]] = None,
-        surrogate: Optional[SurrogateKey] = None,
+        where: str | None = None,
+        order_by: Sequence[str] | None = None,
+        surrogate: SurrogateKey | None = None,
         *,
-        column_types: Optional[dict] = None,
+        column_types: dict | None = None,
         convert_nchar: bool = False,
     ) -> str:
         """The whole SELECT against the source.
@@ -431,7 +431,7 @@ class SourceDialect(ABC):
         self,
         hashed_columns: Sequence[str],
         alias: str,
-        column_types: Optional[dict] = None,
+        column_types: dict | None = None,
     ) -> str:
         """A SQL expression that computes ``row_hash`` **on the source side**.
 

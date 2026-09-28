@@ -13,43 +13,50 @@ description = "Table extraction from MySQL, MSSQL, PostgreSQL and Firebird into 
 readme = "README.md"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Robert Junek", email = "robert@bisuperhero.cz" }]
-keywords = ["etl", "postgresql", "mysql", "mssql", "firebird", "data-pipeline", "mage"]
+keywords = ["etl", "postgresql", "mysql", "mssql", "firebird", "data-pipeline", "dagster"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
-    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Database",
 ]
 
-# The target runtime is the Mage 0.9.79 image, which is Python 3.10.19 and
-# cannot be raised. The upper bound is deliberate: installation on 3.11+ should
-# fail at `pip install`, not later in production. An earlier attempt at this
-# problem used a library that targeted a newer ecosystem and died on exactly
-# that, so the wall belongs in the metadata, not only in CI.
-requires-python = ">=3.10,<3.11"
+# Python 3.11 is the floor: the runtime is Dagster on a current Python, and the
+# last release for the Mage 0.9.79 image (Python 3.10) is the v1.0.x line —
+# Mage deployments stay on it. No upper bound, so a new Python does not need a
+# release of this package to be installable; CI says which ones are tested.
+requires-python = ">=3.11"
 
-# Pinned to what the target image actually ships, read off a running
-# container rather than guessed:
-#   Python 3.10.19 | pandas 1.5.3 | SQLAlchemy 1.4.54 | numpy 1.26.4
-#   psycopg2 2.9.3 | mysql-connector-python 8.4.0 | pymssql 2.3.13 | fdb 2.0.4
-# The package is installed INTO that image, so loose ranges would only add the
-# risk of pip pulling in something incompatible on the way.
+# Ranges, not pins: the package is installed next to whatever the orchestrator
+# brings. The upper bounds stop at the next major version — the one allowed to
+# break an API this package relies on.
+#
+# The lower bound on pandas is not arbitrary. Every `row_hash` in production was
+# computed under pandas 1.5.3, and the places where pandas 2 would compute a
+# different one are handled explicitly (`core/hashing.py`, `core/coerce.py`)
+# and pinned by golden tests with the 1.5.3 values hard-coded. Those tests are
+# what a new pandas has to pass, not this range.
 dependencies = [
-    "SQLAlchemy==1.4.54",
-    "pandas==1.5.3",
-    "numpy==1.26.4",
+    "SQLAlchemy>=2.0,<3",
+    "pandas>=2.2,<3",
+    "numpy>=1.26,<3",
 ]
 
 [project.optional-dependencies]
-# NOTE: inside the target image psycopg2 (2.9.3, built from source) and every
-# driver below are already installed. These extras are for running OUTSIDE it
-# (CI, local pytest). Install bare `dbextractors` into the image itself —
-# otherwise `psycopg2-binary` collides with the image's `psycopg2`.
-target = ["psycopg2-binary>=2.9.3,<2.10"]
-mysql = ["mysql-connector-python==8.4.0"]
-mssql = ["pymssql==2.3.13"]
-firebird = ["fdb==2.0.4"]
+# NOTE: an image that already ships `psycopg2` (built from source) should install
+# bare `dbextractors` — `psycopg2-binary` next to it collides.
+target = ["psycopg2-binary>=2.9.3,<3"]
+mysql = ["mysql-connector-python>=8.4,<27"]
+mssql = ["pymssql>=2.3.13,<3"]
+# `firebird-driver` is the maintained successor of `fdb`, and `sqlalchemy-firebird`
+# 2.x is the SQLAlchemy 2 dialect on top of it (URL scheme `firebird+firebird`).
+# It needs the Firebird 3+ client library, `libfbclient.so.2`, on the system.
+firebird = ["sqlalchemy-firebird>=2,<3", "firebird-driver>=1.10,<2"]
 
 # Empty on purpose, and kept rather than deleted so that `pip install
 # dbextractors[ssh]` does not break for anyone who already writes it.
@@ -68,16 +75,16 @@ firebird = ["fdb==2.0.4"]
 ssh = []
 
 # The comparison harness. It runs standalone — it is a tool, not a test.
-golden = ["psycopg2-binary>=2.9.3,<2.10", "PyYAML>=6.0,<7"]
+golden = ["psycopg2-binary>=2.9.3,<3", "PyYAML>=6.0,<7"]
 
 dev = [
     # The source drivers are dev dependencies because the live source tests need
     # them; a deployment installs only the extras for the sources it actually
     # reads from.
     "dbextractors[target,golden,mysql,mssql,firebird]",
-    "pytest==7.4.4",
-    "ruff==0.6.9",
-    "mypy==1.11.2",
+    "pytest==9.1.1",
+    "ruff==0.16.9",
+    "mypy==2.3.1",
     "types-PyYAML",
     "types-python-dateutil",
 ]
@@ -104,21 +111,21 @@ dbextractors = ["py.typed"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py311"
 src = ["src", "tests"]
 extend-exclude = []
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "RUF"]
 ignore = [
-    "UP006",  # `dict` vs `Dict` — fine on 3.10, but not in every runtime context
-    "UP007",  # `X | None` fails in annotations evaluated at run time on 3.10
+    "UP006",  # `dict` vs `Dict` — a style change across the codebase, not a fix
     "UP035",
-    # `isinstance(x, int | np.integer)` builds a type object on every call and
-    # is 1.9x slower than the tuple form (measured over 2M calls: 0.196 s vs
-    # 0.105 s). In `core/coerce.py` these checks run on every value of every
-    # column, so it matters there.
-    "UP038",
+    # No "UP038" any more: ruff removed the rule, so ignoring it only warns. Its
+    # reason stands, though — `isinstance(x, int | np.integer)` builds a type
+    # object on every call and is 1.9x slower than the tuple form (measured over
+    # 2M calls: 0.196 s vs 0.105 s). In `core/coerce.py` these checks run on
+    # every value of every column, so keep the tuple form there.
+    #
     # Typographic characters (em dashes, curly quotes) are used throughout the
     # prose in docstrings and comments.
     "RUF001",  # ambiguous unicode in an identifier
@@ -130,7 +137,7 @@ ignore = [
 "tests/**" = ["E501"]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 files = ["src"]
 ignore_missing_imports = true
 warn_unused_ignores = true

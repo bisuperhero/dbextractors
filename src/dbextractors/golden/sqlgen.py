@@ -46,7 +46,7 @@ from enum import Enum
 from typing import Collection
 
 
-class Family(str, Enum):
+class Family(str, Enum):  # noqa: UP042 — StrEnum would change what str() returns
     """Class of a type. Decides which aggregates make sense."""
 
     NUMERIC_EXACT = "numeric_exact"
@@ -183,9 +183,7 @@ def build_column_aggregates(
     elif family is Family.NUMERIC_FLOAT:
         # NaN and Infinity are kept out of the sum — a single NaN would swallow
         # it and throw away the information about the whole rest of the column.
-        finite = (
-            f"{col} = {col} AND {col} <> 'Infinity'::float8 " f"AND {col} <> '-Infinity'::float8"
-        )
+        finite = f"{col} = {col} AND {col} <> 'Infinity'::float8 AND {col} <> '-Infinity'::float8"
         exprs["sum"] = f"sum({col}::numeric) FILTER (WHERE {finite})::text"
         exprs["min"] = f"min({col}) FILTER (WHERE {finite})::text"
         exprs["max"] = f"max({col}) FILTER (WHERE {finite})::text"

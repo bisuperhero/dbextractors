@@ -185,9 +185,9 @@ def test_extra_column_is_dropped_and_the_run_continues(
     with caplog.at_level(logging.WARNING):
         result = cls().run(ctx)
 
-    assert NEW_COLUMN not in _target_columns(
-        conn, schema
-    ), f"{name}: a strategy that touches existing data must not change the target's shape"
+    assert NEW_COLUMN not in _target_columns(conn, schema), (
+        f"{name}: a strategy that touches existing data must not change the target's shape"
+    )
     assert result.rows_written > 0, f"{name}: not a single row was written"
 
 
@@ -205,9 +205,9 @@ def test_dropping_a_column_is_visible_in_the_log(conn, schema, caplog, name, cls
         cls().run(ctx)
 
     messages = [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
-    assert any(
-        NEW_COLUMN in m for m in messages
-    ), f"{name}: dropping column {NEW_COLUMN!r} is not visible in the log. Messages: {messages}"
+    assert any(NEW_COLUMN in m for m in messages), (
+        f"{name}: dropping column {NEW_COLUMN!r} is not visible in the log. Messages: {messages}"
+    )
 
 
 def test_full_load_adopts_the_column(conn, schema) -> None:
@@ -240,7 +240,7 @@ def test_full_load_does_not_reorder_the_original_columns(conn, schema) -> None:
     FullLoadStrategy().run(ctx)
 
     after = _target_columns(conn, schema)
-    assert (
-        after[: len(before)] == before
-    ), f"the order of the original columns changed: {before} -> {after}"
+    assert after[: len(before)] == before, (
+        f"the order of the original columns changed: {before} -> {after}"
+    )
     assert after[len(before) :] == [NEW_COLUMN]

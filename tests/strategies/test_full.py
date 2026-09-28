@@ -612,9 +612,9 @@ def test_reading_is_ordered_by_the_pk(conn, schema) -> None:
 
     reads = [s for s in dialect.seen_sql if s.startswith("SELECT")]
     assert reads, "the strategy read nothing"
-    assert all(
-        "ORDER BY `id`" in s for s in reads
-    ), f"reads are not ordered by the PK, recovery would lose rows: {reads}"
+    assert all("ORDER BY `id`" in s for s in reads), (
+        f"reads are not ordered by the PK, recovery would lose rows: {reads}"
+    )
 
 
 def test_without_a_pk_nothing_is_ordered(conn, schema) -> None:

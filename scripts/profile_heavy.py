@@ -23,7 +23,7 @@ import string
 import sys
 import time
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import Sequence
 
 import pandas as pd
 
@@ -77,7 +77,7 @@ def _timed(label: str, fn) -> float:
     return delta
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rows", type=int, default=5000)
     parser.add_argument("--kb", type=int, default=12)

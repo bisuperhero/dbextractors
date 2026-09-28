@@ -25,7 +25,7 @@ import hashlib
 import sys
 import time
 from pathlib import Path
-from typing import List, Optional, Sequence
+from typing import List, Sequence
 
 import numpy as np
 import pandas as pd
@@ -69,7 +69,7 @@ def legacy_path(df: pd.DataFrame, columns: List[str]) -> pd.Series:
     return df.apply(_row_hash, axis=1)
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rows", type=int, default=100_000)
     args = parser.parse_args(argv)

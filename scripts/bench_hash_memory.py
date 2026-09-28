@@ -31,7 +31,7 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import List, Optional, Sequence
+from typing import List, Sequence
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
@@ -100,7 +100,7 @@ def _run(runner, config: dict, schema: str, log, interval: float) -> dict:
     }
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--dialect", default="mysql")

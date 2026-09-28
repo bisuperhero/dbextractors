@@ -48,7 +48,7 @@ from __future__ import annotations
 import logging
 import random
 import time
-from typing import Any, Callable, Iterator, Optional
+from typing import Any, Callable, Iterator
 
 import pandas as pd
 
@@ -111,9 +111,9 @@ def read_with_resume(
     engine: Any,
     batch_size: int,
     *,
-    build_sql: Callable[[Optional[Any]], str],
-    pk_in_batch: Optional[str],
-    log: Optional[Callable[..., None]] = None,
+    build_sql: Callable[[Any | None], str],
+    pk_in_batch: str | None,
+    log: Callable[..., None] | None = None,
     attempts: int = DEFAULT_ATTEMPTS,
     base_delay: float = DEFAULT_BASE_DELAY,
     max_delay: float = DEFAULT_MAX_DELAY,
@@ -150,7 +150,7 @@ def read_with_resume(
     been received yet — starts over. The caller therefore need not deal with
     duplicates.
     """
-    last_key: Optional[Any] = None
+    last_key: Any | None = None
     saw_row = False
     yielded_any = False
 
@@ -205,12 +205,12 @@ def read_with_resume(
 
 def _why_cannot_resume(
     err: BaseException,
-    pk_in_batch: Optional[str],
+    pk_in_batch: str | None,
     saw_row: bool,
     yielded_any: bool,
     attempt: int,
     attempts: int,
-) -> Optional[str]:
+) -> str | None:
     """The reason not to continue, or ``None`` when resuming is possible.
 
     Returns text for the log, not a bool — when a run fails, what matters is **why**
@@ -259,4 +259,4 @@ def retry_kwargs_from_settings(settings: Any) -> dict:
     return kwargs
 
 
-__all__ = ["read_with_resume", "is_temporary_error", "retry_kwargs_from_settings"]
+__all__ = ["is_temporary_error", "read_with_resume", "retry_kwargs_from_settings"]

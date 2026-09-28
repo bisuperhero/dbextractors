@@ -61,7 +61,6 @@ from typing import (
     ClassVar,
     Iterator,
     List,
-    Optional,
     Sequence,
     TypeVar,
 )
@@ -148,7 +147,7 @@ class FirebirdDialect(SourceDialect):
     text_like_types: frozenset = frozenset()
 
     #: Firebird has no zero date (unlike MySQL).
-    zero_datetime_literal: Optional[str] = None
+    zero_datetime_literal: str | None = None
 
     #: The source cannot compute the hash, so pandas does — as for PostgreSQL.
     #: See the module docstring; it is an **added column** against today.
@@ -313,9 +312,9 @@ class FirebirdDialect(SourceDialect):
         self,
         engine: Engine,
         ref: TableRef,
-        where: Optional[str] = None,
+        where: str | None = None,
         *,
-        known_total_rows: Optional[int] = None,
+        known_total_rows: int | None = None,
         sample_size: int = 100,
     ) -> SizeEstimate:
         """``COUNT(*)`` plus the row size **from metadata**, not from a sample.
@@ -396,11 +395,11 @@ class FirebirdDialect(SourceDialect):
         self,
         columns: Sequence[str],
         ref: TableRef,
-        where: Optional[str] = None,
-        order_by: Optional[Sequence[str]] = None,
-        surrogate: Optional[SurrogateKey] = None,
+        where: str | None = None,
+        order_by: Sequence[str] | None = None,
+        surrogate: SurrogateKey | None = None,
         *,
-        column_types: Optional[dict] = None,
+        column_types: dict | None = None,
         convert_nchar: bool = False,
     ) -> str:
         """The whole SELECT against a Firebird source, identifiers in double quotes.
@@ -634,9 +633,9 @@ def _retry(
 
 
 __all__ = [
-    "FirebirdDialect",
     "DEFAULT_CHARSET",
-    "FIREBIRD_EPOCH",
     "FB_TYPE_NAMES",
+    "FIREBIRD_EPOCH",
+    "FirebirdDialect",
     "fb_type_to_pg",
 ]

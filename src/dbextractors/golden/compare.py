@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Collection, List, Optional
+from typing import TYPE_CHECKING, Collection, List
 
 from dbextractors.golden import introspect, sqlgen
 from dbextractors.golden import progress as progress_mod
@@ -50,7 +50,7 @@ class CompareOptions:
 
     #: Key used for the row-by-row comparison. When ``None``, the primary key or
     #: the narrowest unique index is looked up.
-    key_columns: Optional[list[str]] = None
+    key_columns: list[str] | None = None
     #: Column holding the row hash. When the tables do not have it, a substitute
     #: is computed and level 5 is marked approximate.
     hash_column: str = DEFAULT_HASH_COLUMN
@@ -661,9 +661,9 @@ def compare_tables(
     conn: psycopg2.extensions.connection,
     left: Relation,
     right: Relation,
-    options: Optional[CompareOptions] = None,
-    label: Optional[str] = None,
-    progress: Optional[progress_mod.Progress] = None,
+    options: CompareOptions | None = None,
+    label: str | None = None,
+    progress: progress_mod.Progress | None = None,
 ) -> TableReport:
     """Compares two tables across all five levels.
 

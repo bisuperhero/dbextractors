@@ -33,7 +33,7 @@ import argparse
 import sys
 import time
 from pathlib import Path
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Sequence, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
@@ -143,7 +143,7 @@ def transfer(conn, source: TargetRef, target: TargetRef, limit: int) -> Tuple[in
     return written, seconds
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("tables", nargs="*", default=None, help="'schema.table', may be repeated")
     parser.add_argument("--dsn")

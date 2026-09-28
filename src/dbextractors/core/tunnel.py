@@ -34,7 +34,7 @@ import subprocess
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Callable, Iterator, Literal, Optional, cast
+from typing import Any, Callable, Iterator, Literal, cast
 
 from dbextractors.core import secrets
 from dbextractors.core.retry import wait_for_port
@@ -227,9 +227,9 @@ def resolve_connection_mode(config: dict) -> ConnectionMode:
 @contextmanager
 def open_tunnel(
     source_db: dict,
-    mode: Optional[ConnectionMode] = None,
+    mode: ConnectionMode | None = None,
     *,
-    probe: Optional[Callable[[str, int], bool]] = None,
+    probe: Callable[[str, int], bool] | None = None,
     show_debug: bool = False,
 ) -> Iterator[TunnelAddress]:
     """Builds the tunnel (or does not) and returns the address to connect to.
@@ -291,7 +291,7 @@ def open_tunnel(
 def _probe_direct(
     host: str,
     port: int,
-    probe: Optional[Callable[[str, int], bool]],
+    probe: Callable[[str, int], bool] | None,
     *,
     show_debug: bool,
 ) -> bool:

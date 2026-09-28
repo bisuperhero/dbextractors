@@ -28,7 +28,7 @@ Mage kwargs (``execution_date``, ``block_uuid``, …) is ignored. See
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, List, Optional, cast
+from typing import TYPE_CHECKING, Any, List, cast
 
 import pandas as pd
 
@@ -104,7 +104,7 @@ def resolve_dialect(name: str):
 def run(
     config: dict,
     dialect: str,
-    logger: Optional[logging.Logger] = None,
+    logger: logging.Logger | None = None,
     **kwargs: Any,
 ) -> pd.DataFrame:
     """Perform one extraction according to the configuration.
@@ -335,7 +335,7 @@ def _tunnel_params(parsed, source_dialect) -> dict:
     return params
 
 
-def resolve_databases(parsed, *, logger=None) -> Optional[List[str]]:
+def resolve_databases(parsed, *, logger=None) -> List[str] | None:
     """Which source databases the run should go over.
 
     Three different states that must not be confused:
@@ -396,12 +396,12 @@ def build_context(
     source_dialect,
     *,
     logger=None,
-    database: Optional[str] = None,
-    source_label: Optional[str] = None,
+    database: str | None = None,
+    source_label: str | None = None,
     is_first_source: bool = True,
     is_last_source: bool = True,
-    address: Optional[Any] = None,
-    runtime: Optional[dict] = None,
+    address: Any | None = None,
+    runtime: dict | None = None,
 ) -> LoadContext:
     """Assemble a `LoadContext` from the parsed configuration.
 
@@ -549,7 +549,7 @@ def _required_columns(columns: List[Any], load_settings) -> set:
     pk = load_settings.primary_column
     hash_col = load_settings.hash_column
 
-    candidates: tuple[Optional[str], ...]
+    candidates: tuple[str | None, ...]
     if method == "incremental":
         if load_settings.incremental_date_column:
             candidates = (pk, load_settings.incremental_date_column)
@@ -594,7 +594,7 @@ def _select_columns(columns: List[Any], table_cfg, load_settings) -> List[Any]:
     return out
 
 
-def _with_target_names(columns: List[Any], hash_column: Optional[str]) -> List[Any]:
+def _with_target_names(columns: List[Any], hash_column: str | None) -> List[Any]:
     """Fill in the target names from `core.naming`. The target names are frozen."""
     import dataclasses
 
@@ -607,7 +607,7 @@ def _with_target_names(columns: List[Any], hash_column: Optional[str]) -> List[A
     ]
 
 
-def _settings_dict(load_settings, runtime: Optional[dict] = None) -> dict:
+def _settings_dict(load_settings, runtime: dict | None = None) -> dict:
     """`LoadSettingsConfig` -> the dict the strategies expect.
 
     The strategies take a dict on purpose: the keys are a frozen contract and a
@@ -633,7 +633,7 @@ def _settings_dict(load_settings, runtime: Optional[dict] = None) -> dict:
     return out
 
 
-def _attach_session_sql(engine, source_dialect, logger: Optional[logging.Logger] = None) -> None:
+def _attach_session_sql(engine, source_dialect, logger: logging.Logger | None = None) -> None:
     """Run ``dialect.session_sql`` on every new connection to the source.
 
     It cannot be done through ``connect_args`` — ``mysql-connector`` has no
@@ -674,7 +674,7 @@ def _attach_session_sql(engine, source_dialect, logger: Optional[logging.Logger]
             cur.close()
 
 
-def _target_connection(logger: Optional[logging.Logger] = None, profile: Optional[str] = None):
+def _target_connection(logger: logging.Logger | None = None, profile: str | None = None):
     """A connection to the target PostgreSQL with autocommit **off**.
 
     The target is resolved by `core.target_conn`, not by the golden test's
@@ -713,7 +713,7 @@ def _target_connection(logger: Optional[logging.Logger] = None, profile: Optiona
     return conn
 
 
-def status_row(ctx: LoadContext, result: LoadResult, *, address: Optional[Any] = None) -> dict:
+def status_row(ctx: LoadContext, result: LoadResult, *, address: Any | None = None) -> dict:
     """The status row of one source. The columns are the predecessors' ``_build_status_df``.
 
     Three of them are new, and each answers a question that cannot be answered
@@ -745,7 +745,7 @@ def status_row(ctx: LoadContext, result: LoadResult, *, address: Optional[Any] =
 
 
 def status_frame(
-    ctx: LoadContext, result: LoadResult, *, address: Optional[Any] = None
+    ctx: LoadContext, result: LoadResult, *, address: Any | None = None
 ) -> pd.DataFrame:
     """A one-row status DataFrame. A shortcut for a caller with a single source."""
     from dbextractors.core import status as status_module
@@ -754,11 +754,11 @@ def status_frame(
 
 
 __all__ = [
-    "run",
-    "build_context",
-    "resolve_dialect",
-    "status_frame",
-    "status_row",
     "EntrypointError",
     "SourceExtractionError",
+    "build_context",
+    "resolve_dialect",
+    "run",
+    "status_frame",
+    "status_row",
 ]

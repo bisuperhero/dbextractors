@@ -23,7 +23,7 @@ from __future__ import annotations
 import re
 from typing import Iterable, List
 
-__all__ = ["MASK", "dsn_secrets", "redact", "redact_url", "redact_dsn", "redact_private_key"]
+__all__ = ["MASK", "dsn_secrets", "redact", "redact_dsn", "redact_private_key", "redact_url"]
 
 #: What the password is replaced with. Deliberately **not** an empty string — the
 #: log should show that a password was there and was masked, not that there was none.

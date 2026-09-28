@@ -33,7 +33,7 @@ import argparse
 import hashlib
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Sequence, Tuple
 
 import pandas as pd
 
@@ -66,9 +66,9 @@ def decode_bytes(df: pd.DataFrame) -> pd.DataFrame:
         if not series.map(lambda v: isinstance(v, (bytes, bytearray))).any():
             continue
         df[col] = series.map(
-            lambda v: v.decode("utf-8", errors="replace")
-            if isinstance(v, (bytes, bytearray))
-            else v
+            lambda v: (
+                v.decode("utf-8", errors="replace") if isinstance(v, (bytes, bytearray)) else v
+            )
         )
     return df
 
@@ -97,7 +97,7 @@ def fix_known_divergences(df: pd.DataFrame, types: Dict[str, str]) -> pd.DataFra
 
 def probe_table(
     conn, table: str, limit: int
-) -> Optional[Tuple[str, int, int, int, int, int, List[str]]]:
+) -> Tuple[str, int, int, int, int, int, List[str]] | None:
     cols = pd.read_sql(f"SHOW COLUMNS FROM `{table}`", conn)
     names = cols["Field"].tolist()
     types = dict(zip(cols["Field"], cols["Type"].astype(str), strict=False))
@@ -135,7 +135,7 @@ def probe_table(
     return table, len(df), len(binary_cols), raw, after_decode, after_fixups, names
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--url", required=True, help="SQLAlchemy URL of the source (read-only)")
     parser.add_argument("--tables", nargs="*", help="only these tables; otherwise all of them")

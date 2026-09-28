@@ -69,8 +69,7 @@ def _seed(conn, schema, dialect, **kwargs) -> None:
 def _rows(conn, schema, table="cil") -> list:
     with conn.cursor() as cur:
         cur.execute(
-            f'SELECT id, "_name", price, "_deleted_in_source" '
-            f'FROM "{schema}"."{table}" ORDER BY id'
+            f'SELECT id, "_name", price, "_deleted_in_source" FROM "{schema}"."{table}" ORDER BY id'
         )
         return cur.fetchall()
 
@@ -126,9 +125,9 @@ def test_the_seed_stores_the_source_hash_not_the_pandas_one(conn, schema) -> Non
     hashes = _hashes(conn, schema)
 
     assert hashes, "the seed stored no hashes at all"
-    assert all(
-        h is not None and h.startswith(SOURCE_HASH_PREFIX) for h in hashes.values()
-    ), f"the seed did not go through the source path: {hashes}"
+    assert all(h is not None and h.startswith(SOURCE_HASH_PREFIX) for h in hashes.values()), (
+        f"the seed did not go through the source path: {hashes}"
+    )
 
 
 def test_only_the_changed_row_is_transferred(conn, schema) -> None:

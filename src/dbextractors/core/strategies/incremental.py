@@ -56,7 +56,7 @@ When the target does not exist or is empty, control falls to
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
-from typing import Any, Optional, Tuple
+from typing import Any, Tuple
 
 from dbextractors.core import partitioning, status, target_pg
 from dbextractors.core.strategies.base import (
@@ -244,7 +244,7 @@ class IncrementalStrategy(LoadStrategy):
         where: str,
         batch_size: int,
         *,
-        total_rows: Optional[int] = None,
+        total_rows: int | None = None,
     ) -> LoadResult:
         """Read the window and project it into the target with an upsert.
 
@@ -321,8 +321,8 @@ class IncrementalStrategy(LoadStrategy):
 
 
 def compute_incremental_cutoff(
-    load_settings: dict, kwargs: dict, logger: Optional[Any] = None
-) -> Tuple[date, Optional[int], Optional[int]]:
+    load_settings: dict, kwargs: dict, logger: Any | None = None
+) -> Tuple[date, int | None, int | None]:
     """Compute the cutoff shared by the incremental and the parent-driven path.
 
     The signature follows the predecessor's ``_compute_incremental_cutoff(
@@ -349,7 +349,7 @@ def compute_incremental_cutoff(
     if lookback is None:
         lookback = load_settings.get("incremental_lookback_hours")
 
-    lookback_hours: Optional[int]
+    lookback_hours: int | None
     if lookback is None or lookback in ("", 0, "0"):
         lookback_hours = None
     else:
@@ -374,7 +374,7 @@ def compute_incremental_cutoff(
     return cutoff, None, lookback_hours
 
 
-def window_mode(load_settings: dict, lookback_hours: Optional[int]) -> str:
+def window_mode(load_settings: dict, lookback_hours: int | None) -> str:
     """Which of the three window modes applies: ``lookback`` / ``days_back`` / ``deep``.
 
     The single place where that is decided. The returned token also reaches
@@ -393,7 +393,7 @@ def window_mode(load_settings: dict, lookback_hours: Optional[int]) -> str:
     return "deep"
 
 
-def window_label(load_settings: dict, lookback_hours: Optional[int]) -> str:
+def window_label(load_settings: dict, lookback_hours: int | None) -> str:
     """The window label for the log. Derived from `window_mode`, not assembled again."""
     mode = window_mode(load_settings, lookback_hours)
     if mode == "lookback":
@@ -450,18 +450,18 @@ def _uses_legacy_date_column_window(ctx: LoadContext) -> bool:
     return bool(ctx.settings.get("incremental_date_column"))
 
 
-def _updated_column(ctx: LoadContext) -> Optional[str]:
+def _updated_column(ctx: LoadContext) -> str | None:
     return ctx.settings.get("incremental_date_column") or ctx.settings.get("updated_at_column")
 
 
-def _created_column(ctx: LoadContext) -> Optional[str]:
+def _created_column(ctx: LoadContext) -> str | None:
     value = ctx.settings.get("incremental_date_column_fallback") or ctx.settings.get(
         "created_at_column"
     )
     return value or None
 
 
-def _all_columns(ctx: LoadContext, hash_column: Optional[str]) -> list:
+def _all_columns(ctx: LoadContext, hash_column: str | None) -> list:
     """The existing target's order wins — see `naming.reconcile_with_existing`."""
     from dbextractors.core import naming
 
@@ -517,7 +517,7 @@ def _with_where(ctx: LoadContext, where: str) -> LoadContext:
 
 
 def _upsert_from_staging(
-    conn, staging, target, columns: list, pk: Optional[str], spec: Any = None
+    conn, staging, target, columns: list, pk: str | None, spec: Any = None
 ) -> int:
     """``INSERT … SELECT … ON CONFLICT DO UPDATE`` from the staging table.
 
@@ -564,4 +564,4 @@ def _upsert_from_staging(
         return int(cur.rowcount)
 
 
-__all__ = ["IncrementalStrategy", "compute_incremental_cutoff", "DEFAULT_DAYS_BACK"]
+__all__ = ["DEFAULT_DAYS_BACK", "IncrementalStrategy", "compute_incremental_cutoff"]

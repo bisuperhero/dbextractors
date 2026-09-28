@@ -121,7 +121,7 @@ def test_a_report_from_a_real_run_serialises_to_json(ro_conn, rw_conn, pair):
 
     from dbextractors.golden import report as report_mod
 
-    left, right = pair
+    _left, right = pair
     with rw_conn.cursor() as cur:
         cur.execute(f"UPDATE {right.qualified()} SET note = 'other' WHERE id = 5")
 
@@ -141,7 +141,7 @@ def test_a_match_does_not_change_on_a_repeated_run(ro_conn, pair):
 
 
 def test_it_finds_a_missing_row(ro_conn, rw_conn, pair):
-    left, right = pair
+    _left, right = pair
     with rw_conn.cursor() as cur:
         cur.execute(f"DELETE FROM {right.qualified()} WHERE id = 42")
 
@@ -172,7 +172,7 @@ def test_it_finds_a_renamed_column(ro_conn, rw_conn, pair):
     that prefix, exactly this difference would arise — and it would silently break
     the dbt layer.
     """
-    left, right = pair
+    _left, right = pair
     with rw_conn.cursor() as cur:
         cur.execute(f'ALTER TABLE {right.qualified()} RENAME COLUMN "_type" TO "type"')
 
@@ -212,7 +212,7 @@ def test_it_finds_a_changed_column_order(ro_conn, rw_conn, workspace):
 
 
 def test_it_finds_a_changed_value(ro_conn, rw_conn, pair):
-    left, right = pair
+    _left, right = pair
     with rw_conn.cursor() as cur:
         cur.execute(f"UPDATE {right.qualified()} SET price = price + 1 WHERE id = 7")
 
@@ -227,7 +227,7 @@ def test_it_finds_a_changed_value(ro_conn, rw_conn, pair):
 
 def test_it_finds_a_changed_value_in_text(ro_conn, rw_conn, pair):
     """A text column is compared by hash, not by sum — a separate code path."""
-    left, right = pair
+    _left, right = pair
     with rw_conn.cursor() as cur:
         cur.execute(f"UPDATE {right.qualified()} SET note = 'other' WHERE id = 11")
 
@@ -244,7 +244,7 @@ def test_it_tells_null_from_an_empty_string(ro_conn, rw_conn, pair):
     changes neither the row count nor the type — it has to show up on the
     checksums.
     """
-    left, right = pair
+    _left, right = pair
     with rw_conn.cursor() as cur:
         cur.execute(f"UPDATE {right.qualified()} SET note = '' WHERE note IS NULL")
 
@@ -264,7 +264,7 @@ def test_it_finds_values_swapped_between_rows(ro_conn, rw_conn, pair):
     leaves it **unchanged**. What has to catch it is therefore the content hash,
     not the stored one — precisely the case level 5 computes both for.
     """
-    left, right = pair
+    _left, right = pair
     with rw_conn.cursor() as cur:
         cur.execute(
             f"UPDATE {right.qualified()} SET price = "
@@ -301,7 +301,7 @@ def test_an_empty_row_hash_on_the_left_does_not_drown_the_data_figure(ro_conn, r
     The "different data" figure is meant to answer the question *does the data
     differ?* — and here the answer is no.
     """
-    left, right = pair
+    left, _right = pair
     with rw_conn.cursor() as cur:
         cur.execute(f"UPDATE {left.qualified()} SET row_hash = NULL")
 
@@ -339,7 +339,7 @@ def test_it_finds_a_change_in_a_column_outside_row_hash(ro_conn, rw_conn, pair):
     would pass as a match — and that is exactly the kind of silent error the
     golden test exists for.
     """
-    left, right = pair
+    _left, right = pair
     with rw_conn.cursor() as cur:
         # `row_hash` depends only on `id` in the test data, so this UPDATE leaves
         # it unchanged.
@@ -367,7 +367,7 @@ def test_a_type_mismatch_does_not_drown_the_finding_at_level_5(ro_conn, rw_conn,
     Level 5 therefore leaves out columns with a type mismatch just as level 4 does
     — level 3 has already reported them.
     """
-    left, right = pair
+    _left, right = pair
     with rw_conn.cursor() as cur:
         cur.execute(f"ALTER TABLE {right.qualified()} ALTER COLUMN quantity TYPE numeric(12,4)")
         cur.execute(f"UPDATE {right.qualified()} SET note = 'tampered' WHERE id = 123")
@@ -395,7 +395,7 @@ def test_a_type_mismatch_does_not_drown_the_finding_at_level_5(ro_conn, rw_conn,
 def test_as_text_finds_a_change_in_a_column_with_a_different_type(ro_conn, rw_conn, pair):
     """With the option on, a changed value is found even in a column with a
     different type."""
-    left, right = pair
+    _left, right = pair
     with rw_conn.cursor() as cur:
         cur.execute(f"ALTER TABLE {right.qualified()} ALTER COLUMN note TYPE varchar(500)")
         cur.execute(f"UPDATE {right.qualified()} SET note = 'tampered' WHERE id = 123")
@@ -417,7 +417,7 @@ def test_as_text_finds_a_change_in_a_column_with_a_different_type(ro_conn, rw_co
 
 def test_as_text_keeps_reporting_the_type_difference(ro_conn, rw_conn, pair):
     """The option adds a comparison of values, it **does not mask** the type mismatch."""
-    left, right = pair
+    _left, right = pair
     with rw_conn.cursor() as cur:
         cur.execute(f"ALTER TABLE {right.qualified()} ALTER COLUMN note TYPE varchar(500)")
 
@@ -436,7 +436,7 @@ def test_as_text_marks_the_comparison_as_approximate(ro_conn, rw_conn, pair):
     itself as exact, the reader would conclude from a difference that the data
     differs — and would be right only some of the time.
     """
-    left, right = pair
+    _left, right = pair
     with rw_conn.cursor() as cur:
         cur.execute(f"ALTER TABLE {right.qualified()} ALTER COLUMN quantity TYPE numeric(12,4)")
 
@@ -458,7 +458,7 @@ def test_as_text_copes_with_a_numeric_column_too(ro_conn, rw_conn, pair):
     the column the query would end in an error and the whole comparison would fail
     with an exception.
     """
-    left, right = pair
+    _left, right = pair
     with rw_conn.cursor() as cur:
         cur.execute(f"ALTER TABLE {right.qualified()} ALTER COLUMN id TYPE bigint")
 
@@ -469,7 +469,7 @@ def test_as_text_copes_with_a_numeric_column_too(ro_conn, rw_conn, pair):
 
 
 def test_it_finds_a_different_column_type(ro_conn, rw_conn, pair):
-    left, right = pair
+    _left, right = pair
     with rw_conn.cursor() as cur:
         cur.execute(f"ALTER TABLE {right.qualified()} ALTER COLUMN price TYPE text")
 
@@ -492,7 +492,7 @@ def test_it_finds_a_different_column_type(ro_conn, rw_conn, pair):
 def test_it_finds_a_nullability_change(ro_conn, rw_conn, pair):
     """Nullability is part of the type — on its own it changes neither the data nor
     the counts, so level 3 has to catch it or it slips through."""
-    left, right = pair
+    _left, right = pair
     with rw_conn.cursor() as cur:
         cur.execute(f'ALTER TABLE {right.qualified()} ALTER COLUMN "_name" SET NOT NULL')
 
@@ -592,7 +592,7 @@ def test_a_failed_level_2_still_yields_partial_results(ro_conn, rw_conn, pair):
     looked at the failing level. This one pins the promise down: the intersection
     of columns carries identical data, so levels 4 and 5 have to *run* and *pass*.
     """
-    left, right = pair
+    _left, right = pair
     with rw_conn.cursor() as cur:
         cur.execute(f'ALTER TABLE {right.qualified()} RENAME COLUMN "_type" TO "type"')
 

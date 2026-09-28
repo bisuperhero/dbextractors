@@ -15,8 +15,8 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
-from datetime import datetime, timezone
-from typing import Optional, Sequence
+from datetime import UTC, datetime
+from typing import Sequence
 
 from dbextractors.golden import progress as progress_mod
 from dbextractors.golden import report as report_mod
@@ -187,7 +187,7 @@ def _cmd_compare(args: argparse.Namespace) -> int:
 
 def _cmd_batch(args: argparse.Namespace) -> int:
     entries = _load_manifest(args.manifest)
-    batch = BatchReport(started_at=datetime.now(timezone.utc).isoformat())
+    batch = BatchReport(started_at=datetime.now(UTC).isoformat())
 
     progress = progress_mod.build(False if args.no_progress else None)
     with session.connect(args.dsn, read_only=True) as conn:
@@ -213,7 +213,7 @@ def _cmd_batch(args: argparse.Namespace) -> int:
                     progress=progress,
                 )
             )
-    batch.finished_at = datetime.now(timezone.utc).isoformat()
+    batch.finished_at = datetime.now(UTC).isoformat()
 
     print(report_mod.render_batch(batch, verbose=args.verbose))
     print()
@@ -245,7 +245,7 @@ def _cmd_leftovers(args: argparse.Namespace) -> int:
     return EXIT_MATCH
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     args = _build_parser().parse_args(argv)
 

@@ -6,7 +6,7 @@ Everything here is a plain ``SELECT``. This module never writes anything.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from dbextractors.golden.model import Relation
 
@@ -23,14 +23,14 @@ class ColumnInfo:
     data_type: str
     udt_name: str
     is_nullable: bool
-    char_max_length: Optional[int] = None
-    numeric_precision: Optional[int] = None
-    numeric_scale: Optional[int] = None
-    datetime_precision: Optional[int] = None
+    char_max_length: int | None = None
+    numeric_precision: int | None = None
+    numeric_scale: int | None = None
+    datetime_precision: int | None = None
     #: Collation affects `min`/`max` over text. If two otherwise identical
     #: tables differed in collation, level 4 would report a difference with no
     #: visible cause — so it is checked at level 3, where the reason shows.
-    collation: Optional[str] = None
+    collation: str | None = None
 
     def type_signature(self) -> tuple:
         """What level 3 compares."""
@@ -107,7 +107,7 @@ def columns(conn: psycopg2.extensions.connection, relation: Relation) -> list[Co
         ]
 
 
-def unique_key(conn: psycopg2.extensions.connection, relation: Relation) -> Optional[list[str]]:
+def unique_key(conn: psycopg2.extensions.connection, relation: Relation) -> list[str] | None:
     """Finds a key that rows can be matched on.
 
     The primary key wins; without one, the narrowest valid unique index is used.

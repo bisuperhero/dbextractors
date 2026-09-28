@@ -280,9 +280,9 @@ def test_reserved_words_are_prefixed_in_the_target(name: str, ref: TableRef) -> 
 
     by_source = {c.name.lower(): clean_column_name(c.name) for c in columns}
     for reserved in ("type", "name", "order"):
-        assert (
-            by_source[reserved] == f"_{reserved}"
-        ), f"{name}: {reserved!r} became {by_source[reserved]!r}, expected '_{reserved}'"
+        assert by_source[reserved] == f"_{reserved}", (
+            f"{name}: {reserved!r} became {by_source[reserved]!r}, expected '_{reserved}'"
+        )
 
 
 # --- reading -----------------------------------------------------------------
@@ -882,7 +882,7 @@ def test_a_live_estimate_of_a_table_that_is_not_there_fails_loudly() -> None:
     dialect = resolve_dialect("mysql")
     eng = engine_for("mysql")
     try:
-        with pytest.raises(Exception, match="(?i)doesn't exist|does not exist"):
+        with pytest.raises(Exception, match=r"(?i)doesn.t exist|does not exist"):
             dialect.estimate_size(eng, TableRef(name="no_such_table"))
     finally:
         eng.dispose()

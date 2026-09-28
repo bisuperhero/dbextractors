@@ -24,7 +24,7 @@ confused with the case above: once a single batch has gone out,
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List
 
 import pandas as pd
 import pytest
@@ -52,7 +52,7 @@ class FakeReader:
     """
 
     def __init__(
-        self, rows: List[int], fail_after: List[int], error: Optional[Exception] = None
+        self, rows: List[int], fail_after: List[int], error: Exception | None = None
     ) -> None:
         self.rows = rows
         #: After how many yielded batches to fail, once per pass.
@@ -97,8 +97,9 @@ def _read_all(source, batch_size=2, pk="id", **kw) -> List[int]:
         source,
         engine=None,
         batch_size=batch_size,
-        build_sql=lambda after: "SELECT id FROM t"
-        + (f" WHERE id > {after}" if after is not None else ""),
+        build_sql=lambda after: (
+            "SELECT id FROM t" + (f" WHERE id > {after}" if after is not None else "")
+        ),
         pk_in_batch=pk,
         **kw,
     )
@@ -114,8 +115,9 @@ def _drain(source, batch_size=2, pk="id", **kw) -> List[pd.DataFrame]:
         source,
         engine=None,
         batch_size=batch_size,
-        build_sql=lambda after: "SELECT id FROM t"
-        + (f" WHERE id > {after}" if after is not None else ""),
+        build_sql=lambda after: (
+            "SELECT id FROM t" + (f" WHERE id > {after}" if after is not None else "")
+        ),
         pk_in_batch=pk,
         **kw,
     )
@@ -137,9 +139,9 @@ def test_a_dropout_fetches_the_rest_without_duplicates() -> None:
 
     assert seen == list(range(1, 11)), "rows were lost or duplicated"
     assert len(source.queries) == 2
-    assert (
-        "id > 6" in source.queries[1]
-    ), f"the second query should pick up after the last key, not start over: {source.queries[1]}"
+    assert "id > 6" in source.queries[1], (
+        f"the second query should pick up after the last key, not start over: {source.queries[1]}"
+    )
 
 
 def test_a_repeated_dropout_carries_on() -> None:
@@ -188,9 +190,9 @@ def test_a_dropout_before_the_first_row_restarts_from_scratch() -> None:
 
     assert seen == list(range(1, 11)), "rows were lost"
     assert len(source.queries) == 2
-    assert (
-        source.queries[0] == source.queries[1]
-    ), "restarting from scratch means the identical query, not a WHERE id > ..."
+    assert source.queries[0] == source.queries[1], (
+        "restarting from scratch means the identical query, not a WHERE id > ..."
+    )
 
 
 def test_a_dropout_before_the_first_row_restarts_even_without_a_key() -> None:

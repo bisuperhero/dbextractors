@@ -35,7 +35,7 @@ Writes go through ``COPY ... FROM STDIN`` and nothing else.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from dbextractors.core import status, target_pg
 from dbextractors.core.strategies.base import (
@@ -129,7 +129,7 @@ class IdWatermarkStrategy(LoadStrategy):
         batch_size: int,
         pk: str,
         *,
-        total_rows: Optional[int] = None,
+        total_rows: int | None = None,
     ) -> LoadResult:
         """Read the rows above the watermark and project them into the target.
 
@@ -199,7 +199,7 @@ class IdWatermarkStrategy(LoadStrategy):
 # --- Helper functions -------------------------------------------------------
 
 
-def _watermark(conn: Any, target: Any, pk: str) -> Optional[Any]:
+def _watermark(conn: Any, target: Any, pk: str) -> Any | None:
     """``MAX(pk)`` in the target. ``None`` for an empty table.
 
     **Deviation:** the predecessor swallows an error from this query and goes to

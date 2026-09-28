@@ -22,7 +22,7 @@ from __future__ import annotations
 import sys
 import threading
 import time
-from typing import Optional, TextIO
+from typing import TextIO
 
 
 def format_duration(seconds: float) -> str:
@@ -63,12 +63,12 @@ class TerminalProgress(Progress):
     #: How often the running timer is redrawn.
     TICK_INTERVAL_S = 1.0
 
-    def __init__(self, stream: Optional[TextIO] = None, line_width: int = 78) -> None:
+    def __init__(self, stream: TextIO | None = None, line_width: int = 78) -> None:
         self._stream = stream if stream is not None else sys.stderr
         self._width = line_width
-        self._label: Optional[str] = None
-        self._stop_event: Optional[threading.Event] = None
-        self._thread: Optional[threading.Thread] = None
+        self._label: str | None = None
+        self._stop_event: threading.Event | None = None
+        self._thread: threading.Thread | None = None
 
     # --- internals ---
 
@@ -121,7 +121,7 @@ class TerminalProgress(Progress):
             self.finish(0.0)
 
 
-def build(enabled: Optional[bool] = None, stream: Optional[TextIO] = None) -> Progress:
+def build(enabled: bool | None = None, stream: TextIO | None = None) -> Progress:
     """Progress reporter chosen from the environment.
 
     Args:

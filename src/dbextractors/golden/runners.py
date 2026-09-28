@@ -29,7 +29,7 @@ from __future__ import annotations
 import copy
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # pragma: no cover
     import logging
@@ -53,7 +53,7 @@ class RunOutcome:
 
     schema: str
     table: str
-    rows: Optional[int] = None
+    rows: int | None = None
     detail: dict = None  # type: ignore[assignment]
 
     def __post_init__(self) -> None:
@@ -147,7 +147,7 @@ class Runner(ABC):
     name: str
 
     @abstractmethod
-    def run(self, config: dict, schema: str, logger: Optional[logging.Logger] = None) -> RunOutcome:
+    def run(self, config: dict, schema: str, logger: logging.Logger | None = None) -> RunOutcome:
         """Processes the table into ``schema``."""
 
 
@@ -163,7 +163,7 @@ class LegacyBlockRunner(Runner):
         self.block_path = block_path
         self.name = f"legacy:{block_path}"
 
-    def run(self, config: dict, schema: str, logger: Optional[logging.Logger] = None) -> RunOutcome:
+    def run(self, config: dict, schema: str, logger: logging.Logger | None = None) -> RunOutcome:
         patched = redirect_output(config, schema)
         module = self._load_module()
 
@@ -217,7 +217,7 @@ class PackageRunner(Runner):
         self.dialect = dialect
         self.name = f"dbextractors:{dialect}"
 
-    def run(self, config: dict, schema: str, logger: Optional[logging.Logger] = None) -> RunOutcome:
+    def run(self, config: dict, schema: str, logger: logging.Logger | None = None) -> RunOutcome:
         from dbextractors import run as dbx_run
 
         patched = redirect_output(config, schema)
@@ -230,7 +230,7 @@ class PackageRunner(Runner):
         )
 
 
-def _rows_from_status(status: Any) -> Optional[int]:
+def _rows_from_status(status: Any) -> int | None:
     """Pulls the row count out of the returned status DataFrame, when it is there.
 
     The shape of that DataFrame differs slightly between the predecessor blocks,

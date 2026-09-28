@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 _log = logging.getLogger(__name__)
 
@@ -209,7 +209,7 @@ def is_truthy(value: Any) -> bool:
     return str(value).strip().lower() in _TRUTHY_STRINGS
 
 
-def resolve(name: Optional[str], actual: Optional[dict[str, str]] = None) -> Optional[str]:
+def resolve(name: str | None, actual: dict[str, str] | None = None) -> str | None:
     """Look ``name`` up case-insensitively among the source's actual columns.
 
     Despite the name, this resolves **column names**, not environment variables
@@ -249,11 +249,11 @@ class TableConfig:
     source_name: str
     output_schema: str
     output_table: str
-    source_schema: Optional[str] = None
+    source_schema: str | None = None
     selected_columns: tuple[str, ...] = ()
     only_selected_columns: bool = False
     excluded_columns: tuple[str, ...] = ()
-    where_clause: Optional[str] = None
+    where_clause: str | None = None
     empty_rows_ok: bool = False
 
 
@@ -272,17 +272,17 @@ class LoadSettingsConfig:
     """
 
     load_method: str = "full"
-    primary_column: Optional[str] = None
-    batch_size: Optional[int] = None
-    hash_column: Optional[str] = None
-    hash_include_columns: Optional[tuple[str, ...]] = None
+    primary_column: str | None = None
+    batch_size: int | None = None
+    hash_column: str | None = None
+    hash_include_columns: tuple[str, ...] | None = None
     hash_exclude_columns: tuple[str, ...] = ()
-    hash_diff_buffer_size: Optional[int] = None
-    hash_download_batch_size: Optional[int] = None
+    hash_diff_buffer_size: int | None = None
+    hash_download_batch_size: int | None = None
     surrogate_key_enabled: bool = False
-    surrogate_key_definition: Optional[str] = None
-    created_at_column: Optional[str] = None
-    updated_at_column: Optional[str] = None
+    surrogate_key_definition: str | None = None
+    created_at_column: str | None = None
+    updated_at_column: str | None = None
     days_back: int = 14
     #: **Accepted and currently inert.** Part of the frozen contract, so a
     #: pipeline that sets it keeps starting, but no strategy reads it: every
@@ -297,8 +297,8 @@ class LoadSettingsConfig:
     #: `PartitionSpec` because `entrypoint._settings_dict` hands strategies a
     #: ``dataclasses.asdict``, which would flatten a nested dataclass anyway, and
     #: strategies are meant to stay driven by a dict.
-    partition_by: Optional[dict] = None
-    multi_source: Optional[bool] = None
+    partition_by: dict | None = None
+    multi_source: bool | None = None
     #: **Accepted and currently inert**, for the same reason as
     #: `pagination_mode`. Whether a read can be resumed by keyset is decided by
     #: `full._keyset_usable` from the primary key and the dialect's
@@ -312,7 +312,7 @@ class LoadSettingsConfig:
     #: hash, `full_by_source` does not. A plain ``bool = True`` would put the key
     #: in `ctx.settings` **always**, and the strategy would never get to apply
     #: its own default.
-    compute_row_hash: Optional[bool] = None
+    compute_row_hash: bool | None = None
     #: **Accepted and currently inert.** The upsert key is the primary key:
     #: `incremental._upsert_from_staging` renders ``ON CONFLICT (primary_column)``
     #: and `target_pg.replace_by_key` deletes by the same column, neither of them
@@ -325,7 +325,7 @@ class LoadSettingsConfig:
     #: once; parallelism is the orchestrator's (three pipelines side by side, so
     #: the memory peak is already tripled — see `resolve_batch_size`). Do not
     #: remove it; see docs/legacy-compat.md.
-    num_parallel: Optional[int] = None
+    num_parallel: int | None = None
     #: Turn the silent rounding of large integers into a failed run.
     #:
     #: An integer column holding a NULL is read as ``float64`` — by
@@ -368,20 +368,20 @@ class LoadSettingsConfig:
     #: default (see `core.reading`, the FederatedX proxy that dies and restarts
     #: silently most nights) so one unusually slow-to-recover source can be
     #: tuned without moving the default for the other ~670 tables.
-    read_retry_attempts: Optional[int] = None
-    read_retry_base_delay: Optional[float] = None
+    read_retry_attempts: int | None = None
+    read_retry_base_delay: float | None = None
     #: An older spelling of the incremental window. **Not** aliases of
     #: `updated_at_column` / `created_at_column` — the window is built
     #: differently, see `IncrementalStrategy._build_where` and
     #: docs/legacy-compat.md.
-    incremental_date_column: Optional[str] = None
-    incremental_date_column_fallback: Optional[str] = None
-    incremental_lookback_hours: Optional[int] = None
+    incremental_date_column: str | None = None
+    incremental_date_column_fallback: str | None = None
+    incremental_lookback_hours: int | None = None
     #: Parent path, for child tables with no modification date of their own.
-    incremental_parent_table: Optional[str] = None
-    incremental_parent_output_name: Optional[str] = None
-    incremental_parent_date_column: Optional[str] = None
-    incremental_parent_date_column_fallback: Optional[str] = None
+    incremental_parent_table: str | None = None
+    incremental_parent_output_name: str | None = None
+    incremental_parent_date_column: str | None = None
+    incremental_parent_date_column_fallback: str | None = None
     #: The child's column referencing the parent, and the parent's own key.
     #: ``None`` means the defaults `ParentIncrementalStrategy` has always used
     #: (``parent_id`` / ``id``), which is what the predecessor hard-codes — so a
@@ -391,8 +391,8 @@ class LoadSettingsConfig:
     #: which meant `entrypoint._settings_dict` (a ``dataclasses.asdict``) could
     #: never carry them and the strategy's own error message pointed at a key
     #: nothing could set.
-    incremental_parent_key_column: Optional[str] = None
-    incremental_parent_id_column: Optional[str] = None
+    incremental_parent_key_column: str | None = None
+    incremental_parent_id_column: str | None = None
 
 
 @dataclass(frozen=True)
@@ -407,22 +407,22 @@ class SourceDbConfig:
     given database listens on is the dialect's knowledge, not configuration's.
     """
 
-    user: Optional[str] = None
-    password: Optional[str] = None
-    host: Optional[str] = None
-    port: Optional[int] = None
-    database: Optional[str] = None
-    charset: Optional[str] = None
-    ssh_address_or_host: Optional[str] = None
+    user: str | None = None
+    password: str | None = None
+    host: str | None = None
+    port: int | None = None
+    database: str | None = None
+    charset: str | None = None
+    ssh_address_or_host: str | None = None
     ssh_port: int = 22
-    ssh_username: Optional[str] = None
-    ssh_pkey: Optional[str] = None
+    ssh_username: str | None = None
+    ssh_pkey: str | None = None
     ssh_wait_timeout: int = 20
     #: SSH host key verification. Defaults to ``off``, the inherited
     #: behaviour; see `VALID_SSH_HOST_KEY_CHECKING`.
     ssh_host_key_checking: str = "off"
-    remote_bind_address: Optional[tuple[str, int]] = None
-    local_bind_address: Optional[tuple[str, int]] = None
+    remote_bind_address: tuple[str, int] | None = None
+    local_bind_address: tuple[str, int] | None = None
 
 
 @dataclass(frozen=True)
@@ -443,7 +443,7 @@ class ParsedConfig:
     #: there is a single database from ``SOURCE_DB.database``. An **empty list**
     #: means the control layer selected none, which is a legitimate state, not
     #: an error.
-    databases: Optional[tuple[str, ...]] = None
+    databases: tuple[str, ...] | None = None
     #: Source fingerprint, the ``FINGERPRINT`` section. Empty disables it.
     fingerprint: dict = field(default_factory=dict)
     #: Which `io_config.yaml` profile to write to (top-level ``TARGET_PROFILE``).
@@ -453,7 +453,7 @@ class ParsedConfig:
     #: This supersedes the ``TARGET_DB`` section, which 342 configuration blocks
     #: declare, passwords included, and which **nothing has ever read**. It
     #: looked authoritative and was not; see docs/legacy-compat.md.
-    target_profile: Optional[str] = None
+    target_profile: str | None = None
 
 
 def _required_str(value: Any) -> str:
@@ -474,14 +474,14 @@ def _as_tuple(value: Any) -> tuple[str, ...]:
     return tuple(value)
 
 
-def _as_optional_tuple(value: Any) -> Optional[tuple[str, ...]]:
+def _as_optional_tuple(value: Any) -> tuple[str, ...] | None:
     """Like ``_as_tuple``, but keeps "key absent" (``None``) distinct from "empty"."""
     if value is None:
         return None
     return tuple(value)
 
 
-def _partition_by(load_cfg: dict, table_cfg: dict) -> Optional[dict]:
+def _partition_by(load_cfg: dict, table_cfg: dict) -> dict | None:
     """``partition_by``, parsed and validated, or ``None``.
 
     Validated **here** rather than at the target: a nonsensical mode should fail
@@ -503,7 +503,7 @@ def _partition_by(load_cfg: dict, table_cfg: dict) -> Optional[dict]:
     return spec.as_dict() if spec else None
 
 
-def _as_optional_bool(value: Any) -> Optional[bool]:
+def _as_optional_bool(value: Any) -> bool | None:
     """``is_truthy`` that keeps ``None`` instead of quietly returning ``False``.
 
     Used for ``multi_source``, where an absent value means "derive it at run
@@ -519,7 +519,7 @@ def _as_optional_bool(value: Any) -> Optional[bool]:
     return is_truthy(value)
 
 
-def _as_bind_address(value: Any, *, label: str) -> Optional[tuple[str, int]]:
+def _as_bind_address(value: Any, *, label: str) -> tuple[str, int] | None:
     """Validate a configured ``(host, port)`` pair. A bad shape warns and yields ``None``.
 
     Filling in a runtime default — deriving it from ``private_host`` or picking

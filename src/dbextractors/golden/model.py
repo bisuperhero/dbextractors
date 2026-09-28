@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import IntEnum
-from typing import Any, Optional
+from typing import Any
 
 
 class Level(IntEnum):
@@ -83,7 +83,7 @@ class Difference:
     left: Any = None
     right: Any = None
     #: Where it is — a column name, a primary key value and so on.
-    where: Optional[str] = None
+    where: str | None = None
 
     def to_dict(self) -> dict:
         return {"what": self.what, "left": self.left, "right": self.right, "where": self.where}
@@ -138,8 +138,8 @@ class TableReport:
     #: Set when the comparison itself raised. The verdict is then ERROR —
     #: deliberately not folded into DIFF, so that "it differs" cannot be
     #: confused with "we do not know whether it differs".
-    error: Optional[str] = None
-    label: Optional[str] = None
+    error: str | None = None
+    label: str | None = None
 
     @property
     def verdict(self) -> str:
@@ -152,7 +152,7 @@ class TableReport:
         return VERDICT_MATCH
 
     @property
-    def first_failed_level(self) -> Optional[Level]:
+    def first_failed_level(self) -> Level | None:
         for result in sorted(self.levels, key=lambda r: r.level):
             if not result.passed and not result.skipped:
                 return result.level
@@ -162,7 +162,7 @@ class TableReport:
     def is_approximate(self) -> bool:
         return any(r.approximate for r in self.levels)
 
-    def level(self, level: Level) -> Optional[LevelResult]:
+    def level(self, level: Level) -> LevelResult | None:
         return next((r for r in self.levels if r.level == level), None)
 
     def to_dict(self) -> dict:
@@ -185,8 +185,8 @@ class BatchReport:
     """Summary of a batch run. Migration happens in groups of 20–250 tables."""
 
     reports: list[TableReport] = field(default_factory=list)
-    started_at: Optional[str] = None
-    finished_at: Optional[str] = None
+    started_at: str | None = None
+    finished_at: str | None = None
 
     @property
     def matched(self) -> list[TableReport]:

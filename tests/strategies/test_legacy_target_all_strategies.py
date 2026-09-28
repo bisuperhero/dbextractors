@@ -156,7 +156,7 @@ def test_legacy_target_without_mandatory_columns(conn, schema, name) -> None:
         columns = {r[0] for r in cur.fetchall()}
 
     assert "row_hash" in columns, f"{name}: `row_hash` has to be added before staging"
-    assert (
-        "_deleted_in_source" in columns
-    ), f"{name}: `_deleted_in_source` is mandatory for every strategy"
+    assert "_deleted_in_source" in columns, (
+        f"{name}: `_deleted_in_source` is mandatory for every strategy"
+    )
     assert result.rows_written > 0, f"{name}: not a single row was written"

@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import logging
 import traceback
-from typing import Any, Optional
+from typing import Any
 
 import pytest
 
@@ -176,10 +176,10 @@ def test_a_tunnel_that_cannot_come_up_does_not_report_the_key(
         def terminate(self) -> None:
             return None
 
-        def wait(self, timeout: Optional[float] = None) -> int:
+        def wait(self, timeout: float | None = None) -> int:
             return 0
 
-        def communicate(self, timeout: Optional[float] = None) -> tuple[bytes, bytes]:
+        def communicate(self, timeout: float | None = None) -> tuple[bytes, bytes]:
             return (
                 b"",
                 f"Warning: Identity file {CANARY_KEY} not accessible: "

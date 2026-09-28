@@ -188,13 +188,14 @@ def engine():
     short rows come out as a legitimate ``0.0`` and an assertion on them could
     not tell a working estimate from one that lost the sample.
 
-    In-memory SQLite keeps a single connection under SQLAlchemy 1.4, so the
-    tables survive between the dialect's own ``engine.connect()`` calls.
+    In-memory SQLite keeps a single connection per thread, so the tables
+    survive between the dialect's own ``engine.connect()`` calls. ``begin()``
+    commits them: SQLAlchemy 2 has no implicit autocommit.
     """
     from sqlalchemy import create_engine, text
 
     eng = create_engine("sqlite://")
-    with eng.connect() as con:
+    with eng.begin() as con:
         con.execute(text("CREATE TABLE paged (id INTEGER, label TEXT)"))
         con.execute(text("CREATE TABLE empty (id INTEGER, label TEXT)"))
         con.execute(text("CREATE TABLE bulky (id INTEGER, label TEXT)"))

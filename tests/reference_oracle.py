@@ -283,14 +283,10 @@ def _constant_nodes(tree: ast.Module) -> list[ast.stmt]:
     """
     keep: list[ast.stmt] = []
     for node in ast.walk(tree):
-        if (
-            isinstance(node, ast.Assign)
+        if (isinstance(node, ast.Assign) and _is_pure_value(node.value)) or (
+            isinstance(node, ast.AnnAssign)
+            and node.value is not None
             and _is_pure_value(node.value)
-            or (
-                isinstance(node, ast.AnnAssign)
-                and node.value is not None
-                and _is_pure_value(node.value)
-            )
         ):
             keep.append(node)
     return keep

@@ -87,7 +87,7 @@ lower down.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Iterator, List, Optional, Tuple
+from typing import Any, Iterator, List, Tuple
 
 import pandas as pd
 
@@ -202,7 +202,7 @@ class HashDiffStrategy(LoadStrategy):
         )
 
         with target_pg.SourceHashSnapshot(ctx.target_conn, pk, hash_column) as snapshot:
-            diff: Optional[dict] = None
+            diff: dict | None = None
             reason = self._scan(ctx, snapshot, pk, hash_column, hashed)
             if reason is None:
                 snapshot.index()
@@ -218,7 +218,7 @@ class HashDiffStrategy(LoadStrategy):
 
     def _precheck(
         self, ctx: LoadContext, pk: str, hash_column: str
-    ) -> Tuple[Optional[str], Optional[TargetHashState]]:
+    ) -> Tuple[str | None, TargetHashState | None]:
         """Target states in which a diff makes no sense and a full load runs instead.
 
         All of them come from the predecessor and all of them are recognisable
@@ -258,7 +258,7 @@ class HashDiffStrategy(LoadStrategy):
         pk: str,
         hash_column: str,
         hashed: List[str],
-    ) -> Optional[str]:
+    ) -> str | None:
         """Read ``(pk, hash)`` pairs from the source and pour them into the snapshot.
 
         Returns a reason for a full load, or ``None`` when the scan succeeded.
@@ -360,7 +360,7 @@ class HashDiffStrategy(LoadStrategy):
             f"{diff['matched']:,}",
         )
 
-    def _reseed_reason(self, ctx: LoadContext, diff: dict, state: TargetHashState) -> Optional[str]:
+    def _reseed_reason(self, ctx: LoadContext, diff: dict, state: TargetHashState) -> str | None:
         """Emergency brake against drifted hashes.
 
         When **not one** row matches and yet almost all of them differ, that is
@@ -589,4 +589,4 @@ def _base_batch_size(ctx: LoadContext) -> int:
     return _positive_int(resolve_batch_size(ctx.settings, ctx.table_cfg, None), DEFAULT_BATCH_SIZE)
 
 
-__all__ = ["HashDiffStrategy", "TargetHashState", "RESEED_MISMATCH_RATIO"]
+__all__ = ["RESEED_MISMATCH_RATIO", "HashDiffStrategy", "TargetHashState"]

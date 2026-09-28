@@ -46,8 +46,7 @@ def test_the_table_is_named_the_way_the_caller_looks_it_up(conn, schema) -> None
 
     with conn.cursor() as cur:
         cur.execute(
-            "SELECT 1 FROM information_schema.tables "
-            "WHERE table_schema = %s AND table_name = %s",
+            "SELECT 1 FROM information_schema.tables WHERE table_schema = %s AND table_name = %s",
             (schema, TABLE_NAME),
         )
         assert cur.fetchone() is not None

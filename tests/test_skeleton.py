@@ -277,9 +277,9 @@ def test_no_module_is_a_stub_any_more() -> None:
 # --- Runtime --------------------------------------------------------------
 
 
-def test_runs_on_the_production_python() -> None:
-    """The production Mage image is Python 3.10 and cannot be upgraded."""
-    assert sys.version_info[:2] == (3, 10)
+def test_runs_on_a_supported_python() -> None:
+    """Python 3.11 is the floor; 3.10 and the Mage image stay on v1.0.x."""
+    assert sys.version_info[:2] >= (3, 11)
 
 
 def test_package_version_matches_the_metadata() -> None:

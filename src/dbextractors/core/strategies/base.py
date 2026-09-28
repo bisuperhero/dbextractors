@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Sequence
 
 import pandas as pd
 
@@ -90,15 +90,15 @@ class LoadContext:
     settings: dict = field(default_factory=dict)
     #: The TABLE section of the configuration.
     table_cfg: dict = field(default_factory=dict)
-    where: Optional[str] = None
-    surrogate: Optional[SurrogateKey] = None
-    logger: Optional[logging.Logger] = None
+    where: str | None = None
+    surrogate: SurrogateKey | None = None
+    logger: logging.Logger | None = None
     #: Which source database this run reads from. ``None`` for single-source
     #: tables — and it is **deliberately independent** of how many databases the
     #: run happens to have selected: `full_by_source` deletes by `_source`, so a
     #: run that happened to pull a single database would otherwise wipe the whole
     #: table.
-    source_label: Optional[str] = None
+    source_label: str | None = None
     #: Verbose logging — the top-level ``DEBUG`` key of the configuration. It
     #: governs only what gets printed, never what gets done.
     debug: bool = False
@@ -185,7 +185,7 @@ class LoadResult:
     #: Timings and counts per phase — input for `core.status`.
     phase_metrics: dict = field(default_factory=dict)
     #: Non-empty when the strategy took the emergency path (`fallback_full`).
-    fallback_reason: Optional[str] = None
+    fallback_reason: str | None = None
 
 
 class LoadStrategy(ABC):
@@ -266,7 +266,7 @@ def chunked_list(items: Sequence, size: int) -> Iterator[list]:
         yield list(items[idx : idx + size])
 
 
-def apply_text_dtypes(df: pd.DataFrame, dtype_map: Optional[dict]) -> pd.DataFrame:
+def apply_text_dtypes(df: pd.DataFrame, dtype_map: dict | None) -> pd.DataFrame:
     """Apply text dtypes to a batch.
 
     It exists because pandas 1.5 has no ``dtype`` parameter on ``read_sql``. It
@@ -290,7 +290,7 @@ def _to_text_or_keep(value: Any) -> Any:
     return str(value)
 
 
-def resolve_batch_size(settings: dict, config: dict, estimate: Optional[Any]) -> int:
+def resolve_batch_size(settings: dict, config: dict, estimate: Any | None) -> int:
     """Batch size from the configuration, capped by the size estimate.
 
     The predecessor **replaces** the configured value with whatever fits into
@@ -367,7 +367,7 @@ STRATEGIES: Dict[str, str] = {
 }
 
 
-def resume_is_watermark(load_method: str, settings: Optional[dict]) -> bool:
+def resume_is_watermark(load_method: str, settings: dict | None) -> bool:
     """``True`` when ``full`` + ``resume_full_load`` should be served by a watermark.
 
     ``resume_full_load`` is not a strategy of its own, even though the
@@ -406,7 +406,7 @@ def resume_is_watermark(load_method: str, settings: Optional[dict]) -> bool:
     return bool(value)
 
 
-def parent_incremental_applies(load_method: str, settings: Optional[dict]) -> bool:
+def parent_incremental_applies(load_method: str, settings: dict | None) -> bool:
     """``True`` when ``incremental`` should be served through a parent table.
 
     Variant B has a family of child tables — document lines, order lines and the
@@ -424,7 +424,7 @@ def parent_incremental_applies(load_method: str, settings: Optional[dict]) -> bo
     return bool(settings.get("incremental_parent_table"))
 
 
-def surrogate_provides(ctx: LoadContext, pk: Optional[str]) -> bool:
+def surrogate_provides(ctx: LoadContext, pk: str | None) -> bool:
     """``True`` when that primary key is produced by a surrogate expression.
 
     A surrogate key **is not and cannot be** in the source — it is assembled by
@@ -441,7 +441,7 @@ def surrogate_provides(ctx: LoadContext, pk: Optional[str]) -> bool:
     return bool(pk and surrogate and surrogate.enabled and surrogate.alias == pk)
 
 
-def resolve_strategy(load_method: str, settings: Optional[dict] = None) -> LoadStrategy:
+def resolve_strategy(load_method: str, settings: dict | None = None) -> LoadStrategy:
     """Pick the strategy from ``load_method`` in LOAD_SETTINGS.
 
     In the predecessors this decision is scattered through
@@ -462,7 +462,7 @@ def resolve_strategy(load_method: str, settings: Optional[dict] = None) -> LoadS
         key = "parent_incremental"
     if key not in STRATEGIES:
         raise StrategyError(
-            f"Unknown load_method {load_method!r}. Known: " f"{', '.join(sorted(set(STRATEGIES)))}."
+            f"Unknown load_method {load_method!r}. Known: {', '.join(sorted(set(STRATEGIES)))}."
         )
 
     module_name, _, class_name = STRATEGIES[key].partition(":")
@@ -477,10 +477,14 @@ __all__ = [
     "MIN_BATCH_SIZE",
     "STRATEGIES",
     "TARGET_BATCH_MB",
+    # Re-exported so strategies do not have to reach into dialects.
+    "ColumnDef",
     "LoadContext",
     "LoadResult",
     "LoadStrategy",
     "StrategyError",
+    "SurrogateKey",
+    "TableRef",
     "TargetRef",
     "apply_text_dtypes",
     "chunked_list",
@@ -490,8 +494,4 @@ __all__ = [
     "resolve_strategy",
     "resume_is_watermark",
     "surrogate_provides",
-    # Re-exported so strategies do not have to reach into dialects.
-    "ColumnDef",
-    "SurrogateKey",
-    "TableRef",
 ]

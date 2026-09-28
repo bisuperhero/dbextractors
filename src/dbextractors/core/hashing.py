@@ -59,8 +59,8 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from datetime import datetime, timezone
-from typing import Any, List, Optional, Sequence
+from datetime import UTC, datetime
+from typing import Any, List, Sequence
 
 import numpy as np
 import pandas as pd
@@ -84,7 +84,7 @@ HASH_EXCLUDED_ALWAYS: frozenset = frozenset({"_timestamp"})
 
 def compute_hash_columns(
     column_names: Sequence[str],
-    hash_column_cfg: Optional[str],
+    hash_column_cfg: str | None,
     table_settings: dict,
     load_settings: dict,
 ) -> List[str]:
@@ -143,7 +143,7 @@ def _is_missing(value: Any) -> bool:
     return bool(result) if np.ndim(result) == 0 else False
 
 
-def _row_series_dtype(frame: pd.DataFrame) -> Optional[np.dtype]:
+def _row_series_dtype(frame: pd.DataFrame) -> np.dtype | None:
     """The type pandas promotes a row to under ``.apply(axis=1)``.
 
     ``DataFrame.values`` uses the same common-type mechanism, so a single row is
@@ -220,14 +220,14 @@ def compute_row_hashes(df: pd.DataFrame, columns: Sequence[str]) -> pd.Series:
 
 
 def add_hash_and_timestamp(
-    df: Optional[pd.DataFrame],
+    df: pd.DataFrame | None,
     normalized_hash_col: str,
-    updated_col_norm: Optional[str] = None,
+    updated_col_norm: str | None = None,
     *,
     force_recompute: bool = False,
-    hashed_columns_override: Optional[Sequence[str]] = None,
+    hashed_columns_override: Sequence[str] | None = None,
     compute_hash: bool = True,
-) -> Optional[pd.DataFrame]:
+) -> pd.DataFrame | None:
     """Adds ``row_hash`` and ``_timestamp`` to the batch.
 
     The hash is computed only when the column is **missing** from the batch or when
@@ -263,7 +263,7 @@ def add_hash_and_timestamp(
             df[normalized_hash_col] = compute_row_hashes(df, hashed_columns)
 
     if "_timestamp" not in df.columns:
-        df["_timestamp"] = datetime.now(timezone.utc).isoformat()
+        df["_timestamp"] = datetime.now(UTC).isoformat()
 
     return df
 

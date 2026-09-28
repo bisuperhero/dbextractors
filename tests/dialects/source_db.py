@@ -17,7 +17,7 @@ target is written to, and only into a scratch schema.
 from __future__ import annotations
 
 import os
-from typing import Any, Optional
+from typing import Any
 
 import pytest
 
@@ -54,7 +54,7 @@ def parse_dsn(raw: str) -> dict[str, Any]:
     return params
 
 
-def source_params(name: str) -> Optional[dict[str, Any]]:
+def source_params(name: str) -> dict[str, Any] | None:
     """Connection parameters for one source, or ``None`` when it is switched off."""
     variable, module = SOURCES[name]
     raw = os.environ.get(variable)

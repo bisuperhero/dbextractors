@@ -13,7 +13,7 @@ whole suite runs, not just one subdirectory.
 from __future__ import annotations
 
 import re
-from typing import List, Optional, Sequence
+from typing import List, Sequence
 
 import pandas as pd
 
@@ -63,14 +63,12 @@ class FakeDialect(SourceDialect):
     zero_datetime_literal = "0000-00-00 00:00:00"
     text_like_types = frozenset({"varchar", "text"})
 
-    def __init__(
-        self, batches: Optional[Sequence[pd.DataFrame]] = None, rows: Optional[int] = None
-    ):
+    def __init__(self, batches: Sequence[pd.DataFrame] | None = None, rows: int | None = None):
         self.batches: List[pd.DataFrame] = list(batches or [])
         self._rows = rows
         self.seen_sql: List[str] = []
-        self.estimate_calls: List[Optional[str]] = []
-        self.estimate_error: Optional[Exception] = None
+        self.estimate_calls: List[str | None] = []
+        self.estimate_error: Exception | None = None
 
     # -- what the strategies really call ------------------------------------
 
@@ -159,7 +157,7 @@ class FakeHashSource(FakeDialect):
         rows: pd.DataFrame,
         pk: str,
         hash_alias: str = "row_hash",
-        parents: Optional[pd.DataFrame] = None,
+        parents: pd.DataFrame | None = None,
     ):
         super().__init__()
         self.rows = rows.reset_index(drop=True)
@@ -172,7 +170,7 @@ class FakeHashSource(FakeDialect):
         self.scan_sql: List[str] = []
         self.download_sql: List[str] = []
         #: When set, the scan fails — simulating a connection lost mid-way.
-        self.scan_error: Optional[Exception] = None
+        self.scan_error: Exception | None = None
 
     # -- mutating the source between runs -----------------------------------
 
@@ -203,7 +201,7 @@ class FakeHashSource(FakeDialect):
         inner = sql.partition(" IN (")[2].partition(")")[0]
         return [_unquote(part) for part in inner.split(",")]
 
-    def _filter_rows(self, where: Optional[str]) -> pd.DataFrame:
+    def _filter_rows(self, where: str | None) -> pd.DataFrame:
         """Narrow the source by the condition, the way a database would.
 
         It understands the two shapes the strategies assemble: ``pk IN (...)``
@@ -380,10 +378,10 @@ def make_context(
     *,
     dialect: FakeDialect,
     columns: Sequence[ColumnDef],
-    settings: Optional[dict] = None,
-    table_cfg: Optional[dict] = None,
+    settings: dict | None = None,
+    table_cfg: dict | None = None,
     table: str = "cil",
-    where: Optional[str] = None,
+    where: str | None = None,
 ) -> LoadContext:
     return LoadContext(
         dialect=dialect,

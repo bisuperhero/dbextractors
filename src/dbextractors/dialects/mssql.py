@@ -76,7 +76,7 @@ import logging
 import socket
 import time
 import urllib.parse
-from typing import TYPE_CHECKING, ClassVar, Iterator, List, Optional, Sequence
+from typing import TYPE_CHECKING, ClassVar, Iterator, List, Sequence
 
 import pandas as pd
 from sqlalchemy import text
@@ -160,7 +160,7 @@ class MSSQLDialect(DictTypeMapDialect):
     NCHAR_TYPES: frozenset = frozenset({"nchar", "nvarchar", "ntext"})
 
     #: MSSQL has no zero date (unlike MySQL).
-    zero_datetime_literal: Optional[str] = None
+    zero_datetime_literal: str | None = None
 
     #: The hash is computed by the source through ``HASHBYTES`` — see
     #: ``render_hash_expr``.
@@ -376,9 +376,9 @@ class MSSQLDialect(DictTypeMapDialect):
         self,
         engine: Engine,
         ref: TableRef,
-        where: Optional[str] = None,
+        where: str | None = None,
         *,
-        known_total_rows: Optional[int] = None,
+        known_total_rows: int | None = None,
         sample_size: int = 100,
     ) -> SizeEstimate:
         """``COUNT(*)`` plus a sample to estimate the row size.
@@ -440,11 +440,11 @@ class MSSQLDialect(DictTypeMapDialect):
         self,
         columns: Sequence[str],
         ref: TableRef,
-        where: Optional[str] = None,
-        order_by: Optional[Sequence[str]] = None,
-        surrogate: Optional[SurrogateKey] = None,
+        where: str | None = None,
+        order_by: Sequence[str] | None = None,
+        surrogate: SurrogateKey | None = None,
         *,
-        column_types: Optional[dict] = None,
+        column_types: dict | None = None,
         convert_nchar: bool = False,
     ) -> str:
         clause = self.render_select_clause(
@@ -497,7 +497,7 @@ class MSSQLDialect(DictTypeMapDialect):
         self,
         hashed_columns: Sequence[str],
         alias: str,
-        column_types: Optional[dict] = None,
+        column_types: dict | None = None,
     ) -> str:
         """``HASHBYTES('SHA2_256', CONCAT_WS('||', …))`` as 64 characters of hex.
 
@@ -527,10 +527,10 @@ class MSSQLDialect(DictTypeMapDialect):
         self,
         ref: TableRef,
         *,
-        pk: Optional[str] = None,
-        timestamp_column: Optional[str] = None,
+        pk: str | None = None,
+        timestamp_column: str | None = None,
         aggregate_columns: Sequence[str] = (),
-        where: Optional[str] = None,
+        where: str | None = None,
     ) -> str:
         """As in the base class, but with ``COUNT_BIG`` and a qualified table name.
 
@@ -573,4 +573,4 @@ def _schema(ref: TableRef) -> str:
     return ref.schema or DEFAULT_SOURCE_SCHEMA
 
 
-__all__ = ["MSSQLDialect", "DEFAULT_SOURCE_SCHEMA", "DEFAULT_CHARSET", "BINARY_TYPES"]
+__all__ = ["BINARY_TYPES", "DEFAULT_CHARSET", "DEFAULT_SOURCE_SCHEMA", "MSSQLDialect"]

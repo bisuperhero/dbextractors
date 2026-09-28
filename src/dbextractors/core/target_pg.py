@@ -66,7 +66,7 @@ import json
 import logging
 import uuid
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Iterator, List, Optional, Sequence, Set, Tuple
+from typing import TYPE_CHECKING, Any, Iterator, List, Sequence, Set, Tuple
 
 import numpy as np
 import pandas as pd
@@ -344,8 +344,8 @@ def adopt_new_source_columns(
     target: TargetRef,
     columns: Sequence[str],
     *,
-    overwrite_types: Optional[dict] = None,
-    df: Optional[pd.DataFrame] = None,
+    overwrite_types: dict | None = None,
+    df: pd.DataFrame | None = None,
 ) -> List[str]:
     """Add columns the source sends and the target lacks. Returns the added ones.
 
@@ -489,8 +489,8 @@ def build_create_table(
     df: pd.DataFrame,
     target: TargetRef,
     *,
-    overwrite_types: Optional[dict] = None,
-    columns: Optional[Sequence[str]] = None,
+    overwrite_types: dict | None = None,
+    columns: Sequence[str] | None = None,
 ) -> str:
     """Assemble the ``CREATE TABLE`` statement for the target table.
 
@@ -524,8 +524,8 @@ def create_table(
     target: TargetRef,
     df: pd.DataFrame,
     *,
-    overwrite_types: Optional[dict] = None,
-    columns: Optional[Sequence[str]] = None,
+    overwrite_types: dict | None = None,
+    columns: Sequence[str] | None = None,
 ) -> None:
     ensure_schema(conn, target.schema)
     with conn.cursor() as cur:
@@ -587,9 +587,9 @@ def align_df_columns_to_db(
 
 
 def _integer_bound_columns(
-    integer_columns_mapping: Optional[dict],
-    overwrite_types: Optional[dict],
-    db_integer_cols: Optional[Sequence[str]],
+    integer_columns_mapping: dict | None,
+    overwrite_types: dict | None,
+    db_integer_cols: Sequence[str] | None,
 ) -> list:
     """Every column that ends up in an integer column of the target.
 
@@ -625,7 +625,7 @@ def prepare_export_df(
     integer_columns_mapping: dict,
     overwrite_types: dict,
     orig_type_map: dict,
-    db_integer_cols: Optional[Sequence[str]] = None,
+    db_integer_cols: Sequence[str] | None = None,
     show_debug: bool = False,
     *,
     ensure_ascii: bool = True,
@@ -785,7 +785,7 @@ class _CsvChunkReader:
             self._buffer = self._buffer[self._offset :]
             self._offset = 0
 
-    def read(self, size: Optional[int] = -1) -> str:
+    def read(self, size: int | None = -1) -> str:
         if size is None or size < 0:
             rest = self._buffer[self._offset :] + "".join(self._chunks)
             self._buffer = ""
@@ -801,7 +801,7 @@ class _CsvChunkReader:
             self._offset = 0
         return out
 
-    def readline(self, size: Optional[int] = -1) -> str:  # pragma: no cover
+    def readline(self, size: int | None = -1) -> str:  # pragma: no cover
         """``copy_expert`` uses ``read``; this is here only to complete the interface."""
         while "\n" not in self._buffer[self._offset :] and not self._exhausted:
             try:
@@ -874,7 +874,7 @@ def manual_insert_fallback(
     export_df: pd.DataFrame,
     target: TargetRef,
     resolved_pk: str,
-    conflict_cols: Optional[Sequence[str]] = None,
+    conflict_cols: Sequence[str] | None = None,
 ) -> int:
     """The emergency path when ``COPY`` does not go through. **Not an alternative.**
 
@@ -946,7 +946,7 @@ def create_unique_pk_index(
     resolved_pk: str,
     all_columns_ordered: Sequence[str],
     fatal: bool = True,
-    columns: Optional[Sequence[str]] = None,
+    columns: Sequence[str] | None = None,
 ) -> bool:
     """Create the unique index over the primary key. Without it upsert cannot work.
 
@@ -1143,8 +1143,7 @@ def replace_by_key(
     key = quote_ident(pk)
     with conn.cursor() as cur:
         cur.execute(
-            f"DELETE FROM {qualify(target)} t USING {qualify(staging)} s "
-            f"WHERE t.{key} = s.{key}"
+            f"DELETE FROM {qualify(target)} t USING {qualify(staging)} s WHERE t.{key} = s.{key}"
         )
         deleted = int(cur.rowcount)
         cur.execute(f"INSERT INTO {qualify(target)} ({cols}) SELECT {cols} FROM {qualify(staging)}")
@@ -1194,9 +1193,9 @@ def create_shadow_table(
     conn: Any,
     target: TargetRef,
     *,
-    df: Optional[pd.DataFrame] = None,
-    overwrite_types: Optional[dict] = None,
-    columns: Optional[Sequence[str]] = None,
+    df: pd.DataFrame | None = None,
+    overwrite_types: dict | None = None,
+    columns: Sequence[str] | None = None,
 ) -> TargetRef:
     """Create the shadow table the full load writes into instead of the target.
 
@@ -1462,7 +1461,7 @@ def apply_live_pk_snapshot(
     resolved_pk: str,
     live_pk_source: Any,
     pk_pg_type: str = "text",
-    source_label: Optional[str] = None,
+    source_label: str | None = None,
     show_debug: bool = False,
 ) -> int:
     """Project into the target which rows still exist in the source.
@@ -1552,7 +1551,7 @@ def mark_deleted_in_source(
     target: TargetRef,
     resolved_pk: str,
     live_pk_table: str,
-    source_label: Optional[str] = None,
+    source_label: str | None = None,
     *,
     pk_as_text: bool = False,
 ) -> int:
@@ -1822,7 +1821,7 @@ def replace_source_slice(
     target: TargetRef,
     staging: TargetRef,
     columns: Sequence[str],
-    source_label: Optional[str],
+    source_label: str | None,
 ) -> Tuple[int, int]:
     """Replace one source's slice with the staging contents. **In one transaction.**
 
@@ -1908,7 +1907,7 @@ def ensure_fingerprint_store(conn: Any, schema: str) -> None:
         )
 
 
-def read_fingerprint(conn: Any, target: TargetRef, source_label: str) -> Optional[str]:
+def read_fingerprint(conn: Any, target: TargetRef, source_label: str) -> str | None:
     """The last stored fingerprint, or ``None`` when there is none."""
     ensure_fingerprint_store(conn, target.schema)
     with conn.cursor() as cur:
@@ -1926,7 +1925,7 @@ def write_fingerprint(
     target: TargetRef,
     source_label: str,
     fingerprint: str,
-    parts: Optional[dict] = None,
+    parts: dict | None = None,
 ) -> None:
     """Store the fingerprint. Written **after** a successful transfer, not before.
 

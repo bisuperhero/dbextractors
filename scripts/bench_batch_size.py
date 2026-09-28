@@ -28,7 +28,7 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import List, Optional, Sequence
+from typing import List, Sequence
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
@@ -98,7 +98,7 @@ def _config(source_schema: str, target_schema: str, batch_size: int) -> dict:
     }
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rows", type=int, default=1_500_000)
     parser.add_argument(
@@ -154,8 +154,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     results: List[dict] = []
     try:
         header = (
-            f"{'TARGET_BATCH_MB':>16}{'actual batch':>17}"
-            f"{'time':>10}{'peak RSS':>13}{'rows/s':>10}"
+            f"{'TARGET_BATCH_MB':>16}{'actual batch':>17}{'time':>10}{'peak RSS':>13}{'rows/s':>10}"
         )
         print(f"\n{header}")
         for mb in args.mb:

@@ -31,7 +31,7 @@ import re
 import socket
 import subprocess
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Iterator, Mapping, Optional
+from typing import TYPE_CHECKING, Iterator, Mapping
 
 from dbextractors.core import secrets, target_conn
 
@@ -64,7 +64,7 @@ class SessionError(RuntimeError):
     """A usable session could not be established."""
 
 
-def dsn_from_env(env: Optional[dict] = None) -> str:
+def dsn_from_env(env: dict | None = None) -> str:
     """Builds a DSN from environment variables.
 
     ``DBX_GOLDEN_DSN`` takes precedence over everything else. Otherwise the DSN
@@ -91,7 +91,7 @@ def dsn_from_env(env: Optional[dict] = None) -> str:
     return target_conn.build_dsn(host, port, database, user, password)
 
 
-def _dsn_field(dsn: str, key: str) -> Optional[str]:
+def _dsn_field(dsn: str, key: str) -> str | None:
     """One value out of a libpq DSN, quoted or not.
 
     Both spellings have to be handled. This module now builds its DSN with every
@@ -119,7 +119,7 @@ def _running_under_wsl() -> bool:
         return False
 
 
-def wsl_windows_host() -> Optional[str]:
+def wsl_windows_host() -> str | None:
     """Address of the Windows host as seen from WSL, that is, the default gateway.
 
     It is not constant — it changes when WSL restarts, so it must not be written
@@ -143,7 +143,7 @@ def _reachable(host: str, port: int, timeout: float = 3.0) -> bool:
         return False
 
 
-def resolve_dsn(dsn: Optional[str] = None, *, allow_wsl_fallback: bool = True) -> str:
+def resolve_dsn(dsn: str | None = None, *, allow_wsl_fallback: bool = True) -> str:
     """Returns a DSN that can actually be connected to.
 
     The special case this exists for: when the development PostgreSQL runs on
@@ -186,7 +186,7 @@ def resolve_dsn(dsn: Optional[str] = None, *, allow_wsl_fallback: bool = True) -
 
 @contextmanager
 def connect(
-    dsn: Optional[str] = None, *, read_only: bool = True
+    dsn: str | None = None, *, read_only: bool = True
 ) -> Iterator[psycopg2.extensions.connection]:
     """Opens a session with determinism pinned down.
 

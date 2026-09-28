@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Sequence
 
 if TYPE_CHECKING:  # pragma: no cover
     import pandas as pd
@@ -96,7 +96,7 @@ class BatchProgress:
 
     #: Usually ``ctx.log``. Takes ``(level, message, *args)``.
     log: Callable[..., None]
-    total_rows: Optional[int] = None
+    total_rows: int | None = None
     #: Optional phase label, for strategies that read in several passes.
     phase: str = ""
     #: Time source. Swappable for tests; ``monotonic``, not ``time``, so that a jump
@@ -131,7 +131,7 @@ class BatchProgress:
         prefix = f"[{self.phase}] " if self.phase else ""
         self.log("info", "📦 %s%s", prefix, ", ".join(parts))
 
-    def _eta(self, rows_done: int, rychlost: float) -> Optional[float]:
+    def _eta(self, rows_done: int, rychlost: float) -> float | None:
         """Time remaining, or ``None`` when there is nothing to compute it from.
 
         ``None`` also when more rows are done than the estimate promised — that
@@ -143,7 +143,7 @@ class BatchProgress:
         return (self.total_rows - rows_done) / rychlost
 
 
-def error_status(table: str, source: Optional[str], err: Any) -> dict:
+def error_status(table: str, source: str | None, err: Any) -> dict:
     """Status row for a source that failed.
 
     ``success=False`` is the essential part: the client-side ``test_output`` fails

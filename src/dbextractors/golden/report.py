@@ -15,7 +15,6 @@ the details below that.
 from __future__ import annotations
 
 import json
-from typing import Optional
 
 from dbextractors.golden.model import (
     VERDICT_DIFF,
@@ -91,8 +90,9 @@ def _level_summary(result: LevelResult) -> str:
             if rows["left"] == rows["right"]:
                 return f"{_num(rows['left'])} rows"
             return (
-                f"{_num(rows['left'])} vs {_num(rows['right'])} rows "
-                f"({rows['delta']:+,})".replace(",", THOUSANDS_SEPARATOR)
+                f"{_num(rows['left'])} vs {_num(rows['right'])} rows ({rows['delta']:+,})".replace(
+                    ",", THOUSANDS_SEPARATOR
+                )
             )
         exists = stats.get("exists", {})
         left = "yes" if exists.get("left") else "NO"
@@ -235,8 +235,7 @@ def render_batch(batch: BatchReport, *, verbose: bool = False) -> str:
     if approximate:
         lines.append("")
         lines.append(
-            f"  {MARK_APPROX} In {len(approximate)} tables part of the comparison "
-            "is approximate."
+            f"  {MARK_APPROX} In {len(approximate)} tables part of the comparison is approximate."
         )
 
     matched_approx = [r for r in batch.matched if r.is_approximate]
@@ -267,7 +266,7 @@ def _fallback(value: object) -> str:
     return str(value)
 
 
-def to_json(payload: TableReport | BatchReport, path: Optional[str] = None) -> str:
+def to_json(payload: TableReport | BatchReport, path: str | None = None) -> str:
     text = json.dumps(payload.to_dict(), ensure_ascii=False, indent=2, default=_fallback)
     if path:
         with open(path, "w", encoding="utf-8") as fh:
