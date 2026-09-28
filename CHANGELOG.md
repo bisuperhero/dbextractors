@@ -7,6 +7,45 @@ Every release is tagged, and the tag is what a deployment pins in `requirements.
 **Every change carries a note on what it breaks** — roughly 670 tables depend on
 this package.
 
+## [Unreleased]
+
+The runtime moves from the Mage 0.9.79 image to a current stack for Dagster.
+**The data does not change:** values and `row_hash` are what v1.0.2 produces
+under pandas 1.5.3, and a `hash_diff` load over a target written by v1.0.2
+rewrites nothing.
+
+### Breaks
+
+- **Python 3.10 is no longer supported**; the floor is 3.11. With it go the
+  exact pins: SQLAlchemy 2 (`>=2.0,<3`), pandas `>=2.2,<3` and numpy
+  `>=1.26,<3` replace SQLAlchemy 1.4.54, pandas 1.5.3 and numpy 1.26.4, and the
+  driver extras are ranges up to the next major version.
+- **Mage stays on 1.0.x.** The Mage 0.9.79 image is Python 3.10 with pandas 1.5
+  and SQLAlchemy 1.4, on which this release refuses to install. Pin
+  `dbextractors>=1.0,<1.1` there.
+- **Firebird is read through `firebird-driver`, not `fdb`.** The SQLAlchemy URL
+  scheme changes from `firebird+fdb` to `firebird+firebird`, the `firebird`
+  extra installs `sqlalchemy-firebird` and `firebird-driver`, and the system
+  needs the Firebird 3+ client library (`libfbclient.so.2`); it still reads a
+  2.5 server. A refused or lost Firebird connection now counts as temporary and
+  is retried, as it already was for the other three sources — `fdb` reported
+  it in a way SQLAlchemy could not tell apart from a SQL error.
+- `mysql-connector-python` 9.1 or newer (CVE-2024-21272).
+
+### Fixed — behaviour pandas 2 would have changed, kept as it was
+
+- `row_hash`: an `object` column holding `bytes` is rendered `"b'abc'"`, as
+  pandas 1.5 did; pandas 2 renders `'abc'` (and raises on bytes that are not
+  UTF-8).
+- Date parsing: a column is parsed value by value, as pandas 1.5 did; pandas 2
+  infers one format from the first value and turns every value in another
+  format into `NaT`. A column of aware datetimes with two UTC offsets (a
+  `timestamptz` across a daylight-saving change) keeps every value;
+  `"now"` is the UTC wall clock; a time-zone abbreviation of the machine's own
+  zone no longer raises.
+- Durations: `Y`/`y` is 365.2425 days and `M` a minute, and `A`/`a` is
+  rejected, as in pandas 1.5.
+
 ## [1.0.2]
 
 ### Fixed

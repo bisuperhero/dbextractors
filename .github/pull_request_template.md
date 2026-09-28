@@ -20,8 +20,8 @@
 - [ ] No new configuration key was renamed or given a new meaning; anything new
       has a default that leaves existing pipelines behaving identically.
 - [ ] No column name in the target changed.
-- [ ] Runs on Python 3.10 / pandas 1.5.3 / SQLAlchemy 1.4.54. No new dependency,
-      or a new one verified against those versions.
+- [ ] Runs on Python 3.11+ / pandas 2.2+ / SQLAlchemy 2, and nothing that
+      reaches the target changes (the golden hash and coerce tests are untouched).
 - [ ] `ruff check`, `ruff format --check` and `mypy` are clean.
 - [ ] CHANGELOG.md updated, with an explicit note if anything breaks.
 

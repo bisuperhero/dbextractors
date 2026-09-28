@@ -9,7 +9,8 @@ body:
         worth checking them first — see
         [CONTRIBUTING.md](https://github.com/bisuperhero/dbextractors/blob/main/CONTRIBUTING.md):
 
-        1. The runtime cannot be raised (Python 3.10, pandas 1.5, SQLAlchemy 1.4).
+        1. The data must not depend on the runtime: values and `row_hash` stay
+           what pandas 1.5.3 produced.
         2. The configuration contract is frozen — a new capability arrives as a
            new key with a safe default, never as a change to an existing one.
         3. Target column names cannot change.

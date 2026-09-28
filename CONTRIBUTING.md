@@ -7,12 +7,15 @@ code.
 
 ## The three constraints
 
-**1. The runtime cannot be raised.** This package targets the Mage 0.9.79
-image: Python 3.10, pandas 1.5.3, SQLAlchemy 1.4.54, PostgreSQL 17 as the
-target. Not 3.11. Not pandas 2. `requires-python = ">=3.10,<3.11"` enforces it
-and a CI job checks that the enforcement still holds. Before adding a
-dependency, verify it installs and runs on those versions — a previous attempt
-at this problem died exactly here.
+**1. The data must not depend on the runtime.** The runtime is Python 3.11+,
+pandas 2.2+, SQLAlchemy 2 and PostgreSQL 17 as the target; the Mage 0.9.79
+image (Python 3.10, pandas 1.5.3, SQLAlchemy 1.4.54) stays on the v1.0.x line.
+But every `row_hash` and every value in production was produced under pandas
+1.5.3, and a changed hash makes every row look changed. So a change that
+alters what reaches the target — or a dependency bump that does — has to keep
+the pandas 1.5.3 output: `tests/hashing/test_golden_hashes.py` and the
+hard-coded cases in `tests/coerce/test_characterization_coerce.py` pin it, and
+they are never regenerated to make a test pass.
 
 **2. The configuration contract is frozen.** Existing keys are never renamed
 and never change meaning, including the legacy top-level ones documented in
@@ -32,7 +35,7 @@ library inside the Mage image.
 ## Getting set up
 
 ```sh
-make install     # uv venv on Python 3.10 + editable install with dev extras
+make install     # uv venv on Python 3.11 + editable install with dev extras
 make db-up       # PostgreSQL target + MySQL, MSSQL and Firebird sources, seeded
 cp .env.example .env
 make check       # lint, types, tests, runtime verification

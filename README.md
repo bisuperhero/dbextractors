@@ -31,11 +31,22 @@ shows in two places, and both are deliberate:
   [Backward compatibility](docs/legacy-compat.md) — you do not need any of it
   for a new pipeline.
 
-> **Runtime.** This package targets the Mage 0.9.79 image: **Python 3.10,
-> pandas 1.5, SQLAlchemy 1.4**, with dependencies pinned to the exact versions
-> that image ships. Installation on 3.11+ is refused on purpose rather than
-> failing later in production. Widening that is a known and separate piece of
-> work.
+> **Runtime.** **Python 3.11+, pandas 2.2+, SQLAlchemy 2, numpy up to 2.x** —
+> the stack an orchestrator such as Dagster runs today. Dependencies are ranges
+> up to the next major version; `scripts/verify_runtime.py` checks an existing
+> environment against them. CI installs the wheel on 3.11, 3.13 and 3.14.
+>
+> **The data does not depend on the stack.** Every `row_hash` and every value
+> in the targets was produced under pandas 1.5.3, and a changed hash would make
+> every row look changed. Where pandas 2 would compute something else — how a
+> column of `bytes` is rendered for the hash, how a column of dates is parsed —
+> the 1.5.3 behaviour is reproduced explicitly and pinned by tests that
+> hard-code the 1.5.3 results. A hash-diff load over a target written by v1.0.2
+> finds nothing to rewrite.
+>
+> **Mage (Python 3.10, pandas 1.5, SQLAlchemy 1.4) stays on v1.0.x.** 1.0.x is
+> the last line that installs into the Mage 0.9.79 image; pin
+> `dbextractors>=1.0,<1.1` there. Newer releases refuse to install on 3.10.
 
 ## Why this exists
 
@@ -45,10 +56,10 @@ shows in two places, and both are deliberate:
   why the configuration contract is frozen: 15 hand-copied blocks became one call,
   and a single loader block now serves 101 pipelines.
 - **So that awkward sources are reachable at all.** Firebird is the case in point.
-  Its Python driver, `fdb`, is the oldest and most fragile of the four, which is why
-  it sits behind its own extra (`pip install "dbextractors[firebird]"`) and gets its
-  own CI job marked `continue-on-error` — a Firebird image that will not start is
-  worth seeing, but should not block a release. General-purpose tooling tends not to
+  It sits behind its own extra (`pip install "dbextractors[firebird]"`, which brings
+  `firebird-driver` and needs the Firebird client library, `libfbclient.so.2`, on
+  the system) and gets its own CI job marked `continue-on-error` — a Firebird image
+  that will not start is worth seeing, but should not block a release. General-purpose tooling tends not to
   carry a source that needs that much special handling.
 - **So that the things a real deployment needs are in the box.** Reaching a source
   that is not directly routable is the clearest example, and it is often left out of
@@ -59,6 +70,14 @@ shows in two places, and both are deliberate:
   forwarded port open.
 
 ## Mage integration
+
+**Mage deployments stay on v1.0.x** (`dbextractors>=1.0,<1.1`): the Mage 0.9.79
+image is Python 3.10 with pandas 1.5 and SQLAlchemy 1.4, and releases after
+1.0.x require Python 3.11 and SQLAlchemy 2. What follows describes how 1.0.x is
+wired into Mage; the configuration contract is the same in both lines, so a
+pipeline moves between them without changing its config block. The one
+exception is a Firebird URL built by hand: its scheme is `firebird+fdb` in
+1.0.x and `firebird+firebird` after it.
 
 The package does not require Mage — there is a single lazy import of `mage_ai`,
 used only to locate `io_config.yaml` when running inside it. Under Mage the

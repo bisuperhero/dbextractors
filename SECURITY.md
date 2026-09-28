@@ -12,25 +12,22 @@ credited unless you ask otherwise.
 
 ## Supported versions
 
-The latest minor release. This package pins its dependencies to the exact
-versions shipped in the Mage 0.9.79 image, so a fix in a transitive dependency
-is not automatically available — it is a deliberate decision each time, and
-that decision belongs in the release notes.
+The latest minor release, plus the v1.0.x line for as long as Mage deployments
+run on it. v1.0.x pins its dependencies to the exact versions shipped in the
+Mage 0.9.79 image, so a fix in a transitive dependency is not automatically
+available there — it is a deliberate decision each time, and that decision
+belongs in the release notes. Later releases declare ranges, so such a fix
+arrives with an ordinary upgrade.
 
 ## Known accepted risks
 
-Running `pip-audit` against an install of this package reports one advisory.
-It is known, and this is the reasoning, so that nobody has to re-derive it:
-
-**`mysql-connector-python` 8.4.0 — CVE-2024-21272 (CVSS 7.5).** This driver
-parses everything a MySQL source sends back, so it is genuinely on the
-connection path. It is fixed in 9.1.0, which would install fine on Python 3.10
-— but the pin is not there for compatibility. It is there because the Mage
-0.9.79 image **itself ships 8.4.0**, and this package is installed bare into
-that image, which means the extras never apply in production at all. Raising
-the pin would only change what CI and local tests run against, making them
-diverge from what actually executes. The real remedy is an image upgrade, which
-is outside this package.
+**`mysql-connector-python` 8.4.0 — CVE-2024-21272 (CVSS 7.5)**, v1.0.x only.
+This driver parses everything a MySQL source sends back, so it is genuinely on
+the connection path. It is fixed in 9.1.0. v1.0.x pins 8.4.0 because the Mage
+0.9.79 image **itself ships 8.4.0** and the package is installed bare into that
+image, so the extras never apply there; the real remedy on that line is an
+image upgrade, which is outside this package. Later releases require 9.1 or
+newer.
 
 Worth knowing in combination: the exploit precondition is a hostile or
 impersonated MySQL server. When the connection is tunnelled and

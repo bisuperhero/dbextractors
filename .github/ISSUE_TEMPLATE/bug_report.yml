@@ -75,4 +75,4 @@ body:
     id: environment
     attributes:
       label: Environment
-      placeholder: "Python 3.10.19, pandas 1.5.3, running under Mage 0.9.79 / standalone"
+      placeholder: "dbextractors 1.x, Python 3.11, pandas 2.2, running under Dagster / standalone"
