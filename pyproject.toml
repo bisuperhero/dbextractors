@@ -51,7 +51,7 @@ dependencies = [
 # NOTE: an image that already ships `psycopg2` (built from source) should install
 # bare `dbextractors` — `psycopg2-binary` next to it collides.
 target = ["psycopg2-binary>=2.9.3,<3"]
-mysql = ["mysql-connector-python>=8.4,<27"]
+mysql = ["mysql-connector-python>=9.1,<27"]  # 9.1 fixes CVE-2024-21272
 mssql = ["pymssql>=2.3.13,<3"]
 # `firebird-driver` is the maintained successor of `fdb`, and `sqlalchemy-firebird`
 # 2.x is the SQLAlchemy 2 dialect on top of it (URL scheme `firebird+firebird`).
