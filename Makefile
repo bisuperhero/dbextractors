@@ -75,8 +75,8 @@ bench-write:
 
 check: lint types test verify-runtime
 
-# Verifies that what is installed really matches the target image. An earlier
-# attempt at this problem broke on exactly this and nothing caught it.
+# Verifies that what is installed satisfies the ranges the package declares —
+# the check that matters in an image that already ships pandas or a driver.
 verify-runtime:
 	$(BIN)/python scripts/verify_runtime.py
 

@@ -105,9 +105,11 @@ services:
       - ./seed/mssql:/seed:ro
     restart: "no"
 
-  # Version 2.5 on purpose: the client is `fdb`, which talks to
-  # `libfbclient.so.2`. Firebird 3.0 also works, but only with Legacy_Auth and
-  # WireCrypt disabled — see the commented-out variables.
+  # Version 2.5 on purpose: the oldest server a source can still run. The
+  # driver, `firebird-driver`, loads the Firebird 3+ client library
+  # (`libfbclient.so.2`, `libfbclient2` on Debian/Ubuntu), which talks to it.
+  # The variables below were needed to run a 3.0+ server under the former
+  # driver, `fdb`; a newer server is not exercised by this file.
   firebird:
     image: jacobalberty/firebird:2.5-ss
     environment:

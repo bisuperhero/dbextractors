@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: Compare
         run: |
           tag="${GITHUB_REF_NAME#v}"
@@ -54,7 +54,7 @@ jobs:
   # `workflow_run` trigger, and both fail open — a run that never starts, or a
   # name that stops matching after a rename, reads as "nothing to wait for".
   # Re-running the gate here costs two minutes and cannot fail open. The full
-  # CI matrix (Mage parity, the wheel matrix, the 3.12 refusal) still runs on
+  # CI matrix (Mage parity, the wheel matrix, the 3.10 refusal) still runs on
   # this tag in its own workflow; what is repeated here is what publishing
   # depends on directly.
   gate:
@@ -81,7 +81,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - run: pip install -e ".[dev]"
       - run: ruff check src tests scripts
       - run: ruff format --check src tests scripts
@@ -110,7 +110,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - run: python -m pip install --upgrade pip build twine
       - run: python -m build
       - run: python -m twine check dist/*

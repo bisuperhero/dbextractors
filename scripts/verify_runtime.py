@@ -1,61 +1,41 @@
-"""Verify that the runtime matches the production Mage image.
+"""Verify that the runtime satisfies what the installed package declares.
 
-An earlier attempt built on the `dlt` library failed because it targeted a newer
-ecosystem than the one actually available. This script is the wall that stops the
-same mistake happening again: it runs in CI and locally via `make verify-runtime`,
-and exits with a non-zero status on any mismatch.
+pip enforces these ranges when it resolves an install, so in a clean
+environment this script has nothing to find. It exists for the other kind:
+an orchestrator image that already ships pandas, SQLAlchemy or a driver, into
+which the package was installed with ``--no-deps`` or next to pins pip could
+not reconcile. There a wrong version does not fail the install — it fails the
+first run, or worse, it does not fail and produces different values. This
+script runs in CI after installing the built wheel and locally via
+``make verify-runtime``, and exits non-zero on any mismatch.
 
-The expected versions are not guesses — they are read off a running
-`mageai/mageai:0.9.79` container (`pip list` inside the image).
+The ranges are **not** repeated here: they are read from the installed
+distribution's own metadata, so they cannot drift from ``pyproject.toml``.
 """
 
 from __future__ import annotations
 
+import re
 import sys
-from importlib.metadata import PackageNotFoundError, version
+from importlib.metadata import PackageNotFoundError, metadata, requires, version
 
-# Core dependencies. The package pins them with `==` in pyproject.toml, so what is
-# checked here is that pip actually honoured those pins.
-EXPECTED: dict[str, str] = {
-    "SQLAlchemy": "1.4.54",
-    "pandas": "1.5.3",
-    "numpy": "1.26.4",
-}
+DISTRIBUTION = "dbextractors"
 
-# Optional. Checked only when installed — they are always present in the Mage image,
-# and in CI they depend on which extras were installed.
-EXPECTED_OPTIONAL: dict[str, str] = {
-    "mysql-connector-python": "8.4.0",
-    "pymssql": "2.3.13",
-    "fdb": "2.0.4",
-}
+#: `psycopg2-binary` is what the `target` extra installs; an image that builds
+#: `psycopg2` from source ships it under this other name. Either satisfies the
+#: same range, and both at once collide.
+ALTERNATIVE_NAMES: dict[str, tuple[str, ...]] = {"psycopg2-binary": ("psycopg2",)}
 
-EXPECTED_PYTHON = (3, 10)
-
-# The driver to the target, which is the one every run depends on — and the one
-# this script used to say nothing about. It needs its own check because it is
-# the only dependency that arrives under **two different distribution names**:
-# the image builds `psycopg2` from source, while outside the image the `target`
-# extra installs `psycopg2-binary`, deliberately (the two collide if both are
-# present, which is why `dbextractors` is installed bare into the image).
-#
-# So a plain equality check is impossible here, and its absence was worse than
-# it looked: the script printed "the runtime matches the production image" over
-# a `psycopg2-binary` that had resolved nine patch versions past what the image
-# ships, without ever looking. The range below is the one `pyproject.toml`
-# declares; the version is printed either way so the drift is visible rather
-# than merely permitted.
-PSYCOPG2_IMAGE_VERSION = "2.9.3"
-PSYCOPG2_RANGE = ((2, 9, 3), (2, 10))
+_REQUIREMENT = re.compile(r"^\s*([A-Za-z0-9_.\-]+)\s*(?:\[[^\]]*\])?\s*([^;]*?)\s*(?:;\s*(.*))?$")
 
 
 def _release(raw: str) -> tuple[int, ...]:
     """The numeric release part of a version, ``2.9.12`` -> ``(2, 9, 12)``.
 
     Deliberately hand-rolled rather than using `packaging`: this script has to
-    run in an environment that holds nothing but the three pinned dependencies,
-    and `packaging` is not one of them. Anything after the digits (`rc1`,
-    `.post0`) is not needed to answer "is this inside the declared range".
+    run in an environment that holds nothing but the package's own
+    dependencies, and `packaging` is not one of them. Anything after the digits
+    (`rc1`, `.post0`) is not needed to answer "is this inside the range".
     """
     parts: list[int] = []
     for chunk in raw.split("."):
@@ -70,89 +50,101 @@ def _release(raw: str) -> tuple[int, ...]:
     return tuple(parts)
 
 
-def _check_psycopg2(problems: list[str]) -> None:
-    for name in ("psycopg2", "psycopg2-binary"):
+def _pad(a: tuple[int, ...], b: tuple[int, ...]) -> tuple[tuple[int, ...], tuple[int, ...]]:
+    width = max(len(a), len(b))
+    return a + (0,) * (width - len(a)), b + (0,) * (width - len(b))
+
+
+def _satisfies(actual: str, specifier: str) -> bool:
+    """``>=``, ``<``, ``<=``, ``>``, ``==`` and ``!=`` clauses, comma-separated."""
+    have = _release(actual)
+    for clause in filter(None, (c.strip() for c in specifier.split(","))):
+        match = re.match(r"(>=|<=|==|!=|<|>)\s*(.+)", clause)
+        if not match:
+            raise ValueError(f"unsupported version clause {clause!r}")
+        op, bound = match.groups()
+        left, right = _pad(have, _release(bound))
+        ok = {
+            ">=": left >= right,
+            "<=": left <= right,
+            ">": left > right,
+            "<": left < right,
+            "==": left == right,
+            "!=": left != right,
+        }[op]
+        if not ok:
+            return False
+    return True
+
+
+def _requirements() -> list[tuple[str, str, str | None]]:
+    """``(name, specifier, extra)`` for every declared requirement."""
+    parsed = []
+    for raw in requires(DISTRIBUTION) or []:
+        match = _REQUIREMENT.match(raw)
+        if not match:
+            continue
+        name, specifier, marker = match.groups()
+        extra = None
+        if marker:
+            found = re.search(r"extra\s*==\s*['\"]([^'\"]+)['\"]", marker)
+            extra = found.group(1) if found else None
+        if name == DISTRIBUTION:
+            continue  # `dev` pulls in the other extras by name
+        parsed.append((name, specifier, extra))
+    return parsed
+
+
+def _installed(name: str) -> tuple[str, str] | None:
+    for candidate in (name, *ALTERNATIVE_NAMES.get(name, ())):
         try:
-            actual = version(name)
+            return candidate, version(candidate)
         except PackageNotFoundError:
             continue
-
-        if name == "psycopg2":
-            # Inside the image. Here an exact match is the whole point.
-            if actual != PSYCOPG2_IMAGE_VERSION:
-                problems.append(f"psycopg2 {actual} != {PSYCOPG2_IMAGE_VERSION} (image)")
-            else:
-                print(f"  ok  psycopg2 {actual}")
-            return
-
-        low, high = PSYCOPG2_RANGE
-        release = _release(actual)
-        if not (low <= release < high):
-            problems.append(
-                f"psycopg2-binary {actual} is outside the declared range "
-                f"(>={'.'.join(map(str, low))},<{'.'.join(map(str, high))})"
-            )
-        elif release != _release(PSYCOPG2_IMAGE_VERSION):
-            # Not a failure: outside the image `psycopg2-binary` is the right
-            # choice and the range is intentional. But it is a difference from
-            # production, and a difference nobody is told about is the kind that
-            # explains a bug three months later.
-            print(f"  ok  psycopg2-binary {actual} (image ships psycopg2 {PSYCOPG2_IMAGE_VERSION})")
-        else:
-            print(f"  ok  psycopg2-binary {actual}")
-        return
-
-    print("  --  psycopg2 not installed (optional)")
+    return None
 
 
 def main() -> int:
     problems: list[str] = []
 
-    actual_python = sys.version_info[:2]
-    if actual_python != EXPECTED_PYTHON:
-        problems.append(
-            f"Python {'.'.join(map(str, actual_python))} != "
-            f"{'.'.join(map(str, EXPECTED_PYTHON))} (production Mage image)"
-        )
-    else:
-        print(f"  ok  Python {sys.version.split()[0]}")
-
-    for pkg, expected in EXPECTED.items():
-        try:
-            actual = version(pkg)
-        except PackageNotFoundError:
-            problems.append(f"{pkg} is not installed (expected {expected})")
-            continue
-        if actual != expected:
-            problems.append(f"{pkg} {actual} != {expected}")
-        else:
-            print(f"  ok  {pkg} {actual}")
-
-    _check_psycopg2(problems)
-
-    for pkg, expected in EXPECTED_OPTIONAL.items():
-        try:
-            actual = version(pkg)
-        except PackageNotFoundError:
-            print(f"  --  {pkg} not installed (optional)")
-            continue
-        if actual != expected:
-            problems.append(f"{pkg} {actual} != {expected}")
-        else:
-            print(f"  ok  {pkg} {actual}")
-
-    if problems:
-        print("\nThe runtime does not match the production Mage image:", file=sys.stderr)
-        for p in problems:
-            print(f"  ! {p}", file=sys.stderr)
-        print(
-            "\nThese versions cannot be raised — the image is production and upgrading "
-            "it is out of scope for this package.",
-            file=sys.stderr,
-        )
+    try:
+        declared_python = metadata(DISTRIBUTION)["Requires-Python"] or ""
+    except PackageNotFoundError:
+        print(f"{DISTRIBUTION} is not installed.", file=sys.stderr)
         return 1
 
-    print("\nThe runtime matches the production Mage image.")
+    running = ".".join(map(str, sys.version_info[:3]))
+    if _satisfies(running, declared_python):
+        print(f"  ok  Python {running} ({declared_python})")
+    else:
+        problems.append(f"Python {running} is outside {declared_python}")
+
+    seen: set[str] = set()
+    for name, specifier, extra in _requirements():
+        if name in seen or extra == "dev":
+            continue
+        seen.add(name)
+        found = _installed(name)
+        if found is None:
+            if extra is None:
+                problems.append(f"{name} is not installed (required: {specifier})")
+            else:
+                print(f"  --  {name} not installed (extra '{extra}')")
+            continue
+        installed_as, actual = found
+        label = installed_as if installed_as == name else f"{installed_as} (for {name})"
+        if not specifier or _satisfies(actual, specifier):
+            print(f"  ok  {label} {actual} ({specifier or 'any'})")
+        else:
+            problems.append(f"{label} {actual} is outside {specifier}")
+
+    if problems:
+        print("\nThe runtime does not satisfy what dbextractors declares:", file=sys.stderr)
+        for problem in problems:
+            print(f"  ! {problem}", file=sys.stderr)
+        return 1
+
+    print("\nThe runtime satisfies what dbextractors declares.")
     return 0
 
 

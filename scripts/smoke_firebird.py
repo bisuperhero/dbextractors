@@ -1,15 +1,15 @@
-"""Checks that firebird+fdb exists at all on the production Mage image.
+"""Checks that firebird+firebird exists at all in an environment.
 
-SQLAlchemy 1.4 marked its Firebird dialect as deprecated and removed it in 2.0.
-If 1.4.54 no longer carried it, `FirebirdDialect` would be dead from day one and
-nobody would find out until the first night in production. No connection is
-attempted here - this only checks that the URL parses and that the dialect finds
-its driver.
+SQLAlchemy 2 has no built-in Firebird dialect; it comes from `sqlalchemy-firebird`
+over `firebird-driver`, which in turn loads the Firebird client library. If any
+of the three is missing, `FirebirdDialect` is dead and nobody finds out until the
+first night in production. No connection is attempted here - this only checks
+that the URL parses and that the dialect finds its driver.
 """
 
 import warnings
+from importlib.metadata import version
 
-import fdb
 import sqlalchemy
 from sqlalchemy import create_engine
 from sqlalchemy.engine.url import make_url
@@ -18,7 +18,7 @@ from dbextractors.core import secrets
 from dbextractors.dialects.firebird import FirebirdDialect
 
 print("SQLAlchemy:", sqlalchemy.__version__)
-print("fdb:", fdb.__version__)
+print("firebird-driver:", version("firebird-driver"))
 
 d = FirebirdDialect()
 url = d.build_conn_str(
@@ -47,4 +47,4 @@ win = d.build_conn_str(
 )
 print("Windows path:", secrets.redact(win))
 
-print("\nDONE: firebird+fdb is alive on this image.")
+print("\nDONE: firebird+firebird is alive in this environment.")

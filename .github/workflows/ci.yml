@@ -19,8 +19,9 @@ concurrency:
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 env:
-  # The runtime this package targets. It cannot be raised — see the README.
-  PYTHON_VERSION: "3.10"
+  # The oldest supported Python. Lint, types and the live tests run on it; the
+  # install matrix below covers the newer ones.
+  PYTHON_VERSION: "3.11"
 
 jobs:
   lint:
@@ -31,7 +32,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - run: pip install ruff==0.6.9
+      - run: pip install ruff==0.16.9
       - run: ruff check src tests scripts
       - run: ruff format --check src tests scripts
 
@@ -44,6 +45,8 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: pip install -e ".[dev]"
+      # On 3.11 on purpose: numpy 2.5+ (3.12+ only) ships stubs that mypy can
+      # read only with python_version >= 3.12, and 3.11 is the floor mypy checks.
       - run: mypy
 
   test:
@@ -72,9 +75,10 @@ jobs:
       # survive the trip. Writing the first live MySQL test found exactly such a
       # bug — see the charset entry in the changelog.
       #
-      # Firebird is deliberately **not** a service: its driver is the most
-      # fragile of the set, and a source that fails to start should not take the
-      # whole job with it. It gets its own job below.
+      # Firebird is deliberately **not** a service: it needs a client library
+      # on the runner and its image is the slowest to start, and a source that
+      # fails to start should not take the whole job with it. It gets its own
+      # job below.
       mysql:
         image: mysql:8
         env:
@@ -160,10 +164,10 @@ jobs:
 
 
   # ---------------------------------------------------------------------
-  # Firebird has its own job for the same reason its driver install does: `fdb`
-  # is the oldest and most fragile of the set, and this is the source with the
-  # most surprises — negative NUMERIC scale, CHAR padded with spaces, days
-  # counted from 1858. Until recently it had no live test at all.
+  # Firebird has its own job: its driver (`firebird-driver`, through
+  # `sqlalchemy-firebird`) needs the Firebird client library on the runner, and
+  # this is the source with the most surprises — negative NUMERIC scale, CHAR
+  # padded with spaces, days counted from 1858.
   #
   # `continue-on-error` on purpose: a Firebird image that will not start is a
   # problem worth seeing, but not one that should block a release.
@@ -190,6 +194,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+      # `firebird-driver` loads `libfbclient.so.2` at connect time. Ubuntu's
+      # `libfbclient2` is the Firebird 3 client, which also talks to the 2.5
+      # server in `docker/compose.yml`.
+      - name: Install the Firebird client library
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libfbclient2
       - run: pip install -e ".[dev]"
 
       - name: Start and seed Firebird
@@ -214,6 +223,12 @@ jobs:
 
   # ---------------------------------------------------------------------
   # Target column names must not change.
+  #
+  # This job still runs inside the Mage image although Mage is no longer the
+  # runtime (Mage users stay on v1.0.x): the image holds the library the
+  # reserved-word list and the `io_config.yaml` reader were replicated from,
+  # and it runs Python 3.10. Only the modules under test are imported, and
+  # they do not use anything newer — if that ever changes, this job says so.
   #
   # `core/naming.py` reimplements the list of 825 reserved words rather than
   # importing it, so that an upstream change cannot silently rename columns in
@@ -253,16 +268,11 @@ jobs:
           fi
 
   # ---------------------------------------------------------------------
-  # The wall an earlier attempt at this problem broke on.
-  #
-  # It installs the built wheel rather than `-e ".[dev]"` — exactly the way the
-  # package reaches the target image. If a dependency crept in that does not run
-  # on 3.10 with SQLAlchemy 1.4 and pandas 1.5, it fails here rather than in
-  # production.
-  #
-  # The matrix has one entry on purpose: supporting more Python versions is not
-  # wanted, and `requires-python = ">=3.10,<3.11"` enforces it. The
-  # `reject-newer` job below verifies that the enforcement actually works.
+  # The built wheel, installed the way a deployment installs it, on the oldest
+  # and a current Python, with every driver extra. 3.14 is in because every
+  # driver — pymssql and firebird-driver included — ships a wheel for it; the
+  # suite also runs there. The `reject-older` job below verifies that the
+  # floor in `requires-python` actually holds.
   # ---------------------------------------------------------------------
   install-matrix:
     name: install on py${{ matrix.python }} (wheel)
@@ -270,14 +280,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.10"]
+        python: ["3.11", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
 
-      - name: Postavit wheel
+      - name: Build the wheel
         run: |
           python -m pip install --upgrade pip build
           python -m build --wheel --outdir dist/
@@ -288,7 +298,7 @@ jobs:
           /tmp/clean/bin/pip install --upgrade pip
           /tmp/clean/bin/pip install dist/*.whl
 
-      - name: Verify dependency versions against the target image
+      - name: Verify dependency versions against the declared ranges
         run: /tmp/clean/bin/python scripts/verify_runtime.py
 
       - name: Verify that the package imports
@@ -296,35 +306,23 @@ jobs:
 
       - name: Verify the source drivers
         run: |
-          /tmp/clean/bin/pip install "$(ls dist/*.whl)[target,mysql,mssql,ssh]"
+          /tmp/clean/bin/pip install "$(ls dist/*.whl)[target,mysql,mssql,firebird,ssh]"
           /tmp/clean/bin/python scripts/verify_runtime.py
+          /tmp/clean/bin/python -c "import mysql.connector, pymssql, psycopg2, firebird.driver, sqlalchemy_firebird"
 
-  # `fdb` (Firebird) gets its own job: it is the oldest and most fragile driver
-  # of the set, and its failure should not take the rest of the matrix down.
-  install-firebird:
-    name: Firebird driver installation
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      - run: pip install -e ".[firebird]"
-      - run: python -c "import fdb; print('fdb', fdb.__version__)"
-
-  # Verifies that the upper bound of `requires-python` actually holds. If anyone
-  # loosens it, this job turns green and says so.
-  reject-newer:
-    name: 3.12 must refuse to install
+  # Verifies that the floor in `requires-python` actually holds: Python 3.10 —
+  # the Mage image — has to be refused at install time and pointed at v1.0.x,
+  # not fail later on a syntax or API error.
+  reject-older:
+    name: 3.10 must refuse to install
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-      # `--no-deps` matters: without it the job would go green even when the
-      # install failed on building pandas 1.5.3, for which 3.12 has no wheel.
+          python-version: "3.10"
+      # `--no-deps` matters: without it the job could go green because a
+      # dependency failed to install on 3.10 rather than because of the floor.
       # That would look like a working wall while actually being luck, so the
       # reason in the message is checked too.
       - name: pip install must fail because of requires-python
@@ -335,11 +333,11 @@ jobs:
           set -e
           echo "$out"
           if [ $rc -eq 0 ]; then
-            echo "::error::Install on Python 3.12 succeeded. requires-python no longer holds — see the README."
+            echo "::error::Install on Python 3.10 succeeded. requires-python no longer holds — see the README."
             exit 1
           fi
           if ! echo "$out" | grep -q "requires a different Python"; then
             echo "::error::Install failed, but not because of requires-python, so the wall does not hold."
             exit 1
           fi
-          echo "Install on 3.12 refused because of requires-python, as intended."
+          echo "Install on 3.10 refused because of requires-python, as intended."
