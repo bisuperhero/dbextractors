@@ -166,8 +166,17 @@ def _as_text(series: pd.Series) -> pd.Series:
     time is midnight, pandas prints only the date (``'2026-08-11'``), whereas
     ``str(Timestamp)`` gives ``'2026-08-11 00:00:00'``. The difference feeds straight
     into the hash.
+
+    For ``object`` one must not use it either. pandas 1.5 renders ``bytes`` there as
+    ``str(b'abc')``, i.e. ``"b'abc'"``, and every existing hash was computed that way;
+    pandas 2.x decodes them to ``'abc'``. ``map(str)`` is what the predecessor's
+    ``str(row[col])`` does, on every pandas version.
     """
-    if pd.api.types.is_datetime64_any_dtype(series) or pd.api.types.is_timedelta64_dtype(series):
+    if (
+        series.dtype == object
+        or pd.api.types.is_datetime64_any_dtype(series)
+        or pd.api.types.is_timedelta64_dtype(series)
+    ):
         return series.map(str)
     return series.astype(str)
 
