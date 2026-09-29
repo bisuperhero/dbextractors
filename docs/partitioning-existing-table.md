@@ -39,7 +39,7 @@ DROP TABLE raw_source.orders;
 ```
 
 Add `partition_by` to the configuration and run the pipeline. The incremental
-strategies (`incremental`, `hash_diff`, `id_watermark`) **detect the missing target
+strategies (`incremental`, `hash_diff`, `id_watermark`, `abra_watermark`) **detect the missing target
 themselves** and fall back to a full load (`fallback_reason: 'target table does not
 exist'`), so nothing has to be switched over by hand. dbextractors creates the
 indexes itself at the end of the run.

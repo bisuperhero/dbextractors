@@ -33,7 +33,7 @@ body:
     id: load_method
     attributes:
       label: load_method
-      placeholder: "full | incremental | hash_diff (hash) | id_watermark | full_by_source | parent_incremental"
+      placeholder: "full | incremental | hash_diff (hash) | id_watermark | abra_watermark | full_by_source | parent_incremental"
     validations:
       required: true
 

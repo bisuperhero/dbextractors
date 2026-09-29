@@ -94,6 +94,9 @@ LOAD_SETTINGS_KEYS: frozenset[str] = frozenset(
         "incremental_parent_date_column_fallback",
         "incremental_parent_key_column",
         "incremental_parent_id_column",
+        # ABRA ERP record IDs: which database identifiers `abra_watermark`
+        # computes a watermark for.
+        "abra_id_suffixes",
     }
 )
 
@@ -393,6 +396,12 @@ class LoadSettingsConfig:
     #: nothing could set.
     incremental_parent_key_column: str | None = None
     incremental_parent_id_column: str | None = None
+    #: The ABRA ERP database identifiers (the part of the record ID after the
+    #: counter) whose new records `AbraWatermarkStrategy` reads. ``None`` when
+    #: the key is absent; the strategy requires it and validates the values, so
+    #: they are passed through as given — a single string becomes a one-member
+    #: tuple rather than a tuple of its characters.
+    abra_id_suffixes: tuple | None = None
 
 
 @dataclass(frozen=True)
@@ -479,6 +488,19 @@ def _as_optional_tuple(value: Any) -> tuple[str, ...] | None:
     if value is None:
         return None
     return tuple(value)
+
+
+def _as_suffixes(value: Any) -> tuple | None:
+    """``abra_id_suffixes`` as a tuple, without splitting a lone string into characters.
+
+    ``_as_tuple`` would turn ``'101'`` into ``('1', '0', '1')``. The values are
+    not checked here; `abra_watermark.abra_id_suffixes` does that, loudly.
+    """
+    if value is None:
+        return None
+    if isinstance(value, (list, tuple)):
+        return tuple(value)
+    return (value,)
 
 
 def _partition_by(load_cfg: dict, table_cfg: dict) -> dict | None:
@@ -646,6 +668,7 @@ def parse(config: dict) -> ParsedConfig:
         ),
         incremental_parent_key_column=load_cfg.get("incremental_parent_key_column") or None,
         incremental_parent_id_column=load_cfg.get("incremental_parent_id_column") or None,
+        abra_id_suffixes=_as_suffixes(load_cfg.get("abra_id_suffixes")),
     )
 
     source_db = SourceDbConfig(

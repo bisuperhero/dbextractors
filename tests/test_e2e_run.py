@@ -145,3 +145,53 @@ def test_full_load_moves_the_seeded_table_into_the_target(source, table, target_
         # corrupts the target while keeping the row count right.
         cur.execute(f'SELECT updated_at FROM "{target_schema}"."paged" WHERE id = 5')
         assert cur.fetchone()[0] is None
+
+
+@pytest.mark.needs_firebird
+def test_abra_watermark_reads_only_newer_counters_from_firebird(target_schema) -> None:
+    """`abra_watermark` end to end over a Firebird 2.5 source, seeded ``ABRA_IDS``.
+
+    The source is read-only, so "new rows" are made by taking rows out of the
+    target after a full load. The ID column carries a Czech collation, and the
+    rows taken out include the counter reversed to ``CH00000`` — under that
+    collation it would sort above the watermark in the wrong place; see the seed.
+    """
+    from dbextractors import run
+
+    params = require_source_params("firebird")
+
+    def config(load: dict) -> dict:
+        return {
+            "TABLE": {
+                "source_name": "ABRA_IDS",
+                "output_schema": target_schema,
+                "output_name": "abra_ids",
+                "empty_rows_ok": True,
+            },
+            "SOURCE_DB": params,
+            "LOAD_SETTINGS": {"primary_column": "ID", **load},
+            "connection_mode": "direct",
+        }
+
+    run(config({"load_method": "full"}), dialect="firebird")
+
+    newer = ["0100000101", "00000HC101", "000000D101"]
+    outside = ["ZZZZZZZ000", "0200000102"]
+    dsn = _target_dsn()
+    with psycopg2.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute(f'SELECT count(*) FROM "{target_schema}"."abra_ids"')
+        assert cur.fetchone()[0] == 7
+        cur.execute(
+            f'DELETE FROM "{target_schema}"."abra_ids" WHERE id = ANY(%s)', (newer + outside,)
+        )
+
+    settings = {"load_method": "abra_watermark", "abra_id_suffixes": ["101"]}
+    first = run(config(settings), dialect="firebird")
+    second = run(config(settings), dialect="firebird")
+
+    assert int(first["rows_written"].iloc[0]) == 3
+    assert int(second["rows_written"].iloc[0]) == 0
+    with psycopg2.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute(f'SELECT id FROM "{target_schema}"."abra_ids"')
+        ids = {row[0] for row in cur.fetchall()}
+    assert ids == {"1000000101", "Z000000101", *newer}, "other suffixes wait for a full load"

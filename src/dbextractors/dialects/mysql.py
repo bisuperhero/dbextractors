@@ -24,6 +24,8 @@ import pandas as pd
 from sqlalchemy import text
 
 from .base import (
+    ABRA_COUNTER_LENGTH,
+    FEATURE_ABRA_WATERMARK,
     FEATURE_HASH_DIFF,
     FEATURE_KEYSET,
     ColumnDef,
@@ -47,7 +49,7 @@ class MySQLDialect(DictTypeMapDialect):
     #: Exactly as the predecessors spell it (mysql-connector-python).
     sqlalchemy_driver: str = "mysql+mysqlconnector"
     quote_char: str = "`"
-    FEATURES: frozenset = frozenset({FEATURE_KEYSET, FEATURE_HASH_DIFF})
+    FEATURES: frozenset = frozenset({FEATURE_KEYSET, FEATURE_HASH_DIFF, FEATURE_ABRA_WATERMARK})
 
     #: MySQL returns text as UTF-8; the cascade ``cp1250 -> utf-8`` must **not**
     #: be generalised to here (see the decision at `coerce.decode_bytes_columns`).
@@ -313,6 +315,13 @@ class MySQLDialect(DictTypeMapDialect):
             return str(value)
         escaped = str(value).replace("\\", "\\\\").replace("'", "''")
         return f"'{escaped}'"
+
+    def render_abra_counter(self, key_expr: str) -> str:
+        """A ``BINARY`` cast makes the comparison against the literal byte-wise."""
+        return f"CAST(REVERSE(SUBSTRING({key_expr}, 1, {ABRA_COUNTER_LENGTH})) AS BINARY)"
+
+    def render_abra_suffix(self, key_expr: str) -> str:
+        return f"SUBSTRING({key_expr}, {ABRA_COUNTER_LENGTH + 1})"
 
     # -- reading -----------------------------------------------------------
 

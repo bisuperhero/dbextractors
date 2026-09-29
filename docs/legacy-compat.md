@@ -136,7 +136,7 @@ the configuration or the `DBX_TARGET_DSN` environment variable.
 
 ## `parent_incremental` does not treat an empty target as a full load
 
-`incremental` and `id_watermark` switch to a full load when the target table
+`incremental`, `id_watermark` and `abra_watermark` switch to a full load when the target table
 exists but holds no rows — there is no window and no watermark to build on.
 `parent_incremental` does not: it checks that the child and the parent tables
 **exist** and nothing further, so over an empty target it transfers the parent's

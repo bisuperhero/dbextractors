@@ -45,6 +45,7 @@ MODULES = [
     "dbextractors.core.target_pg",
     "dbextractors.core.tunnel",
     "dbextractors.core.strategies",
+    "dbextractors.core.strategies.abra_watermark",
     "dbextractors.core.strategies.base",
     "dbextractors.core.strategies.full",
     "dbextractors.core.strategies.full_by_source",

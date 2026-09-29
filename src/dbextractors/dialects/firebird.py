@@ -71,6 +71,8 @@ from sqlalchemy import text
 from dbextractors.core import secrets
 
 from .base import (
+    ABRA_COUNTER_LENGTH,
+    FEATURE_ABRA_WATERMARK,
     FEATURE_KEYSET,
     FEATURE_PARENT_INCREMENTAL,
     ColumnDef,
@@ -136,7 +138,9 @@ class FirebirdDialect(SourceDialect):
     #: exactly the same way as the other dialects. **This package does not read
     #: that key** — the feature flag is what decides, see `full._keyset_usable`
     #: and docs/legacy-compat.md, "Keys that are accepted and do nothing".
-    FEATURES: frozenset = frozenset({FEATURE_KEYSET, FEATURE_PARENT_INCREMENTAL})
+    FEATURES: frozenset = frozenset(
+        {FEATURE_KEYSET, FEATURE_PARENT_INCREMENTAL, FEATURE_ABRA_WATERMARK}
+    )
 
     #: The cascade taken verbatim from the predecessor (``decode_bytes_columns``).
     #: It happens to be the same as MSSQL's and for the same reason: the source is
@@ -468,6 +472,22 @@ class FirebirdDialect(SourceDialect):
         if isinstance(cutoff, date):
             return (cutoff - FIREBIRD_EPOCH).days
         return cutoff
+
+    def render_abra_counter(self, key_expr: str) -> str:
+        """The reversed counter cast to ``OCTETS``, so it compares byte by byte.
+
+        Firebird compares text under the column's collation, and an ABRA database
+        may well declare a Czech one. ``OCTETS`` has no collation, and a text
+        literal on the other side of ``>`` is converted to it. ``REVERSE`` exists
+        since Firebird 2.1, so this reads a 2.5 server.
+        """
+        return (
+            f"REVERSE(CAST(SUBSTRING({key_expr} FROM 1 FOR {ABRA_COUNTER_LENGTH}) "
+            f"AS VARCHAR({ABRA_COUNTER_LENGTH}) CHARACTER SET OCTETS))"
+        )
+
+    def render_abra_suffix(self, key_expr: str) -> str:
+        return f"SUBSTRING({key_expr} FROM {ABRA_COUNTER_LENGTH + 1})"
 
     # -- reading -----------------------------------------------------------
 

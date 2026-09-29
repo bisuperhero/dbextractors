@@ -74,6 +74,7 @@ SETTINGS = {
     "full_by_source": {"primary_column": "id"},
     "incremental": {"primary_column": "id", "updated_at_column": "changed_at", "days_back": 7},
     "id_watermark": {"primary_column": "id", "primary_key_column": "id", "resume_full_load": True},
+    "abra_watermark": {"primary_column": "id", "abra_id_suffixes": ["101"]},
     "parent_incremental": {
         "primary_column": "id",
         "incremental_parent_table": "orders",
@@ -95,10 +96,20 @@ def test_the_settings_cover_the_whole_registry() -> None:
     )
 
 
-def _source_rows() -> pd.DataFrame:
+#: `abra_watermark` reads its watermark out of an ABRA record ID, which is text:
+#: a counter written least significant digit first, then the database suffix.
+#: The other strategies keep their integer key.
+ABRA_IDS = ["1000000101", "2000000101", "3000000101"]
+
+
+def _ids(name: str) -> list:
+    return ABRA_IDS if name == "abra_watermark" else [1, 2, 3]
+
+
+def _source_rows(name: str) -> pd.DataFrame:
     return pd.DataFrame(
         {
-            "id": [1, 2, 3],
+            "id": _ids(name),
             "parent_id": [10, 10, 10],
             "changed_at": [IN_WINDOW, IN_WINDOW, IN_WINDOW],
             "descr": ["a", "b", "c"],
@@ -106,7 +117,7 @@ def _source_rows() -> pd.DataFrame:
     )
 
 
-def _legacy_target(conn, schema: str) -> None:
+def _legacy_target(conn, schema: str, name: str) -> None:
     """The target exactly as the old side left it: the source's columns and nothing else.
 
     No `row_hash`, no `_deleted_in_source` — for variant B's Firebird tables this is the
@@ -115,9 +126,11 @@ def _legacy_target(conn, schema: str) -> None:
     with conn.cursor() as cur:
         cur.execute(
             f'CREATE TABLE "{schema}"."cil" '
-            "(id INTEGER, parent_id INTEGER, changed_at DATE, descr TEXT)"
+            f"(id {'TEXT' if name == 'abra_watermark' else 'INTEGER'}, "
+            "parent_id INTEGER, changed_at DATE, descr TEXT)"
         )
-        for row in ((1, 10, IN_WINDOW, "original"), (2, 10, IN_WINDOW, "original")):
+        for key in _ids(name)[:2]:
+            row = (key, 10, IN_WINDOW, "original")
             cur.execute(f'INSERT INTO "{schema}"."cil" VALUES (%s, %s, %s, %s)', row)
         # A unique index over the PK is a precondition of the upsert and real targets
         # have one — what is missing here are the mandatory columns, not the index.
@@ -131,9 +144,9 @@ def _legacy_target(conn, schema: str) -> None:
 def test_legacy_target_without_mandatory_columns(conn, schema, name) -> None:
     cls = STRATEGY_CLASSES[name]
     settings = SETTINGS[name]
-    _legacy_target(conn, schema)
+    _legacy_target(conn, schema, name)
     source = FakeHashSource(
-        _source_rows(),
+        _source_rows(name),
         pk="id",
         parents=pd.DataFrame({"id": [10], "changed_at": [IN_WINDOW]}),
     )
@@ -141,7 +154,9 @@ def test_legacy_target_without_mandatory_columns(conn, schema, name) -> None:
         conn,
         schema,
         dialect=source,
-        columns=make_columns(COLUMNS),
+        columns=make_columns(
+            [("id", "varchar", "TEXT"), *COLUMNS[1:]] if name == "abra_watermark" else COLUMNS
+        ),
         settings=settings,
     )
 

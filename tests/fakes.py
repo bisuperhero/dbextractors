@@ -59,7 +59,9 @@ class FakeDialect(SourceDialect):
     default_port = 1
     sqlalchemy_driver = "fake+fake"
     quote_char = "`"
-    FEATURES = frozenset({"hash_diff", "keyset", "parent_incremental", "partition_by_source"})
+    FEATURES = frozenset(
+        {"hash_diff", "keyset", "parent_incremental", "partition_by_source", "abra_watermark"}
+    )
     zero_datetime_literal = "0000-00-00 00:00:00"
     text_like_types = frozenset({"varchar", "text"})
 
@@ -71,6 +73,14 @@ class FakeDialect(SourceDialect):
         self.estimate_error: Exception | None = None
 
     # -- what the strategies really call ------------------------------------
+
+    def render_abra_counter(self, key_expr: str) -> str:
+        """A marker `FakeHashSource` can evaluate, not SQL. Real renderings are
+        tested per dialect."""
+        return f"ABRA_COUNTER({key_expr})"
+
+    def render_abra_suffix(self, key_expr: str) -> str:
+        return f"ABRA_SUFFIX({key_expr})"
 
     def estimate_size(self, engine, ref, where=None, *, known_total_rows=None, sample_size=100):
         self.estimate_calls.append(where)
@@ -223,6 +233,9 @@ class FakeHashSource(FakeDialect):
             keys = self._keys_from_sql(where)
             selected = selected[selected[self.pk].astype(str).isin(keys)]
 
+        if "ABRA_SUFFIX(" in where:
+            selected = self._filter_abra(selected, where)
+
         greater = re.search(
             rf"{re.escape(self.quote_ident(self.pk))}\s*>\s*('(?:[^']|'')*'|[-\d.]+)", where
         )
@@ -234,6 +247,26 @@ class FakeHashSource(FakeDialect):
                 selected = selected[selected[self.pk].astype(str) > value]
 
         return selected
+
+    def _filter_abra(self, selected: pd.DataFrame, where: str) -> pd.DataFrame:
+        """Evaluate `abra_watermark`'s branches: ``suffix = s [AND counter > w]``, ``OR``-ed.
+
+        The counter is the first seven characters of the ID reversed, the suffix
+        the rest — the same split the real dialects render.
+        """
+        branches = re.findall(
+            r"ABRA_SUFFIX\([^)]*\) = '([^']*)'(?: AND ABRA_COUNTER\([^)]*\) > '([^']*)')?",
+            where,
+        )
+        ids = selected[self.pk].astype(str)
+        counters, suffixes = ids.str[:7].str[::-1], ids.str[7:]
+        mask = pd.Series(False, index=selected.index)
+        for suffix, watermark in branches:
+            branch = suffixes == suffix
+            if watermark:
+                branch &= counters > watermark
+            mask |= branch
+        return selected[mask]
 
     def _filter_by_parent(self, selected: pd.DataFrame, subquery) -> pd.DataFrame:
         """Evaluate ``child IN (SELECT id FROM parent WHERE date >= ...)``.

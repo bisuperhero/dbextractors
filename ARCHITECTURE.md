@@ -40,6 +40,7 @@ src/dbextractors/
       incremental.py       window by updated_at / days_back
       hash_diff.py         hash comparison without a CDC log
       id_watermark.py      advance by an increasing PK
+      abra_watermark.py    advance by the counter in an ABRA ERP record ID
       full_by_source.py    partitioning of the target by source (MSSQL only so far)
       parent_incremental.py window taken from a parent table (Firebird only so far)
 
@@ -152,6 +153,7 @@ Notes from the existing code:
 | `hash_diff` | no CDC log, but a stable PK | ~530 |
 | `incremental` | there is a reliable modification-time column | ~27 |
 | `id_watermark` | append-only, increasing PK | 4 |
+| `abra_watermark` | ABRA ERP tables with no change timestamp | — |
 | `full_by_source` | one target table fed from several sources | 16 |
 | `parent_incremental` | window taken from a parent table (Firebird) | 24 |
 

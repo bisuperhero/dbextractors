@@ -84,6 +84,8 @@ from sqlalchemy import text
 from dbextractors.core import secrets
 
 from .base import (
+    ABRA_COUNTER_LENGTH,
+    FEATURE_ABRA_WATERMARK,
     FEATURE_HASH_DIFF,
     FEATURE_KEYSET,
     FEATURE_PARTITION_BY_SOURCE,
@@ -135,7 +137,12 @@ class MSSQLDialect(DictTypeMapDialect):
     #: the intent.
     quote_char: str = "["
     FEATURES: frozenset[str] = frozenset(
-        {FEATURE_KEYSET, FEATURE_HASH_DIFF, FEATURE_PARTITION_BY_SOURCE}
+        {
+            FEATURE_KEYSET,
+            FEATURE_HASH_DIFF,
+            FEATURE_PARTITION_BY_SOURCE,
+            FEATURE_ABRA_WATERMARK,
+        }
     )
 
     #: The cascade taken verbatim from the predecessors (``decode_bytes_columns``).
@@ -547,6 +554,20 @@ class MSSQLDialect(DictTypeMapDialect):
         )
         sql = sql.replace("COUNT(*) AS fp_count", "COUNT_BIG(*) AS fp_count", 1)
         return sql.replace(f"FROM {self.quote_ident(ref.name)}", f"FROM {self.qualified(ref)}", 1)
+
+    def render_abra_counter(self, key_expr: str) -> str:
+        """``COLLATE Latin1_General_BIN2`` pins the byte comparison.
+
+        Without it the column's own collation decides, and a case-insensitive or
+        Czech one does not order the counter the way the counter grows.
+        """
+        return (
+            f"REVERSE(SUBSTRING({key_expr}, 1, {ABRA_COUNTER_LENGTH})) COLLATE Latin1_General_BIN2"
+        )
+
+    def render_abra_suffix(self, key_expr: str) -> str:
+        """``STUFF`` rather than ``SUBSTRING``: MSSQL's ``SUBSTRING`` insists on a length."""
+        return f"STUFF({key_expr}, 1, {ABRA_COUNTER_LENGTH}, '')"
 
     # -- reading -----------------------------------------------------------
 

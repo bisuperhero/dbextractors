@@ -32,6 +32,12 @@ FEATURE_KEYSET = "keyset"
 FEATURE_HASH_DIFF = "hash_diff"
 FEATURE_PARTITION_BY_SOURCE = "partition_by_source"
 FEATURE_PARENT_INCREMENTAL = "parent_incremental"
+FEATURE_ABRA_WATERMARK = "abra_watermark"
+
+#: How many leading characters of an ABRA ERP record ID hold the record counter.
+#: The rest of the ID identifies the database the record was created in. See
+#: `SourceDialect.render_abra_counter`.
+ABRA_COUNTER_LENGTH = 7
 
 
 class UnsupportedFeature(NotImplementedError):
@@ -452,6 +458,38 @@ class SourceDialect(ABC):
         """
         raise UnsupportedFeature(f"{self.name} cannot compute row_hash on the source side")
 
+    def render_abra_counter(self, key_expr: str) -> str:
+        """The record counter of an ABRA ERP ID, in an order that can be compared.
+
+        An ABRA ID is a base-36 counter written **least significant digit
+        first**, followed by the identifier of the database the record was
+        created in. The counter grows with every new record, but the ID as a
+        string does not: ``Z000000101`` is an older record than ``0100000101``.
+        Reversing the counter part gives a string whose order is the counter's
+        order, because in a byte comparison ``0-9`` sort before ``A-Z``.
+
+        **Compared byte by byte, never under the column's collation.** A
+        linguistic collation is free to order characters differently, and the
+        Czech one treats ``CH`` as a single letter after ``H``. Each dialect
+        therefore pins a binary comparison in its own spelling.
+
+        Raises:
+            UnsupportedFeature: When the dialect has no rendering of it, which
+                is exactly when it lacks ``FEATURE_ABRA_WATERMARK``.
+        """
+        raise UnsupportedFeature(f"{self.name} cannot render the ABRA ID counter")
+
+    def render_abra_suffix(self, key_expr: str) -> str:
+        """The part of an ABRA ERP ID after the counter: the database identifier.
+
+        See `render_abra_counter`. Records from different databases have
+        counters of their own, so a watermark is only meaningful per suffix.
+
+        Raises:
+            UnsupportedFeature: When the dialect lacks ``FEATURE_ABRA_WATERMARK``.
+        """
+        raise UnsupportedFeature(f"{self.name} cannot render the ABRA ID suffix")
+
     # -- reading -----------------------------------------------------------
 
     @abstractmethod
@@ -471,7 +509,8 @@ class SourceDialect(ABC):
     # -- capabilities ------------------------------------------------------
 
     def supports(self, feature: str) -> bool:
-        """``'keyset' | 'hash_diff' | 'partition_by_source' | 'parent_incremental'``"""
+        """``'keyset' | 'hash_diff' | 'partition_by_source' | 'parent_incremental' |
+        'abra_watermark'``"""
         return feature in self.FEATURES
 
     def require(self, feature: str) -> None:

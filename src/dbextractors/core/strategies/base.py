@@ -191,7 +191,7 @@ class LoadResult:
 class LoadStrategy(ABC):
     """One way of getting a table from the source into the target."""
 
-    #: 'full' | 'hash_diff' | 'incremental' | 'id_watermark' |
+    #: 'full' | 'hash_diff' | 'incremental' | 'id_watermark' | 'abra_watermark' |
     #: 'full_by_source' | 'parent_incremental'
     name: str
     #: Dialect features without which the strategy makes no sense.
@@ -361,6 +361,7 @@ STRATEGIES: Dict[str, str] = {
         "hash": "hash_diff:HashDiffStrategy",
         "hash_diff": "hash_diff:HashDiffStrategy",
         "id_watermark": "id_watermark:IdWatermarkStrategy",
+        "abra_watermark": "abra_watermark:AbraWatermarkStrategy",
         "full_by_source": "full_by_source:FullBySourceStrategy",
         "parent_incremental": "parent_incremental:ParentIncrementalStrategy",
     }.items()

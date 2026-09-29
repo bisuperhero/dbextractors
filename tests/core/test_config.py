@@ -124,6 +124,7 @@ def test_modern_config_has_safe_load_settings_defaults() -> None:
     # for every configuration that stays silent about them.
     assert parsed.load_settings.incremental_parent_key_column is None
     assert parsed.load_settings.incremental_parent_id_column is None
+    assert parsed.load_settings.abra_id_suffixes is None
     assert parsed.load_settings.multi_source is None
     assert parsed.connection_mode == "auto"
     assert parsed.debug is False
@@ -660,6 +661,7 @@ def _full_config() -> dict:
             "incremental_parent_date_column_fallback": "parent_date_fb",
             "incremental_parent_key_column": "parent_fk",
             "incremental_parent_id_column": "parent_pk",
+            "abra_id_suffixes": ["101", "102"],
         },
         "SOURCE_DB": {
             "user": "db_user",
@@ -749,6 +751,7 @@ def test_full_roundtrip_of_the_load_settings_section() -> None:
     assert ls.incremental_parent_date_column_fallback == "parent_date_fb"
     assert ls.incremental_parent_key_column == "parent_fk"
     assert ls.incremental_parent_id_column == "parent_pk"
+    assert ls.abra_id_suffixes == ("101", "102")
 
 
 def test_full_roundtrip_of_the_source_db_section() -> None:

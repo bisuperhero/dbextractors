@@ -142,7 +142,8 @@ def test_a_missing_key_is_not_filled_in_as_none() -> None:
 
 
 @pytest.mark.parametrize(
-    "original", ["incremental", "parent_incremental", "id_watermark", "hash_diff"]
+    "original",
+    ["incremental", "parent_incremental", "id_watermark", "abra_watermark", "hash_diff"],
 )
 def test_force_rewrites_incremental_routes_to_full(original) -> None:
     assert entrypoint._strategy_name(original, {"forced_full_load": True}) == "full"

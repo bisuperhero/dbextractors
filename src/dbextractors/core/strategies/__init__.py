@@ -8,6 +8,7 @@ How many tables each one serves in production today:
 | ``hash_diff`` | no CDC log, but a stable PK | ~530 |
 | ``incremental`` | a trustworthy change-timestamp column exists | ~27 |
 | ``id_watermark`` | append-only, increasing PK | 4 |
+| ``abra_watermark`` | ABRA ERP tables with no change timestamp: new records by the ID counter | — |
 | ``full_by_source`` | one target table assembled from several sources | 16 |
 | ``parent_incremental`` | window derived from a parent table | 24 |
 

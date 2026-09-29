@@ -7,6 +7,32 @@ Every release is tagged, and the tag is what a deployment pins in `requirements.
 **Every change carries a note on what it breaks** — roughly 670 tables depend on
 this package.
 
+## [Unreleased]
+
+Planned as 2.1.0. The 1.0.x line (Mage) does not get it.
+
+### Added
+
+- **`load_method: abra_watermark`**, meant primarily for ABRA ERP tables that
+  have no column recording when a row was created or changed. It reads only the
+  records whose ID counter is above the watermark in the target. An ABRA record
+  ID is a base-36 counter written least significant digit first, followed by the
+  identifier of the database the record was created in; the counter is reversed
+  and compared byte by byte, per database identifier, on both sides. Like
+  `id_watermark` it stores no state, sees neither changes nor deletions, and
+  needs a periodic full load. Firebird, MSSQL, MySQL and PostgreSQL render it
+  (`FEATURE_ABRA_WATERMARK`).
+- **`LOAD_SETTINGS.abra_id_suffixes`** — the ABRA database identifiers the
+  watermark is computed for, required by `abra_watermark`. A single string is
+  accepted for one suffix; a number is refused, so that leading zeros survive.
+
+### Breaks
+
+- Nothing. No existing `load_method` changes behaviour, and a configuration
+  without the new key parses as before. Under 1.0.x the key is only logged as
+  unknown and `abra_watermark` is an unknown `load_method`, which raises — so a
+  configuration shared with a Mage deployment has to keep `full` there.
+
 ## [2.0.0]
 
 The runtime moves from the Mage 0.9.79 image to a current stack.

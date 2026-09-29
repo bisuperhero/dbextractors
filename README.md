@@ -200,12 +200,15 @@ config = {
     # ── how it is loaded ───────────────────────────────────────────────────
     'LOAD_SETTINGS': {
         'load_method': 'hash',              # full | full_by_source | incremental
-                                            # hash (= hash_diff) | id_watermark
+                                            # hash (= hash_diff) | id_watermark | abra_watermark
                                             # parent_incremental is inferred from 'incremental_parent_*'
                                             # An unknown value raises — no quiet fallback to full load.
         'primary_column': 'id',             # PK, case-sensitive (alias: 'primary_key_column')
         'batch_size': 500000,               # empty = derived from a size estimate
         'hash_column': None,                # row-hash column, when the source already has one
+
+        # ABRA ERP record IDs (load_method: abra_watermark), always quoted
+        'abra_id_suffixes': ['101'],
 
         # time-based increment (load_method: incremental)
         'created_at_column': 'created_at',
@@ -287,6 +290,7 @@ is the most expensive possible outcome of a typo in YAML.
 | `incremental` | a trustworthy modification-time column | `updated_at_column`, optionally `created_at_column` | upserts the window | only the window |
 | `hash_diff` (`hash`) | no CDC log, but a stable PK | `primary_column`; source-side hashing, so not Firebird | upserts changed rows and marks keys that stopped arriving | the whole source — a hash for every row — then fetches only what changed |
 | `id_watermark` | append-only, increasing PK | an increasing `primary_column` | appends rows above `MAX(pk)` in the target | only the rows above the watermark |
+| `abra_watermark` | ABRA ERP tables with no change timestamp | the ABRA record ID as `primary_column`, `abra_id_suffixes` | upserts records whose ID counter is above the watermark | a scan on the source, but only the new rows travel |
 | `parent_incremental` | child tables with no change date of their own | a parent table with a date column, and a key into it; Firebird only today | deletes the window and reloads it, in one transaction | only the window |
 
 Two methods are not selected by name:
@@ -468,6 +472,58 @@ An update below the watermark is likewise not transferred. If any of that matter
 for your table, use `hash` or `incremental` instead. A missing target and an empty
 target both fall back to a full load.
 
+### `abra_watermark`
+
+Meant primarily for **ABRA ERP**. Many ABRA tables have no column recording when a
+row was created or changed, so `incremental` has no window to build, and a large
+table would otherwise have only `full` left — reading the whole table every run
+for the handful of rows that are new.
+
+What an ABRA table does have is its record ID: a base-36 counter written **least
+significant digit first**, followed by the identifier of the database the record
+was created in (`GMXCO00` + `101`). The counter grows with each new record, but the
+ID as a string does not (`Z000000101` is older than `0100000101`), which is why
+`id_watermark` cannot be used. This method reverses the counter part, which gives a
+string that orders the way the counter grows, and compares that on both sides:
+the watermark is its `MAX` in the target, per database identifier, and the source
+is read for the rows above it. Like `id_watermark`, nothing is stored anywhere.
+
+```python
+'LOAD_SETTINGS': {
+    'load_method': 'abra_watermark',
+    'primary_column': 'ID',
+    'abra_id_suffixes': ['101'],
+}
+```
+
+`abra_id_suffixes` is required and names the database identifiers whose records
+are loaded; each gets a watermark of its own. Write them **quoted** — a number is
+refused, because an unquoted `001` arrives as `1` and would match nothing. Rows
+with any other suffix (the `000` records ABRA ships among them) are left to the
+full load. A configured suffix that the target has no rows for yet is read whole.
+
+The comparison is byte-wise in every dialect, whatever collation the ID column
+carries: under a Czech collation `CH` is a single letter after `H`, which would
+put some counters in the wrong order. Firebird, MSSQL, MySQL and PostgreSQL all
+render it, and all four are tested against a live server with a Czech-collated
+column.
+
+What it cannot see is what `id_watermark` cannot see: **changes to existing rows,
+deleted rows, and a record whose counter is below the watermark.** That the counter
+grows with time is how ABRA assigns IDs in practice, not something it documents. A
+table loaded this way therefore **needs a periodic full load** (`forced_full_load`)
+to catch up on the rest.
+
+The counter expression cannot use an index, so the source still scans the table.
+It does so **once**: unlike the other incremental methods there is no size
+estimate beforehand, because here it would be a second scan of the whole table,
+and the batch size is the configured one. The watermark is a scan as well, on the
+target: `MAX` over the reversed counter cannot use the primary-key index, so the
+target's ID column is read in full each run — local and narrow, but not free. The
+saving is in what travels and what is written: only the new rows. Writing is an upsert on the primary key,
+so a rerun that reads a row a second time neither duplicates it nor fails on the
+unique index. A missing target and an empty target both fall back to a full load.
+
 ### `parent_incremental`
 
 For child tables — document lines, order lines — that carry no trustworthy change
@@ -516,7 +572,7 @@ load.
 
 ### What every method does the same
 
-**Fallback to a full load is reported, never silent.** Whenever one of the four
+**Fallback to a full load is reported, never silent.** Whenever one of the
 incremental methods cannot do its cheap thing — no target, no rows to compare
 against, hashes drifted — it does the expensive thing and says so, in the log and in
 the `fallback_reason` column of the returned frame. `full_by_source` is the
@@ -534,6 +590,7 @@ mean one database wiping the slices of all the others.
 | `incremental` | yes | yes | never flipped — stays `FALSE` |
 | `hash_diff` | yes | yes | **maintained**, both directions |
 | `id_watermark` | yes | yes | never flipped — stays `FALSE` |
+| `abra_watermark` | yes | yes | never flipped — stays `FALSE` |
 | `parent_incremental` | yes | yes | not used — deletion is physical, inside the window |
 
 The distinction matters because a column that exists but never changes does not fail
@@ -543,8 +600,8 @@ a dbt model; it just makes it wrong. 133 dbt models read `_deleted_in_source`.
 the rest.** Seen in production on 14 Aug 2026, as
 `column "promo_code" ... does not exist`. A full load **adopts** the new column — the
 table is rewritten anyway, so widening costs nothing, and the column goes at the end
-so existing column order is untouched. The four methods that touch existing data —
-`incremental`, `hash_diff`, `id_watermark` and `parent_incremental` — **drop** it
+so existing column order is untouched. The methods that touch existing data —
+`incremental`, `hash_diff`, `id_watermark`, `abra_watermark` and `parent_incremental` — **drop** it
 instead, because they must not change the target's shape mid-flight, but they drop it
 with a warning naming the specific column. The predecessor dropped it silently, which
 is how a hole in the warehouse stays hidden. Either way the next full load makes it

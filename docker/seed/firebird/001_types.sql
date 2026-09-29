@@ -90,4 +90,22 @@ INSERT INTO PAGED VALUES (3, 'three', '2026-08-10', '2026-07-15');
 INSERT INTO PAGED VALUES (4, 'four',  '2026-08-15', '2026-08-01');
 INSERT INTO PAGED VALUES (5, 'five',  NULL,         '2026-08-02');
 
+-- ABRA ERP record IDs for `abra_watermark`: a base-36 counter written least
+-- significant digit first, then the database suffix. The ID as a string and
+-- the counter disagree on purpose (Z000000101 is counter 35, 0100000101 is
+-- 36), and the column carries a Czech collation, under which the reversed
+-- counter CH00000 would sort above D000000.
+CREATE TABLE ABRA_IDS (
+    ID      CHAR(10) CHARACTER SET WIN1250 NOT NULL PRIMARY KEY COLLATE PXW_CSY,
+    LABEL   VARCHAR(32)
+);
+
+INSERT INTO ABRA_IDS VALUES ('1000000101', 'counter 1');
+INSERT INTO ABRA_IDS VALUES ('Z000000101', 'counter 35');
+INSERT INTO ABRA_IDS VALUES ('0100000101', 'counter 36');
+INSERT INTO ABRA_IDS VALUES ('00000HC101', 'reversed CH00000');
+INSERT INTO ABRA_IDS VALUES ('000000D101', 'reversed D000000');
+INSERT INTO ABRA_IDS VALUES ('ZZZZZZZ000', 'outside the counter');
+INSERT INTO ABRA_IDS VALUES ('0200000102', 'another database');
+
 COMMIT;

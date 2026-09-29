@@ -56,6 +56,8 @@ import pandas as pd
 from sqlalchemy import text
 
 from .base import (
+    ABRA_COUNTER_LENGTH,
+    FEATURE_ABRA_WATERMARK,
     FEATURE_HASH_DIFF,
     FEATURE_KEYSET,
     ColumnDef,
@@ -83,7 +85,7 @@ class PostgresDialect(DictTypeMapDialect):
     #: Exactly as the predecessors spell it.
     sqlalchemy_driver: str = "postgresql+psycopg2"
     quote_char: str = '"'
-    FEATURES: frozenset = frozenset({FEATURE_KEYSET, FEATURE_HASH_DIFF})
+    FEATURES: frozenset = frozenset({FEATURE_KEYSET, FEATURE_HASH_DIFF, FEATURE_ABRA_WATERMARK})
 
     #: The hash is computed by pandas, not by the source — see the module
     #: docstring. It is not a choice, it is what is stored in the target.
@@ -327,6 +329,13 @@ class PostgresDialect(DictTypeMapDialect):
         )
         return sql.replace(f"FROM {self.quote_ident(ref.name)}", f"FROM {self.qualified(ref)}", 1)
 
+    def render_abra_counter(self, key_expr: str) -> str:
+        """``COLLATE "C"`` pins the byte comparison over the database's own collation."""
+        return abra_counter_sql(key_expr)
+
+    def render_abra_suffix(self, key_expr: str) -> str:
+        return abra_suffix_sql(key_expr)
+
     # -- reading -----------------------------------------------------------
 
     def iter_batches(self, engine: Engine, sql: str, batch_size: int) -> Iterator[pd.DataFrame]:
@@ -354,4 +363,19 @@ def _schema(ref: TableRef) -> str:
     return ref.schema or DEFAULT_SOURCE_SCHEMA
 
 
-__all__ = ["DEFAULT_SOURCE_SCHEMA", "PostgresDialect"]
+def abra_counter_sql(key_expr: str) -> str:
+    """The ABRA ID counter in PostgreSQL. See `SourceDialect.render_abra_counter`.
+
+    A module function rather than only a method, because the target is
+    PostgreSQL too: `strategies.abra_watermark` computes the watermark there
+    with the same expression the source is then filtered by.
+    """
+    return f'reverse(substr({key_expr}, 1, {ABRA_COUNTER_LENGTH})) COLLATE "C"'
+
+
+def abra_suffix_sql(key_expr: str) -> str:
+    """The ABRA ID suffix in PostgreSQL. See `SourceDialect.render_abra_suffix`."""
+    return f"substr({key_expr}, {ABRA_COUNTER_LENGTH + 1})"
+
+
+__all__ = ["DEFAULT_SOURCE_SCHEMA", "PostgresDialect", "abra_counter_sql", "abra_suffix_sql"]
