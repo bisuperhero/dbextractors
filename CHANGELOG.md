@@ -9,7 +9,7 @@ this package.
 
 ## [2.0.0]
 
-The runtime moves from the Mage 0.9.79 image to a current stack for Dagster.
+The runtime moves from the Mage 0.9.79 image to a current stack.
 **The data does not change:** values and `row_hash` are what v1.0.2 produces
 under pandas 1.5.3, and a `hash_diff` load over a target written by v1.0.2
 rewrites nothing.
