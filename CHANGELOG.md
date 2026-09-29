@@ -7,9 +7,9 @@ Every release is tagged, and the tag is what a deployment pins in `requirements.
 **Every change carries a note on what it breaks** — roughly 670 tables depend on
 this package.
 
-## [Unreleased]
+## [2.1.0]
 
-Planned as 2.1.0. The 1.0.x line (Mage) does not get it.
+The 1.0.x line (Mage) does not get this release.
 
 ### Added
 
