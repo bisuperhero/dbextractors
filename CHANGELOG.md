@@ -7,6 +7,22 @@ Every release is tagged, and the tag is what a deployment pins in `requirements.
 **Every change carries a note on what it breaks** — roughly 670 tables depend on
 this package.
 
+## [2.1.1]
+
+### Fixed
+
+- **Under Dagster, `INFO` records did not reach `context.log`.** 2.1.0 set the
+  `dbextractors` logger to the level of the logger passed to `run(logger=...)`.
+  Dagster's `context.log` is left at `NOTSET`, which on the package logger means
+  "inherit" — so it inherited the root's `WARNING`, and progress, row counts and
+  the rest of `INFO` were dropped before forwarding. Warnings and errors still
+  came through. A host logger at `NOTSET` now receives everything and filters
+  for itself.
+
+### Breaks
+
+- Nothing.
+
 ## [2.1.0]
 
 The 1.0.x line (Mage) does not get this release.
