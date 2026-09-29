@@ -129,8 +129,28 @@ def _is_own(target: Any) -> bool:
 
 
 def _apply_level(package: logging.Logger) -> None:
-    """The lowest level any forwarding run needs. Called under the lock."""
-    package.setLevel(min(level for stack in _targets.values() for _, level in stack))
+    """The lowest level any forwarding run needs. Called under the lock.
+
+    Never ``NOTSET``: on a logger that means "inherit", and the package would
+    inherit the root's ``WARNING`` — see `_target_level`.
+    """
+    lowest = min(level for stack in _targets.values() for _, level in stack)
+    package.setLevel(max(logging.DEBUG, lowest))
+
+
+def _target_level(target: Any) -> int:
+    """The level from which ``target`` wants records.
+
+    A logger at ``NOTSET`` with no parent reports an effective level of 0.
+    Dagster's ``context.log`` is exactly that — a `logging.Logger` built outside
+    the hierarchy — and it means "everything, I filter myself". Taken literally,
+    0 set on the package logger means "inherit" instead, and every ``INFO``
+    record was dropped against the root's ``WARNING`` before it could be
+    forwarded; 2.1.0 shipped that way.
+    """
+    if not isinstance(target, logging.Logger):
+        return logging.INFO
+    return target.getEffectiveLevel() or logging.DEBUG
 
 
 @contextlib.contextmanager
@@ -140,8 +160,9 @@ def forward_to(target: Any | None) -> Iterator[None]:
     The package logger's level is lowered to the target's own effective level
     for the duration: otherwise it would inherit the root logger's ``WARNING``
     and every ``INFO`` record would be dropped before any handler saw it. What
-    the target then shows is up to the target. A target that is not a
-    `logging.Logger` gets ``INFO`` and above.
+    the target then shows is up to the target. A target at ``NOTSET`` gets
+    everything (`_target_level`); one that is not a `logging.Logger` gets
+    ``INFO`` and above.
 
     ``None`` — and a logger of the package's own — forward nothing.
     """
@@ -152,7 +173,7 @@ def forward_to(target: Any | None) -> Iterator[None]:
 
     package = logging.getLogger(PACKAGE_LOGGER)
     thread = threading.get_ident()
-    level = target.getEffectiveLevel() if isinstance(target, logging.Logger) else logging.INFO
+    level = _target_level(target)
     with _lock:
         if _saved is None:
             _saved = (package.level, package.propagate)

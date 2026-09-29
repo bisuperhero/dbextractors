@@ -57,6 +57,52 @@ def test_info_reaches_the_host_and_keeps_its_level(host) -> None:
     ]
 
 
+def test_a_host_logger_with_no_level_gets_everything() -> None:
+    """Dagster's ``context.log`` is a `logging.Logger` built outside the hierarchy
+    and left at ``NOTSET``, so its effective level is 0.
+
+    Taking that 0 as the package level means "inherit", i.e. the root's
+    ``WARNING`` — and every INFO record was dropped before it could be
+    forwarded. That is what 2.1.0 did under Dagster: warnings came through,
+    progress did not.
+    """
+    target = logging.Logger("dagster")  # no parent, NOTSET — like DagsterLogManager
+    handler = Collecting()
+    target.addHandler(handler)
+    assert target.getEffectiveLevel() == logging.NOTSET
+
+    with forward_to(target):
+        _child.debug("sql")
+        _child.info("progress")
+        _child.warning("fallback")
+
+    assert handler.records == [
+        ("DEBUG", "sql"),
+        ("INFO", "progress"),
+        ("WARNING", "fallback"),
+    ]
+
+
+def test_a_real_dagster_log_manager_gets_info() -> None:
+    """The same against the real thing, where Dagster is installed."""
+    pytest.importorskip("dagster")
+    from dagster._core.log_manager import DagsterLogManager
+
+    received: list = []
+
+    class _Handler(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            received.append((record.levelname, record.getMessage()))
+
+    manager = DagsterLogManager.create(loggers=[], handlers=[_Handler()])
+    assert manager.getEffectiveLevel() == logging.NOTSET
+
+    with forward_to(manager):
+        _child.info("progress")
+
+    assert any(level == "INFO" and "progress" in message for level, message in received)
+
+
 def test_the_host_level_decides_what_is_forwarded(host) -> None:
     logger, handler = host
     logger.setLevel(logging.INFO)
