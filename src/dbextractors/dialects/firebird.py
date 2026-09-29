@@ -290,7 +290,7 @@ class FirebirdDialect(SourceDialect):
         """
         bloby = sorted(c.name for c in columns if c.meta.get("fb_type") == BLOB_TYPE_CODE)
         if bloby:
-            _log.warning(
+            _log.info(
                 "🗂️ Table %r has BLOB columns (%d): %s", ref.name, len(bloby), ", ".join(bloby)
             )
 

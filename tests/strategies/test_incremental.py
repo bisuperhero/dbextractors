@@ -308,13 +308,19 @@ def test_deep_cutoff_without_any_setting() -> None:
     assert lookback is None
 
 
-def test_invalid_lookback_falls_back_to_the_deep_cutoff() -> None:
+def test_invalid_lookback_falls_back_to_the_deep_cutoff(caplog) -> None:
+    """Ignored, not fatal — and said so at WARNING."""
     import logging
 
-    _cutoff, _numeric, lookback = compute_incremental_cutoff(
-        {"incremental_lookback_hours": "nonsense"}, {}, logger=logging.getLogger("test")
-    )
+    with caplog.at_level(logging.WARNING, logger="dbextractors.core.strategies.incremental"):
+        _cutoff, _numeric, lookback = compute_incremental_cutoff(
+            {"incremental_lookback_hours": "nonsense"}, {}
+        )
     assert lookback is None
+    assert any(
+        r.levelno == logging.WARNING and "incremental_lookback_hours" in r.getMessage()
+        for r in caplog.records
+    )
 
 
 def test_window_never_sees_a_change_older_than_days_back(conn, schema) -> None:

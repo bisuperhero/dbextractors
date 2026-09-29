@@ -280,7 +280,7 @@ class MSSQLDialect(DictTypeMapDialect):
                     return True
             except OSError as err:
                 if attempt < attempts:
-                    _log.warning(
+                    _log.debug(
                         "MSSQL %s:%s is not reachable (attempt %d/%d): %s — retrying in %.1f s.",
                         host,
                         port,

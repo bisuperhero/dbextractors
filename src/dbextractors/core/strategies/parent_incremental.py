@@ -58,6 +58,7 @@ closing the gap means changing that test on purpose.
 
 from __future__ import annotations
 
+import logging
 from datetime import date
 from typing import Any, List
 
@@ -86,6 +87,8 @@ from dbextractors.core.strategies.incremental import (
     window_label,
 )
 from dbextractors.dialects.base import FEATURE_PARENT_INCREMENTAL
+
+_log = logging.getLogger(__name__)
 
 #: The child's column referencing the parent. The predecessor hard-codes it
 #: (`parent_id` in the target, `"PARENT_ID"` in the source); here it is the
@@ -159,11 +162,8 @@ class ParentIncrementalStrategy(LoadStrategy):
         # so when a run is given `incremental_lookback_hours` it has to show up
         # in both. The predecessor does the same — the shared
         # `_compute_incremental_cutoff` takes kwargs on both paths.
-        cutoff, _numeric, lookback = compute_incremental_cutoff(
-            ctx.settings, ctx.runtime, logger=ctx.logger
-        )
-        ctx.log(
-            "warning",
+        cutoff, _numeric, lookback = compute_incremental_cutoff(ctx.settings, ctx.runtime)
+        _log.info(
             "🚀 Window from parent %s starting %s (%s), columns %s.",
             ctx.settings.get("incremental_parent_table"),
             cutoff,
@@ -181,10 +181,10 @@ class ParentIncrementalStrategy(LoadStrategy):
         where = self._source_where(ctx, cutoff)
         estimate = ctx.dialect.estimate_size(ctx.engine, ctx.source, where)
         if estimate.rows == 0:
-            ctx.log("warning", "ℹ️ There are no child rows in the parent's window.")
+            _log.info("ℹ️ There are no child rows in the parent's window.")
             return LoadResult(0, 0, self.name, is_incremental=True, data_present=False)
 
-        ctx.log("warning", "🔢 Rows in the window: %s", f"{estimate.rows:,}")
+        _log.info("🔢 Rows in the window: %s", f"{estimate.rows:,}")
         batch_size = resolve_batch_size(ctx.settings, ctx.table_cfg, estimate)
         result = self._replace_window(
             ctx, where, batch_size, cutoff, parent_ref, total_rows=estimate.rows
@@ -273,7 +273,7 @@ class ParentIncrementalStrategy(LoadStrategy):
         columns = _drop_columns_missing_in_target(ctx, columns)
 
         staging = target_pg.create_shadow_table(conn, ctx.target, columns=columns)
-        progress = status.BatchProgress(ctx.log, total_rows=total_rows, phase=self.name)
+        progress = status.BatchProgress(_log, total_rows=total_rows, phase=self.name)
         rows_read = rows_written = deleted = 0
         try:
             for batch in full.read_batches(window_ctx, hash_column, batch_size):
@@ -294,10 +294,10 @@ class ParentIncrementalStrategy(LoadStrategy):
                 target_pg.drop_shadow_table(conn, staging)
                 conn.commit()
             except Exception as cleanup_err:
-                ctx.log("error", "⚠️ The staging table could not be cleaned up: %s", cleanup_err)
+                _log.warning("⚠️ The staging table could not be cleaned up: %s", cleanup_err)
             raise
 
-        ctx.log("warning", "✅ %s rows deleted, %s inserted.", f"{deleted:,}", f"{rows_written:,}")
+        _log.info("✅ %s rows deleted, %s inserted.", f"{deleted:,}", f"{rows_written:,}")
         return LoadResult(
             rows_read=rows_read,
             rows_written=rows_written,

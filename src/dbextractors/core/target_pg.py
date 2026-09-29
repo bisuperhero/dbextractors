@@ -581,7 +581,7 @@ def align_df_columns_to_db(
     if rename_map:
         export_df = export_df.rename(columns=rename_map)
         if show_debug:
-            _log.warning("📋 Columns renamed to match the target: %s", rename_map)
+            _log.debug("📋 Columns renamed to match the target: %s", rename_map)
 
     return export_df.reindex(columns=list(db_cols), fill_value=None)
 
@@ -1503,7 +1503,7 @@ def apply_live_pk_snapshot(
 
         if show_debug:
             cur.execute(f"SELECT count(*) FROM {quote_ident(temp_table)}")
-            _log.warning("🔢 Live PK snapshot: %s keys.", f"{cur.fetchone()[0]:,}")
+            _log.debug("🔢 Live PK snapshot: %s keys.", f"{cur.fetchone()[0]:,}")
 
         changed = mark_deleted_in_source(
             conn, target, resolved_pk, temp_table, source_label=source_label

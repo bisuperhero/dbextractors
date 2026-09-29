@@ -85,6 +85,7 @@ duplicated nor a unique-index violation.
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, List
 
 from dbextractors.core import target_pg
@@ -101,6 +102,8 @@ from dbextractors.core.strategies.id_watermark import IdWatermarkStrategy, _sour
 from dbextractors.core.strategies.incremental import _target_is_empty
 from dbextractors.dialects.base import FEATURE_ABRA_WATERMARK
 from dbextractors.dialects.postgres import abra_counter_sql, abra_suffix_sql
+
+_log = logging.getLogger(__name__)
 
 #: The LOAD_SETTINGS key naming the database identifiers to watermark.
 SUFFIXES_KEY = "abra_id_suffixes"
@@ -153,15 +156,13 @@ class AbraWatermarkStrategy(IdWatermarkStrategy):
         watermarks = _watermarks(conn, ctx.target, pk, suffixes)
         for suffix in suffixes:
             if watermarks[suffix] is None:
-                ctx.log(
-                    "warning",
+                _log.warning(
                     "⚠️ ABRA watermark: the target has no ID with suffix %r — "
                     "reading all of that suffix's rows.",
                     suffix,
                 )
             else:
-                ctx.log(
-                    "warning",
+                _log.info(
                     "🚀 ABRA watermark: suffix %r, taking counters above %r",
                     suffix,
                     watermarks[suffix],
@@ -174,9 +175,9 @@ class AbraWatermarkStrategy(IdWatermarkStrategy):
         batch_size = resolve_batch_size(ctx.settings, ctx.table_cfg, None)
         result = self._load_new_rows(ctx, where, batch_size, pk)
         if result.rows_read == 0:
-            ctx.log("warning", "ℹ️ No new rows above the watermark.")
+            _log.info("ℹ️ No new rows above the watermark.")
         else:
-            ctx.log("warning", "🔢 New rows: %s", f"{result.rows_read:,}")
+            _log.info("🔢 New rows: %s", f"{result.rows_read:,}")
         result.phase_metrics.update(
             {"watermark": _describe(watermarks), "abra_id_suffixes": ",".join(suffixes)}
         )

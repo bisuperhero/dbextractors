@@ -112,18 +112,19 @@ def ensure_private_key_permissions(key_path: str, show_debug: bool = False) -> N
         _log.warning("⚠️ SSH key %s not found while checking permissions.", safe_path)
         return
     except OSError as err:
-        _log.error("⚠️ Could not inspect permissions for %s: %s", safe_path, secrets.redact(err))
+        _log.warning("⚠️ Could not inspect permissions for %s: %s", safe_path, secrets.redact(err))
         return
 
     if current_mode != 0o600:
-        if show_debug:
-            _log.warning(
-                "🔧 Adjusting SSH key permissions for %s: %s -> 0o600", safe_path, oct(current_mode)
-            )
+        _log.info(
+            "🔧 Adjusting SSH key permissions for %s: %s -> 0o600", safe_path, oct(current_mode)
+        )
         try:
             os.chmod(key_path, 0o600)
         except OSError as err:
-            _log.error("⚠️ Failed to set 0600 permissions on %s: %s", safe_path, secrets.redact(err))
+            _log.warning(
+                "⚠️ Failed to set 0600 permissions on %s: %s", safe_path, secrets.redact(err)
+            )
 
 
 def normalize_private_key_contents(key_path: str, show_debug: bool = False) -> None:
@@ -140,7 +141,7 @@ def normalize_private_key_contents(key_path: str, show_debug: bool = False) -> N
         with open(key_path, encoding="utf-8") as handle:
             original = handle.read()
     except OSError as err:
-        _log.error("⚠️ Could not read SSH key %s: %s", safe_path, secrets.redact(err))
+        _log.warning("⚠️ Could not read SSH key %s: %s", safe_path, secrets.redact(err))
         return
 
     normalized = original.replace("\r\n", "\n")
@@ -155,14 +156,13 @@ def normalize_private_key_contents(key_path: str, show_debug: bool = False) -> N
         try:
             with open(key_path, "w", encoding="utf-8") as handle:
                 handle.write(normalized)
-            if show_debug:
-                _log.warning(
-                    "🔧 Normalized SSH key file %s (literal \\n replaced: %s).",
-                    safe_path,
-                    replaced_literal_newlines,
-                )
+            _log.info(
+                "🔧 Normalized SSH key file %s (literal \\n replaced: %s).",
+                safe_path,
+                replaced_literal_newlines,
+            )
         except OSError as err:
-            _log.error("⚠️ Could not rewrite SSH key %s: %s", safe_path, secrets.redact(err))
+            _log.warning("⚠️ Could not rewrite SSH key %s: %s", safe_path, secrets.redact(err))
 
 
 def ssh_tunnel_preexec() -> None:
@@ -296,15 +296,13 @@ def _probe_direct(
     show_debug: bool,
 ) -> bool:
     """Tries a direct connection through ``probe`` (or the built-in fallback)."""
-    if show_debug:
-        _log.warning("🔌 Trying direct connection to %s:%s...", host, port)
+    _log.info("🔌 Trying direct connection to %s:%s...", host, port)
     check = probe or _default_probe
     reachable = check(host, port)
     if reachable:
-        if show_debug:
-            _log.warning("✅ Direct connection to %s:%s succeeded.", host, port)
+        _log.info("✅ Direct connection to %s:%s succeeded.", host, port)
     else:
-        _log.warning("🛡️ Direct connection to %s:%s not reachable, falling back to SSH.", host, port)
+        _log.info("🛡️ Direct connection to %s:%s not reachable, falling back to SSH.", host, port)
     return reachable
 
 
@@ -415,7 +413,7 @@ def _open_ssh_tunnel(
         # key. The ssh user, host, ports and key **path** stay — that line exists so
         # that a failing tunnel can be reproduced by hand, and without them it would
         # not be reproducible.
-        _log.warning("🛡️ Starting SSH tunnel: %s", secrets.redact(" ".join(ssh_cmd)))
+        _log.debug("🛡️ Starting SSH tunnel: %s", secrets.redact(" ".join(ssh_cmd)))
 
     proc = subprocess.Popen(
         ssh_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, preexec_fn=ssh_tunnel_preexec
@@ -428,8 +426,7 @@ def _open_ssh_tunnel(
                 f"SSH tunnel could not be established within {ssh_wait_timeout}s "
                 f"on {local_host}:{local_port}.{detail}"
             )
-        if show_debug:
-            _log.warning("✅ SSH tunnel established on port %s.", local_port)
+        _log.info("✅ SSH tunnel established on port %s.", local_port)
         yield TunnelAddress(host=local_host, port=local_port, mode="ssh")
     finally:
         _terminate_tunnel(proc, show_debug=show_debug)
@@ -478,8 +475,7 @@ def _terminate_tunnel(proc: subprocess.Popen[bytes], *, show_debug: bool) -> Non
         except subprocess.TimeoutExpired:
             _kill_process_group(proc, sig=signal.SIGKILL)
             proc.wait(timeout=5)
-        if show_debug:
-            _log.warning("🛡️ SSH tunnel terminated.")
+        _log.info("🛡️ SSH tunnel terminated.")
     except Exception as err:
         _log.warning("⚠️ Error while terminating the SSH tunnel: %s", err)
 

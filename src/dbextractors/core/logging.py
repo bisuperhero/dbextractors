@@ -1,102 +1,177 @@
-"""Adapter for the logger handed in by Mage.
+"""How dbextractors logs, and how that reaches the host's logger.
 
-Mage does not pass a `logging.Logger` into the block; it passes its own
-`DictLogger`, whose signature is ``warning(self, message, **kwargs)`` — **no
-positional arguments**. The idiomatic lazy formatting that Python recommends for
-logging::
+## Levels
 
-    logger.warning("Full load by source, source=%s", label)
+Every module logs to its own standard logger under ``dbextractors``
+(``logging.getLogger(__name__)``), at the level the message deserves:
 
-therefore ends in::
+- ``DEBUG`` — detail for debugging: generated SQL, hash expressions, individual
+  retries of a port probe, column renames.
+- ``INFO`` — the normal course of a run: which strategy, the window or
+  watermark, row counts, batch progress, the swap, the tunnel up and down, done.
+- ``WARNING`` — the run goes on, but something is not as it should be and a
+  person should know: a fallback to a full load, dropped columns, an inert or
+  unknown key, a retry, the emergency write path, a cleanup that failed.
+- ``ERROR`` — a failure, logged just before the exception is raised.
 
-    TypeError: DictLogger.warning() takes 2 positional arguments but 3 were given
+The ``DEBUG`` configuration key still switches on extra output that costs
+something to produce (type maps, the ssh command line, a count of the live-key
+snapshot); what it switches on is logged at ``DEBUG``.
 
-This is not a corner case. dbextractors logs this way in 48 places across nine
-modules and **the first such call brings the whole run down**. Observed in
-production: a pipeline died on a lazily formatted warning, and the error handler
-that was supposed to report the failure died on the very same thing, so the
-original cause was never printed at all.
+Under Mage (the 1.0.x line) nearly everything was logged as a warning, because
+that was what reached the pipeline log. 2.x does not run under Mage, so the level
+says what the message is, not where it has to get to.
 
-Rewriting all 48 calls as f-strings would mean giving up lazy formatting
-everywhere because of one peculiarity of one host. Instead the logger is wrapped
-**once, at the entry point** — and the rest of the package keeps logging normally.
+## Reaching the host
 
-The price of formatting here is that the string is built even for a level that is
-ultimately discarded. For dbextractors that does not matter: logging happens
-roughly once per batch, not once per row.
+The package configures no handlers — only a `logging.NullHandler` on the
+``dbextractors`` logger, as a library should. A host that captures standard
+loggers (Dagster's ``python_logs.managed_python_loggers``, a plain
+``logging.basicConfig``) sees everything under ``dbextractors``.
+
+A host that hands a logger to ``run(logger=...)`` instead — Dagster's
+``context.log`` or ``get_dagster_logger()`` — gets the records forwarded to it
+for the duration of that run (`forward_to`). A forwarded record does not also
+propagate further up, so a host that does both does not see every line twice.
+
+## Several runs in one process
+
+A Dagster in-process executor can run two assets in two threads of one process,
+each with its own ``context.log``. The ``dbextractors`` logger is process-wide,
+so forwarding is organised around that: one shared handler, installed while at
+least one run forwards, and a registry of targets keyed by thread, all changed
+under a lock. A record goes to the target of the thread that logged it. A record
+from a thread that forwards nothing is propagated exactly as it would be without
+any forwarding — and only if it passes the level the package logger had before,
+because the level is lowered for the forwarding runs' sake, not for theirs.
 """
 
 from __future__ import annotations
 
+import contextlib
 import logging
-from typing import Any
+import threading
+from typing import Any, Dict, Iterator, List, Tuple
 
-__all__ = ["LoggerAdapter", "adapt"]
+__all__ = ["PACKAGE_LOGGER", "forward_to"]
 
-#: The levels anything in dbextractors ever calls.
-_LEVELS = ("debug", "info", "warning", "error", "exception", "critical")
+#: The root of the package's logger hierarchy.
+PACKAGE_LOGGER = "dbextractors"
+
+_lock = threading.Lock()
+#: Thread id -> the stack of (target, level) that thread forwards to. A stack,
+#: because a run may call `run` again inside itself; the innermost target wins.
+_targets: Dict[int, List[Tuple[Any, int]]] = {}
+#: The package logger's own level and propagation from before the first
+#: forwarding began; restored when the last one ends.
+_saved: Tuple[int, bool] | None = None
 
 
-class LoggerAdapter:
-    """Passes the message on only after the ``%s`` arguments have been substituted.
+class _Dispatcher(logging.Handler):
+    """The one handler that forwarding installs on the ``dbextractors`` logger."""
 
-    Behaves like a logger: it has ``debug``/``info``/``warning``/``error``/
-    ``exception``/``critical``. Keyword arguments are passed through unchanged —
-    Mage uses them to carry things like ``error=`` into its JSON records.
+    def __init__(self) -> None:
+        super().__init__(logging.NOTSET)
+        self.setFormatter(logging.Formatter("%(message)s"))
+
+    def emit(self, record: logging.LogRecord) -> None:
+        # `thread` is None when the host switched `logging.logThreads` off.
+        stack = _targets.get(record.thread) if record.thread is not None else None
+        if not stack:
+            _propagate_as_before(record)
+            return
+        target, level = stack[-1]
+        if record.levelno < level:
+            return
+        try:
+            text = self.format(record)
+        except (TypeError, ValueError):
+            # A malformed format string must not bring down a run that would
+            # otherwise have finished. The arguments are appended instead — and
+            # redacted first: this is the one place that `repr()`s log arguments
+            # nobody inspected, and it fires on a typo.
+            from dbextractors.core import secrets
+
+            text = secrets.redact(f"{record.msg} {record.args!r}")
+        method = getattr(target, record.levelname.lower(), None) or target.info
+        method(text)
+
+
+_dispatcher = _Dispatcher()
+
+
+def _propagate_as_before(record: logging.LogRecord) -> None:
+    """Pass on a record from a thread that forwards nothing, as if nothing forwarded.
+
+    Propagation is off while any run forwards, so this does its job: the
+    record goes to the parent's handlers, provided it clears the level the
+    package logger would have had.
     """
-
-    __slots__ = ("_target",)
-
-    def __init__(self, target: Any) -> None:
-        self._target = target
-
-    def _emit(self, level: str, message: Any, *args: Any, **kwargs: Any) -> None:
-        text = message
-        if args:
-            try:
-                text = str(message) % args
-            except (TypeError, ValueError):
-                # A malformed format string must not bring down a run that would
-                # otherwise have finished. The message is emitted as it is, with the
-                # arguments appended — a less readable log beats a lost extraction.
-                #
-                # This branch is the one place in the package that `repr()`s log
-                # arguments it never inspected, and it fires on a typo rather than
-                # on anything the author considered. Whatever those arguments were
-                # meant to be formatted into, they go through the redaction first.
-                from dbextractors.core import secrets
-
-                text = secrets.redact(f"{message} {args!r}")
-        method = getattr(self._target, level, None) or self._target.info
-        method(text, **kwargs)
-
-    def debug(self, message: Any, *args: Any, **kwargs: Any) -> None:
-        self._emit("debug", message, *args, **kwargs)
-
-    def info(self, message: Any, *args: Any, **kwargs: Any) -> None:
-        self._emit("info", message, *args, **kwargs)
-
-    def warning(self, message: Any, *args: Any, **kwargs: Any) -> None:
-        self._emit("warning", message, *args, **kwargs)
-
-    def error(self, message: Any, *args: Any, **kwargs: Any) -> None:
-        self._emit("error", message, *args, **kwargs)
-
-    def critical(self, message: Any, *args: Any, **kwargs: Any) -> None:
-        self._emit("critical", message, *args, **kwargs)
-
-    def exception(self, message: Any, *args: Any, **kwargs: Any) -> None:
-        self._emit("exception", message, *args, **kwargs)
+    saved = _saved
+    package = logging.getLogger(PACKAGE_LOGGER)
+    if saved is None or not saved[1] or package.parent is None:
+        return
+    level = saved[0] or package.parent.getEffectiveLevel()
+    if record.levelno >= level:
+        package.parent.handle(record)
 
 
-def adapt(logger: Any | None) -> Any | None:
-    """Wraps the logger if it needs wrapping. ``None`` stays ``None``.
+def _is_own(target: Any) -> bool:
+    """``True`` for a logger inside the package's own hierarchy.
 
-    A standard `logging.Logger` needs no wrapper — it handles positional arguments
-    itself, and lazy formatting is a genuine benefit there that there is no reason
-    to give up. The wrapper goes on everything else, because "everything else" is
-    exactly what behaves differently in production.
+    Forwarding the package to one of its own loggers would send every record
+    round in a loop.
     """
-    if logger is None or isinstance(logger, (logging.Logger, LoggerAdapter)):
-        return logger
-    return LoggerAdapter(logger)
+    name = getattr(target, "name", None)
+    return isinstance(target, logging.Logger) and (
+        name == PACKAGE_LOGGER or str(name).startswith(PACKAGE_LOGGER + ".")
+    )
+
+
+def _apply_level(package: logging.Logger) -> None:
+    """The lowest level any forwarding run needs. Called under the lock."""
+    package.setLevel(min(level for stack in _targets.values() for _, level in stack))
+
+
+@contextlib.contextmanager
+def forward_to(target: Any | None) -> Iterator[None]:
+    """Forward the package's records from this thread to ``target`` until the block ends.
+
+    The package logger's level is lowered to the target's own effective level
+    for the duration: otherwise it would inherit the root logger's ``WARNING``
+    and every ``INFO`` record would be dropped before any handler saw it. What
+    the target then shows is up to the target. A target that is not a
+    `logging.Logger` gets ``INFO`` and above.
+
+    ``None`` — and a logger of the package's own — forward nothing.
+    """
+    global _saved
+    if target is None or _is_own(target):
+        yield
+        return
+
+    package = logging.getLogger(PACKAGE_LOGGER)
+    thread = threading.get_ident()
+    level = target.getEffectiveLevel() if isinstance(target, logging.Logger) else logging.INFO
+    with _lock:
+        if _saved is None:
+            _saved = (package.level, package.propagate)
+            package.addHandler(_dispatcher)
+            package.propagate = False
+        _targets.setdefault(thread, []).append((target, level))
+        _apply_level(package)
+    try:
+        yield
+    finally:
+        with _lock:
+            stack = _targets[thread]
+            stack.pop()
+            if not stack:
+                del _targets[thread]
+            if _targets:
+                _apply_level(package)
+            elif _saved is not None:
+                package.removeHandler(_dispatcher)
+                package.setLevel(_saved[0])
+                package.propagate = _saved[1]
+                _saved = None

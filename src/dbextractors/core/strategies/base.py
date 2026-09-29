@@ -92,7 +92,6 @@ class LoadContext:
     table_cfg: dict = field(default_factory=dict)
     where: str | None = None
     surrogate: SurrogateKey | None = None
-    logger: logging.Logger | None = None
     #: Which source database this run reads from. ``None`` for single-source
     #: tables — and it is **deliberately independent** of how many databases the
     #: run happens to have selected: `full_by_source` deletes by `_source`, so a
@@ -130,7 +129,7 @@ class LoadContext:
         spec = partitioning.from_settings(self.settings)
         if conn is None or spec is None:
             return spec
-        return partitioning.effective_spec(conn, self.target, spec, self.log)
+        return partitioning.effective_spec(conn, self.target, spec)
 
     # -- convenient views over the columns ----------------------------------
 
@@ -158,16 +157,6 @@ class LoadContext:
     def orig_type_map(self) -> Dict[str, str]:
         """Target name -> raw source type. `coerce.convert_time_columns` needs it."""
         return {(c.target_name or c.name): c.source_type for c in self.columns}
-
-    def log(self, level: str, message: str, *args: Any) -> None:
-        """Logging that does not blow up when there is no logger.
-
-        Mage passes its own logger in ``kwargs``; outside Mage (tests, the golden
-        harness) there is none. The predecessors call ``logger.warning``
-        unconditionally and fail with ``AttributeError`` outside Mage.
-        """
-        target = self.logger or _log
-        getattr(target, level, target.info)(message, *args)
 
 
 @dataclass
@@ -241,8 +230,7 @@ class LoadStrategy(ABC):
             return
         if ctx.dialect.NCHAR_TYPES:
             return
-        ctx.log(
-            "warning",
+        _log.warning(
             "ℹ️ convert_nchar_to_varchar is set, but %s has no national-character types "
             "— it changes nothing here.",
             ctx.dialect.name,
@@ -339,7 +327,7 @@ def fallback_full(ctx: LoadContext, reason: str) -> LoadResult:
     """
     from dbextractors.core.strategies.full import FullLoadStrategy
 
-    ctx.log("warning", "⚠️ Falling back to a full load: %s", reason)
+    _log.warning("⚠️ Falling back to a full load: %s", reason)
     result = FullLoadStrategy().run(ctx)
     result.fallback_reason = reason
     return result

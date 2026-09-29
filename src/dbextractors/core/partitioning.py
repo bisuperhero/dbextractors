@@ -374,7 +374,7 @@ def partition_key(conn: Any, target: TargetRef) -> str | None:
 
 
 def effective_spec(
-    conn: Any, target: TargetRef, spec: PartitionSpec | None, log: Any = None
+    conn: Any, target: TargetRef, spec: PartitionSpec | None
 ) -> PartitionSpec | None:
     """The partitioning that actually applies. For an existing table, the table decides.
 
@@ -399,15 +399,13 @@ def effective_spec(
 
     actual = partition_key(conn, target)
     if actual is None:
-        if log:
-            log(
-                "warning",
-                "⚠️ partition_by is set (%s), but %s is an ordinary table — "
-                "partitioning will not be applied. Converting is a manual migration "
-                "(DROP + CREATE); a run will not do it.",
-                spec.column,
-                qualify(target),
-            )
+        _log().warning(
+            "⚠️ partition_by is set (%s), but %s is an ordinary table — "
+            "partitioning will not be applied. Converting is a manual migration "
+            "(DROP + CREATE); a run will not do it.",
+            spec.column,
+            qualify(target),
+        )
         return None
 
     if actual != spec.column:

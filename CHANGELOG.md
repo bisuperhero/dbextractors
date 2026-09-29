@@ -26,10 +26,34 @@ Planned as 2.1.0. The 1.0.x line (Mage) does not get it.
   watermark is computed for, required by `abra_watermark`. A single string is
   accepted for one suffix; a number is refused, so that leading zeros survive.
 
+### Changed — logging
+
+- **Log levels say what the message is.** Under Mage nearly everything was
+  logged as a warning, because that was what reached the pipeline log. Now the
+  normal course of a run (strategy, window or watermark, row counts, batch
+  progress, the swap, the tunnel) is `INFO`, debugging detail (SQL, hash
+  expressions, type maps) is `DEBUG`, `WARNING` is kept for what a person should
+  look at (a fallback to a full load, dropped columns, an ignored key, a retry,
+  a failed cleanup) and `ERROR` for failures.
+- **One logging path.** Every module logs to its own standard logger under
+  `dbextractors`; the package adds only a `NullHandler`. `run(logger=...)`
+  forwards the run's records to the given logger (Dagster's `context.log`, say)
+  instead of being threaded through the code, so records from the tunnel, the
+  target writes, retries and the dialects now reach it too — before, only the
+  strategies' messages did. Forwarded records do not also propagate.
+- The Mage `DictLogger` adapter (`core.logging.LoggerAdapter`, `adapt`) is
+  removed; Mage stays on 1.0.x, which keeps it.
+
 ### Breaks
 
-- Nothing. No existing `load_method` changes behaviour, and a configuration
-  without the new key parses as before. Under 1.0.x the key is only logged as
+- **Anything that filters the log at `WARNING` sees far less**: progress and row
+  counts are `INFO` now. Set the host's level to `INFO` to keep seeing them.
+- `LoadContext.log` and `LoadContext.logger` are gone, and the internal helpers
+  that took a `logger=` argument (`resolve_databases`, `build_context`,
+  `compute_incremental_cutoff`, `partitioning.effective_spec`, `BatchProgress`,
+  `reading.read_with_resume`) no longer do. `run()`'s signature is unchanged.
+- No existing `load_method` changes behaviour, and a configuration without the
+  new key parses as before. Under 1.0.x the key is only logged as
   unknown and `abra_watermark` is an unknown `load_method`, which raises — so a
   configuration shared with a Mage deployment has to keep `full` there.
 

@@ -113,7 +113,6 @@ def read_with_resume(
     *,
     build_sql: Callable[[Any | None], str],
     pk_in_batch: str | None,
-    log: Callable[..., None] | None = None,
     attempts: int = DEFAULT_ATTEMPTS,
     base_delay: float = DEFAULT_BASE_DELAY,
     max_delay: float = DEFAULT_MAX_DELAY,
@@ -196,10 +195,7 @@ def read_with_resume(
                     "(attempt %d/%d)."
                 )
                 args = (secrets.redact(err), wait, attempt + 1, attempts)
-            if log:
-                log("warning", message, *args)
-            else:
-                _log.warning(message, *args)
+            _log.warning(message, *args)
             time.sleep(wait)
 
 

@@ -217,6 +217,7 @@ def test_a_tunnel_that_cannot_come_up_does_not_report_the_key(
 
 def test_a_failing_session_statement_does_not_log_the_connection(
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """The listener runs on **every** connection, so a driver that quoted its own
     DSN back would leak it once per batch, not once per run.
@@ -250,21 +251,14 @@ def test_a_failing_session_statement_does_not_log_the_connection(
         def cursor(self) -> _Cursor:
             return _Cursor()
 
-    class _Logger:
-        def __init__(self) -> None:
-            self.lines: list = []
-
-        def warning(self, message: str, *args: Any) -> None:
-            self.lines.append(message % args)
-
-    logger = _Logger()
     dialect = type("_D", (), {"session_sql": ("SET SESSION net_write_timeout = 600",)})()
-    entrypoint._attach_session_sql(object(), dialect, logger)
+    entrypoint._attach_session_sql(object(), dialect)
 
-    captured["listener"](_Conn(), None)
+    with caplog.at_level(logging.WARNING, logger="dbextractors.entrypoint"):
+        captured["listener"](_Conn(), None)
 
-    assert logger.lines, "the failure was swallowed — it has to be logged"
-    assert_clean("\n".join(logger.lines), what="the session-SQL listener")
+    assert caplog.records, "the failure was swallowed — it has to be logged"
+    assert_clean(caplog.text, what="the session-SQL listener")
 
 
 # --- entrypoint.run: the funnel ---------------------------------------------
@@ -561,23 +555,24 @@ def test_a_malformed_format_string_does_not_repr_a_credential_into_the_log() -> 
     """The one place in the package that ``repr()``s log arguments it never
     inspected, and it fires on a typo rather than on anything the author
     considered."""
-    from dbextractors.core.logging import adapt
+    from dbextractors.core.logging import forward_to
 
-    class _DictLogger:
-        """Mage's logger: keyword arguments only, no positional ones."""
+    class _HostLogger:
+        """A host logger that is handed finished text."""
 
         def __init__(self) -> None:
             self.lines: list = []
 
-        def warning(self, message: str, **kwargs: Any) -> None:
+        def warning(self, message: str) -> None:
             self.lines.append(message)
 
-    logger = _DictLogger()
+    logger = _HostLogger()
     # Two arguments for one placeholder — a TypeError, so the fallback branch runs.
-    adapt(logger).warning("connecting to %s", CANARY_URL, CANARY_DSN)
+    with forward_to(logger):
+        logging.getLogger("dbextractors.probe").warning("connecting to %s", CANARY_URL, CANARY_DSN)
 
     assert logger.lines, "the message was lost"
-    assert_clean("\n".join(logger.lines), what="the logger adapter fallback")
+    assert_clean("\n".join(logger.lines), what="the forwarding fallback")
 
 
 # --- The drivers themselves -------------------------------------------------

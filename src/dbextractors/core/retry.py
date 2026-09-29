@@ -8,11 +8,9 @@ every file that had the function at all (an AST diff told them apart only becaus
 docstrings are AST nodes too).
 
 The signatures are frozen — they were identical across all 15 files — which is why
-there is no parameter for the Mage logger here (unlike `core/tunnel.py`, where
-`ensure_private_key_permissions`/`normalize_private_key_contents` do not need a
-logger but `show_debug` does). Logging goes through the standard
-``logging.getLogger(__name__)``; routing it into the Mage logger is a question for
-`entrypoint.run()`, not for this module.
+there is no logger parameter here. Logging goes through the module logger
+(``logging.getLogger(__name__)``); how it reaches the host is a question for
+`entrypoint.run()` (`core.logging.forward_to`), not for this module.
 """
 
 from __future__ import annotations
@@ -58,7 +56,7 @@ def with_retry(
     """
     for attempt in range(1, attempts + 1):
         try:
-            _log.warning("🔄 Attempt %d/%d for %s...", attempt, attempts, desc)
+            _log.debug("🔄 Attempt %d/%d for %s...", attempt, attempts, desc)
             return fn()
         except Exception as err:
             # `fn` is typically a connection attempt, so `err` is whatever the

@@ -95,12 +95,14 @@ class _Clock:
 
 
 def _recorder() -> tuple:
+    """A logger whose INFO records are collected as finished text."""
     recorded: List[str] = []
 
-    def log(_level, message, *args):
-        recorded.append(message % args)
+    class _Recorder:
+        def info(self, message, *args):
+            recorded.append(message % args)
 
-    return log, recorded
+    return _Recorder(), recorded
 
 
 def test_progress_reports_a_percentage_and_the_time_left() -> None:
@@ -181,4 +183,4 @@ def test_a_monotonic_clock_is_the_default() -> None:
     were adjusted."""
     import time
 
-    assert status.BatchProgress(lambda *a: None).clock is time.monotonic
+    assert status.BatchProgress(_recorder()[0]).clock is time.monotonic

@@ -113,35 +113,39 @@ def run(
         config: The configuration dict from the Mage config block. The contract
             is frozen.
         dialect: ``'mysql' | 'mssql' | 'postgres' | 'firebird'``.
-        logger: The Mage logger from ``kwargs.get('logger')``. May be ``None``.
-        **kwargs: The rest of the Mage kwargs. The pipeline's runtime variables
-            are read from it — see `RUNTIME_KEYS`.
+        logger: The host's logger — Dagster's ``context.log``, say. May be
+            ``None``. When given, everything the package logs during this run is
+            forwarded to it; see `core.logging.forward_to`. Without it the
+            records go to the standard ``dbextractors`` loggers only.
+        **kwargs: The rest of the orchestrator's kwargs. The pipeline's runtime
+            variables are read from it — see `RUNTIME_KEYS`.
 
     Returns:
         A DataFrame with the state of the run.
     """
+    from dbextractors.core.logging import forward_to
+
+    with forward_to(logger):
+        return _run(config, dialect, kwargs)
+
+
+def _run(config: dict, dialect: str, kwargs: dict) -> pd.DataFrame:
+    """`run` itself, with the host's logger already receiving the package's records."""
     from dbextractors.core import config as config_module
     from dbextractors.core import status as status_module
     from dbextractors.core import tunnel as tunnel_module
-    from dbextractors.core.logging import adapt
     from dbextractors.core.strategies.base import resolve_strategy
-
-    # Mage's `DictLogger` takes no positional arguments, so the first `%s` message
-    # would kill the whole run. It is wrapped right here so that everything below
-    # — strategies, dialects, the tunnel, writing to the target — gets a logger
-    # that behaves like a logger. See `dbextractors/core/logging.py`.
-    logger = adapt(logger)
 
     parsed = config_module.parse(config)
     source = resolve_dialect(dialect)
     runtime = _runtime_vars(kwargs)
 
-    strategy_name = _strategy_name(parsed.load_settings.load_method, runtime, logger=logger)
+    strategy_name = _strategy_name(parsed.load_settings.load_method, runtime)
     # `settings` decide where `load_method` alone is not enough — today with
     # `resume_full_load`, which is effectively a watermark, not a full load.
     strategy = resolve_strategy(strategy_name, _settings_dict(parsed.load_settings, runtime))
 
-    databases = resolve_databases(parsed, logger=logger)
+    databases = resolve_databases(parsed)
     if databases is None:
         return _nothing_selected_frame(parsed)
 
@@ -176,7 +180,6 @@ def run(
                         parsed,
                         source,
                         strategy,
-                        logger=logger,
                         database=database,
                         source_label=source_label,
                         is_first_source=index == 0,
@@ -192,10 +195,10 @@ def run(
                 # behaviour.
                 #
                 # This is the funnel every failure below `run` passes through, and it
-                # has three exits: the package log, the Mage log and the `error`
-                # column of the returned frame (which `SourceExtractionError` then
-                # quotes as well). Redaction therefore happens **here**, once, rather
-                # than at each of the three.
+                # has two exits: the log (forwarded to the host's logger, when one
+                # was given) and the `error` column of the returned frame (which
+                # `SourceExtractionError` then quotes as well). Redaction therefore happens
+                # **here**, once, rather than at each of the three.
                 secret = parsed.source_db.password
                 _log.error(
                     # Not `_log.exception`: that emits the traceback through
@@ -208,8 +211,6 @@ def run(
                     secrets.redact(_format_traceback(err), extra=[secret]),
                 )
                 safe = secrets.redact(err, extra=[secret])
-                if logger:
-                    logger.error("🛑 [%s] extraction failed: %s", database, safe)
                 statuses.append(status_module.error_status(target_label, source_label, safe))
 
     failed = [s for s in statuses if not s.get("success")]
@@ -246,15 +247,13 @@ def _log_columns(ctx) -> None:
     It is deliberately **one place for all strategies** — if each logged it for
     itself, three of the six would sooner or later stop doing it.
     """
-    ctx.log(
-        "warning", "📋 Columns after selection (%d): %s", len(ctx.target_names), ctx.target_names
-    )
+    _log.info("📋 Columns after selection (%d): %s", len(ctx.target_names), ctx.target_names)
     if not ctx.debug:
         return
-    ctx.log("warning", "🔍 [DEBUG] overwrite_types: %s", ctx.overwrite_types)
-    ctx.log("warning", "🔍 [DEBUG] orig_type_map: %s", ctx.orig_type_map)
-    ctx.log("warning", "🔍 [DEBUG] surrogate: %s", ctx.surrogate)
-    ctx.log("warning", "🔍 [DEBUG] where: %s", ctx.where)
+    _log.debug("🔍 [DEBUG] overwrite_types: %s", ctx.overwrite_types)
+    _log.debug("🔍 [DEBUG] orig_type_map: %s", ctx.orig_type_map)
+    _log.debug("🔍 [DEBUG] surrogate: %s", ctx.surrogate)
+    _log.debug("🔍 [DEBUG] where: %s", ctx.where)
 
 
 def _run_one(parsed, source, strategy, **kwargs) -> dict:
@@ -284,7 +283,7 @@ def _runtime_vars(kwargs: dict) -> dict:
     return {key: kwargs[key] for key in RUNTIME_KEYS if key in kwargs}
 
 
-def _strategy_name(load_method: str, runtime: dict, *, logger=None) -> str:
+def _strategy_name(load_method: str, runtime: dict) -> str:
     """The strategy name once ``forced_full_load`` has been taken into account.
 
     The runtime variable ``forced_full_load`` means "trust nothing the target
@@ -306,17 +305,16 @@ def _strategy_name(load_method: str, runtime: dict, *, logger=None) -> str:
         return name
 
     if name in _FORCE_KEEPS_STRATEGY:
-        if logger:
-            logger.warning(
-                "❗ forced_full_load: strategy %s stays as it is (rewriting it to full "
-                "would delete the other databases' slices in a multi-source run) — only "
-                "the fingerprint is ignored.",
-                name,
-            )
+        _log.warning(
+            "❗ forced_full_load: strategy %s stays as it is (rewriting it to full "
+            "would delete the other databases' slices in a multi-source run) — only "
+            "the fingerprint is ignored.",
+            name,
+        )
         return name
 
-    if logger and name != "full":
-        logger.warning("❗ forced_full_load: %s is rewritten to full.", name)
+    if name != "full":
+        _log.warning("❗ forced_full_load: %s is rewritten to full.", name)
     return "full"
 
 
@@ -335,7 +333,7 @@ def _tunnel_params(parsed, source_dialect) -> dict:
     return params
 
 
-def resolve_databases(parsed, *, logger=None) -> List[str] | None:
+def resolve_databases(parsed) -> List[str] | None:
     """Which source databases the run should go over.
 
     Three different states that must not be confused:
@@ -356,11 +354,10 @@ def resolve_databases(parsed, *, logger=None) -> List[str] | None:
         return [parsed.source_db.database]
 
     if not parsed.databases:
-        if logger:
-            logger.warning(
-                "ℹ️ The control layer selected no database — all of them are closed and "
-                "up to date, there is nothing to fetch."
-            )
+        _log.info(
+            "ℹ️ The control layer selected no database — all of them are closed and "
+            "up to date, there is nothing to fetch."
+        )
         return None
     return list(parsed.databases)
 
@@ -395,7 +392,6 @@ def build_context(
     parsed,
     source_dialect,
     *,
-    logger=None,
     database: str | None = None,
     source_label: str | None = None,
     is_first_source: bool = True,
@@ -477,7 +473,7 @@ def build_context(
             f"{secrets.redact(err, extra=[source_db.password])}"
         ) from None
 
-    _attach_session_sql(engine, source_dialect, logger)
+    _attach_session_sql(engine, source_dialect)
 
     ref = TableRef(
         name=parsed.table.source_name,
@@ -501,13 +497,12 @@ def build_context(
         engine=engine,
         source=ref,
         target=TargetRef(schema=parsed.table.output_schema, table=parsed.table.output_table),
-        target_conn=_target_connection(logger, parsed.target_profile),
+        target_conn=_target_connection(parsed.target_profile),
         columns=columns,
         settings=_settings_dict(parsed.load_settings, runtime),
         table_cfg={"empty_rows_ok": parsed.table.empty_rows_ok},
         where=parsed.table.where_clause,
         surrogate=surrogate,
-        logger=logger,
         debug=parsed.debug,
         source_label=source_label,
         is_first_source=is_first_source,
@@ -633,7 +628,7 @@ def _settings_dict(load_settings, runtime: dict | None = None) -> dict:
     return out
 
 
-def _attach_session_sql(engine, source_dialect, logger: logging.Logger | None = None) -> None:
+def _attach_session_sql(engine, source_dialect) -> None:
     """Run ``dialect.session_sql`` on every new connection to the source.
 
     It cannot be done through ``connect_args`` — ``mysql-connector`` has no
@@ -665,17 +660,16 @@ def _attach_session_sql(engine, source_dialect, logger: logging.Logger | None = 
             # driver that started quoting its own DSN back would leak it once per
             # batch. The commands themselves are dialect constants, so nothing is
             # lost by redacting them too.
-            if logger:
-                logger.warning(
-                    "⚠️ The source session setting failed (%s): %s",
-                    secrets.redact(command),
-                    secrets.redact(err),
-                )
+            _log.warning(
+                "⚠️ The source session setting failed (%s): %s",
+                secrets.redact(command),
+                secrets.redact(err),
+            )
         finally:
             cur.close()
 
 
-def _target_connection(logger: logging.Logger | None = None, profile: str | None = None):
+def _target_connection(profile: str | None = None):
     """A connection to the target PostgreSQL with autocommit **off**.
 
     The target is resolved by `core.target_conn`, not by the golden test's
@@ -695,8 +689,7 @@ def _target_connection(logger: logging.Logger | None = None, profile: str | None
     )
 
     dsn = resolve_target_dsn(profile=profile)
-    if logger:
-        logger.warning("🎯 Target: %s", describe_dsn(dsn))
+    _log.info("🎯 Target: %s", describe_dsn(dsn))
     try:
         conn = psycopg2.connect(dsn)
     except Exception as err:

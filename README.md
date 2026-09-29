@@ -113,9 +113,25 @@ config = {
 status = run(config, dialect='mysql', logger=logging.getLogger('dbx'))
 ```
 
-`logger` is optional and takes any standard `logging.Logger`; the docstring calls it
-the Mage logger because that is where it usually comes from, not because it has to
-be one.
+`logger` is optional. The package logs to standard loggers under `dbextractors`
+and configures no handlers of its own; when `logger` is given — Dagster's
+`context.log`, or any `logging.Logger` — everything the run logs is forwarded to it
+for the duration of that run, and not also propagated, so a host that captures
+`dbextractors` itself as well does not see every line twice. Without it, capture
+the `dbextractors` logger the usual way (in Dagster,
+`python_logs.managed_python_loggers`).
+
+Levels mean what they say:
+
+| level | what you find there |
+|---|---|
+| `DEBUG` | detail for debugging: generated SQL, hash expressions, type maps (these last only with `DEBUG: True` in the configuration) |
+| `INFO` | the normal course of a run: strategy, window or watermark, row counts, batch progress, the swap, the tunnel, done |
+| `WARNING` | the run goes on, but something is not as it should be: a fallback to a full load, dropped columns, an ignored key, a retry, a failed cleanup |
+| `ERROR` | a failure, logged just before it is raised or recorded in the status frame |
+
+An unattended run is therefore quiet at `WARNING`, and anything that shows up there
+deserves a look.
 
 The return value is a status `DataFrame`, one row per source database, with the
 columns `table`, `source`, `rows_written`, `load_method`, `success`,

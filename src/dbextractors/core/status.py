@@ -14,13 +14,12 @@ the plural one; the single-source case is a list with one element.
   is filled here by `target_pg.write_fingerprint`, which additionally sits in the
   same transaction as the data. A deployment that still needs its own such table
   can fill it from the status frame `run` returns.
-- ``log`` — logging that does not fall over without a logger is done by
-  `LoadContext.log`. That is where it belongs: it has the logger at hand and does
-  not need it passed in as a parameter.
+- ``log`` — every module logs to its own standard logger; see `core.logging`.
 """
 
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Sequence
@@ -94,8 +93,8 @@ class BatchProgress:
     than omitting it.
     """
 
-    #: Usually ``ctx.log``. Takes ``(level, message, *args)``.
-    log: Callable[..., None]
+    #: The calling strategy's module logger. Progress is logged at ``INFO``.
+    logger: logging.Logger
     total_rows: int | None = None
     #: Optional phase label, for strategies that read in several passes.
     phase: str = ""
@@ -129,7 +128,7 @@ class BatchProgress:
                 parts.append(f"~{fmt_duration(remaining)} left")
 
         prefix = f"[{self.phase}] " if self.phase else ""
-        self.log("info", "📦 %s%s", prefix, ", ".join(parts))
+        self.logger.info("📦 %s%s", prefix, ", ".join(parts))
 
     def _eta(self, rows_done: int, rychlost: float) -> float | None:
         """Time remaining, or ``None`` when there is nothing to compute it from.

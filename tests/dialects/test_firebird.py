@@ -235,7 +235,7 @@ def test_the_error_suggests_upper_case(dialect) -> None:
 
 def test_blob_columns_are_reported(dialect, caplog) -> None:
     engine = _Engine([("ID", 8, 0, 0), ("TEXT_", 261, 1, 0), ("DATA", 261, 0, 0)])
-    with caplog.at_level("WARNING"):
+    with caplog.at_level("INFO", logger="dbextractors.dialects.firebird"):
         dialect.introspect_columns(engine, TableRef(name="T"))
     assert "BLOB" in caplog.text
     assert "DATA" in caplog.text and "TEXT_" in caplog.text

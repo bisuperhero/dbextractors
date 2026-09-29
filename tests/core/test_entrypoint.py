@@ -161,9 +161,7 @@ def test_force_leaves_full_by_source_alone(caplog) -> None:
     import logging
 
     with caplog.at_level(logging.WARNING):
-        result = entrypoint._strategy_name(
-            "full_by_source", {"forced_full_load": True}, logger=logging.getLogger("t")
-        )
+        result = entrypoint._strategy_name("full_by_source", {"forced_full_load": True})
     assert result == "full_by_source"
     assert "stays as it is" in caplog.text
 
@@ -483,11 +481,10 @@ def test_a_session_setting_that_fails_is_logged_and_the_run_goes_on(tmp_path, ca
     class _BadSession:
         session_sql = ("THIS IS NOT SQL",)
 
-    logger = logging.getLogger("test_session_sql")
     engine = _sqlite_engine(tmp_path)
-    entrypoint._attach_session_sql(engine, _BadSession(), logger)
+    entrypoint._attach_session_sql(engine, _BadSession())
 
-    with caplog.at_level(logging.WARNING, logger="test_session_sql"):
+    with caplog.at_level(logging.WARNING, logger="dbextractors.entrypoint"):
         assert _user_version(engine) == 0, "the connection still works"
 
     assert any("THIS IS NOT SQL" in record.getMessage() for record in caplog.records), caplog.text

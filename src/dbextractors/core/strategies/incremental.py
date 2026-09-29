@@ -55,6 +55,7 @@ When the target does not exist or is empty, control falls to
 
 from __future__ import annotations
 
+import logging
 from datetime import date, datetime, timedelta
 from typing import Any, Tuple
 
@@ -74,6 +75,8 @@ from dbextractors.core.strategies.full import (
     _resolved_pk,
     column_types,
 )
+
+_log = logging.getLogger(__name__)
 
 #: Default window when the configuration does not give one.
 #: Taken from variant A's extractor.
@@ -136,14 +139,11 @@ class IncrementalStrategy(LoadStrategy):
         if _target_is_empty(ctx):
             return fallback_full(ctx, "the target table is empty")
 
-        cutoff, _numeric, lookback_hours = compute_incremental_cutoff(
-            ctx.settings, ctx.runtime, logger=ctx.logger
-        )
+        cutoff, _numeric, lookback_hours = compute_incremental_cutoff(ctx.settings, ctx.runtime)
         mode = window_mode(ctx.settings, lookback_hours)
         where = self._build_where(ctx, cutoff)
 
-        ctx.log(
-            "warning",
+        _log.info(
             "🚀 Incremental window from %s (%s), condition: %s",
             cutoff,
             window_label(ctx.settings, lookback_hours),
@@ -157,11 +157,11 @@ class IncrementalStrategy(LoadStrategy):
 
         estimate = ctx.dialect.estimate_size(ctx.engine, ctx.source, where)
         if estimate.rows == 0:
-            ctx.log("warning", "ℹ️ There are no rows in the window.")
+            _log.info("ℹ️ There are no rows in the window.")
             return LoadResult(0, 0, self.name, is_incremental=True, data_present=False)
 
         batch_size = resolve_batch_size(ctx.settings, ctx.table_cfg, estimate)
-        ctx.log("warning", "🔢 Rows in the window: %s", f"{estimate.rows:,}")
+        _log.info("🔢 Rows in the window: %s", f"{estimate.rows:,}")
 
         result = self._load_window(ctx, where, batch_size, total_rows=estimate.rows)
         result.phase_metrics.update(
@@ -279,7 +279,7 @@ class IncrementalStrategy(LoadStrategy):
             columns=columns,
         )
         rows_read = rows_written = 0
-        progress = status.BatchProgress(ctx.log, total_rows=total_rows, phase="staging")
+        progress = status.BatchProgress(_log, total_rows=total_rows, phase="staging")
         try:
             for batch in full.read_batches(window_ctx, hash_column, batch_size):
                 rows_read += len(batch)
@@ -291,15 +291,14 @@ class IncrementalStrategy(LoadStrategy):
             # An upsert over a million-row staging table takes minutes and is the
             # one step during which the target can stay unchanged for a long
             # time — so its start is announced, not just its result.
-            ctx.log(
-                "warning",
+            _log.info(
                 "✅ Staging done (%s rows), projecting into the target…",
                 f"{rows_read:,}",
             )
             rows_written = _upsert_from_staging(
                 conn, staging, ctx.target, columns, pk, ctx.partition_spec(conn)
             )
-            ctx.log("warning", "✅ %s rows projected into the target.", f"{rows_written:,}")
+            _log.info("✅ %s rows projected into the target.", f"{rows_written:,}")
             target_pg.drop_shadow_table(conn, staging)
             conn.commit()
         except Exception:
@@ -308,7 +307,7 @@ class IncrementalStrategy(LoadStrategy):
                 target_pg.drop_shadow_table(conn, staging)
                 conn.commit()
             except Exception as cleanup_err:
-                ctx.log("error", "⚠️ The staging table could not be cleaned up: %s", cleanup_err)
+                _log.warning("⚠️ The staging table could not be cleaned up: %s", cleanup_err)
             raise
 
         return LoadResult(
@@ -321,13 +320,14 @@ class IncrementalStrategy(LoadStrategy):
 
 
 def compute_incremental_cutoff(
-    load_settings: dict, kwargs: dict, logger: Any | None = None
+    load_settings: dict, kwargs: dict
 ) -> Tuple[date, int | None, int | None]:
     """Compute the cutoff shared by the incremental and the parent-driven path.
 
-    The signature follows the predecessor's ``_compute_incremental_cutoff(
-    load_settings, kwargs, logger)`` — a single variant, found only in variant
-    B's Firebird extractor. `strategies.parent_incremental` uses it as well, so
+    It follows the predecessor's ``_compute_incremental_cutoff(load_settings,
+    kwargs, logger)`` — a single variant, found only in variant B's Firebird
+    extractor — except that it no longer takes a logger: it logs through the
+    module logger. `strategies.parent_incremental` uses it as well, so
     that a child's window matches its parent's.
 
     Two modes:
@@ -342,9 +342,6 @@ def compute_incremental_cutoff(
     strategy's, so ``None`` is returned here and Firebird does the conversion
     itself. The third member (the lookback actually used) stays.
     """
-    log = logger.warning if logger else (lambda *a: None)
-    err = logger.error if logger else (lambda *a: None)
-
     lookback = kwargs.get("incremental_lookback_hours")
     if lookback is None:
         lookback = load_settings.get("incremental_lookback_hours")
@@ -356,14 +353,16 @@ def compute_incremental_cutoff(
         try:
             lookback_hours = int(lookback)
         except (TypeError, ValueError):
-            err("⚠️ Invalid incremental_lookback_hours=%r, ignoring it (deep cutoff).", lookback)
+            _log.warning(
+                "⚠️ Invalid incremental_lookback_hours=%r, ignoring it (deep cutoff).", lookback
+            )
             lookback_hours = None
 
     today = date.today()
     mode = window_mode(load_settings, lookback_hours)
     if mode == "lookback":
         cutoff = (datetime.now() - timedelta(hours=lookback_hours or 0)).date()
-        log("📅 Lookback %s h — delta mode.", lookback_hours)
+        _log.info("📅 Lookback %s h — delta mode.", lookback_hours)
     elif mode == "days_back":
         days_back = int(load_settings.get("days_back") or DEFAULT_DAYS_BACK)
         cutoff = (datetime.now() - timedelta(days=days_back)).date()
@@ -492,8 +491,7 @@ def _drop_columns_missing_in_target(ctx: LoadContext, columns: list) -> list:
     if not missing:
         return columns
 
-    ctx.log(
-        "warning",
+    _log.warning(
         "⚠️ The source has %d columns the target lacks: %s — dropping them. "
         "The next full load will make them up, or add them by hand.",
         len(missing),

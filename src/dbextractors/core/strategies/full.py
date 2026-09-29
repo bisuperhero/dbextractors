@@ -31,6 +31,7 @@ docs/legacy-compat.md.
 
 from __future__ import annotations
 
+import logging
 from typing import List, Sequence
 
 import pandas as pd
@@ -45,6 +46,8 @@ from dbextractors.core.strategies.base import (
     resolve_batch_size,
     surrogate_provides,
 )
+
+_log = logging.getLogger(__name__)
 
 
 class FullLoadStrategy(LoadStrategy):
@@ -72,15 +75,14 @@ class FullLoadStrategy(LoadStrategy):
                 f"({', '.join(ctx.target_names[:8])}…)."
             )
         if _is_truthy(ctx.settings.get("resume_full_load")) and not _keyset_usable(ctx):
-            ctx.log(
-                "warning",
+            _log.warning(
                 "ℹ️ resume_full_load is on, but keyset paging cannot be used "
                 "(primary_column=%r) — ignoring it.",
                 pk,
             )
 
     def run(self, ctx: LoadContext) -> LoadResult:
-        ctx.log("warning", "🚀 Full load: %s -> %s", ctx.source, ctx.target.qualified())
+        _log.info("🚀 Full load: %s -> %s", ctx.source, ctx.target.qualified())
         self.validate(ctx)
 
         estimate = self._estimate(ctx)
@@ -100,7 +102,7 @@ class FullLoadStrategy(LoadStrategy):
         conn = ctx.target_conn
         pk = _resolved_pk(ctx)
         spec = ctx.partition_spec(conn)
-        progress = status.BatchProgress(ctx.log, total_rows=total_rows, phase=self.name)
+        progress = status.BatchProgress(_log, total_rows=total_rows, phase=self.name)
         try:
             with target_pg.SeenKeys(conn, pk or "") as seen:
                 for batch in self.read_batches(ctx, hash_column, batch_size):
@@ -135,7 +137,7 @@ class FullLoadStrategy(LoadStrategy):
                 # The estimate reported rows, but the source returned not one
                 # batch. In that case the target is left alone — same as for an
                 # empty source without `empty_rows_ok`.
-                ctx.log("warning", "⚠️ The source returned no batch, the target is left as is.")
+                _log.warning("⚠️ The source returned no batch, the target is left as is.")
                 conn.rollback()
                 return LoadResult(rows_read, 0, self.name, data_present=False)
 
@@ -151,8 +153,7 @@ class FullLoadStrategy(LoadStrategy):
                     target_pg.drop_shadow_table(conn, shadow)
                     conn.commit()
                 except Exception as cleanup_err:
-                    ctx.log(
-                        "error",
+                    _log.warning(
                         "⚠️ Shadow %s could not be cleaned up: %s",
                         shadow.table,
                         cleanup_err,
@@ -190,12 +191,11 @@ class FullLoadStrategy(LoadStrategy):
         Variant A wins.
         """
         if _is_truthy(ctx.settings.get("skip_size_estimate")):
-            ctx.log("warning", "🔕 Size estimate skipped (skip_size_estimate).")
+            _log.info("🔕 Size estimate skipped (skip_size_estimate).")
             return None
 
         estimate = ctx.dialect.estimate_size(ctx.engine, ctx.source, ctx.where)
-        ctx.log(
-            "warning",
+        _log.info(
             "📏 Rows: %s, estimated %.1f MB (%s).",
             f"{estimate.rows:,}",
             estimate.size_mb,
@@ -214,13 +214,12 @@ class FullLoadStrategy(LoadStrategy):
             ctx.table_cfg.get("empty_rows_ok", ctx.table_cfg.get("EMPTY_ROWS_OK", False))
         )
         if not empty_ok:
-            ctx.log(
-                "warning",
+            _log.warning(
                 "⚠️ The source is empty and empty_rows_ok is not set — the target is left as is.",
             )
             return LoadResult(0, 0, self.name, data_present=False)
 
-        ctx.log("warning", "ℹ️ The source is empty, empty_rows_ok — creating an empty target.")
+        _log.info("ℹ️ The source is empty, empty_rows_ok — creating an empty target.")
         hash_column = _hash_column(ctx)
         self._ensure_managed_columns(ctx, hash_column)
         columns = _all_columns(ctx, hash_column)
@@ -302,7 +301,7 @@ class FullLoadStrategy(LoadStrategy):
         expr = ctx.dialect.render_hash_expr(
             hashed, hash_column, {c.name: c.source_type for c in ctx.columns}
         )
-        ctx.log("warning", "🧮 The source computes the hash: %s", expr)
+        _log.debug("🧮 The source computes the hash: %s", expr)
         return append_hash_expr(select_sql, expr)
 
     def read_batches(
@@ -341,7 +340,6 @@ class FullLoadStrategy(LoadStrategy):
             batch_size,
             build_sql=build_select,
             pk_in_batch=pk_source,
-            log=ctx.log,
             **reading.retry_kwargs_from_settings(ctx.settings),
         )
 
@@ -452,8 +450,7 @@ class FullLoadStrategy(LoadStrategy):
             ctx.target_conn, ctx.target, columns, overwrite_types=overwrite_types
         )
         if added:
-            ctx.log(
-                "warning",
+            _log.warning(
                 "📝 The target was missing %d columns the source sends — adopting them: %s",
                 len(added),
                 ", ".join(added),
@@ -639,7 +636,7 @@ def _promote_types(ctx: LoadContext, batch: pd.DataFrame, hash_column: str | Non
             largest = column_stats.get("int_max")
             if largest is not None and largest > INT_PROMOTION_THRESHOLD:
                 types[column] = "BIGINT"
-                ctx.log("warning", "📋 Column %r promoted to BIGINT (max %s).", column, largest)
+                _log.info("📋 Column %r promoted to BIGINT (max %s).", column, largest)
             continue
 
         if (
@@ -652,7 +649,7 @@ def _promote_types(ctx: LoadContext, batch: pd.DataFrame, hash_column: str | Non
             and not column_stats.get("has_non_numeric")
         ):
             types[column] = "BOOLEAN"
-            ctx.log("warning", "📋 Column %r is enum(0,1), promoted to BOOLEAN.", column)
+            _log.info("📋 Column %r is enum(0,1), promoted to BOOLEAN.", column)
 
     return types
 

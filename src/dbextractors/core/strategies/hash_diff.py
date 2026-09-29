@@ -86,6 +86,7 @@ lower down.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any, Iterator, List, Tuple
 
@@ -120,6 +121,8 @@ from dbextractors.core.strategies.incremental import (
     _with_where,
 )
 from dbextractors.dialects.base import FEATURE_HASH_DIFF
+
+_log = logging.getLogger(__name__)
 
 #: Mismatch ratio above which the diff is taken as drifted hashes, not as changed data.
 #: Taken from variant A's extractor.
@@ -192,8 +195,7 @@ class HashDiffStrategy(LoadStrategy):
         # otherwise it is only noticed after a scan of the whole table.
         target_pg.assert_unique_pk_index(ctx.target_conn, ctx.target, pk)
 
-        ctx.log(
-            "warning",
+        _log.info(
             "🚀 Hash diff: %s -> %s, the target has %s rows (%s without a hash).",
             ctx.source.name,
             ctx.target.qualified(),
@@ -320,7 +322,6 @@ class HashDiffStrategy(LoadStrategy):
                 _scan_batch_size(ctx),
                 build_sql=_build_scan_sql,
                 pk_in_batch=pk_source if not ctx.surrogate else None,
-                log=ctx.log,
                 **reading.retry_kwargs_from_settings(ctx.settings),
             ):
                 batch = batch.rename(columns=ctx.name_map)
@@ -344,15 +345,14 @@ class HashDiffStrategy(LoadStrategy):
             # The reason is not only logged — it becomes `fallback_reason` in the
             # status frame `run` returns, so it leaves the process.
             safe = secrets.redact(err)
-            ctx.log("warning", "⚠️ The source hash scan failed (%s).", safe)
+            _log.warning("⚠️ The source hash scan failed (%s).", safe)
             return f"the source hash scan failed: {type(err).__name__}: {safe}"
 
-        ctx.log("warning", "🔢 Source scan: %s rows into the snapshot.", f"{rows_scanned:,}")
+        _log.info("🔢 Source scan: %s rows into the snapshot.", f"{rows_scanned:,}")
         return None
 
     def _log_diff(self, ctx: LoadContext, diff: dict) -> None:
-        ctx.log(
-            "warning",
+        _log.info(
             "📊 Diff: source %s rows, added %s, changed %s, unchanged %s.",
             f"{diff['source_rows']:,}",
             f"{diff['added']:,}",
@@ -383,7 +383,7 @@ class HashDiffStrategy(LoadStrategy):
 
         ratio = diff["changed"] / state.rows
         if ratio >= RESEED_MISMATCH_RATIO and diff["matched"] == 0:
-            ctx.log("warning", "⚠️ %.1f %% of rows mismatch and not one matches.", ratio * 100)
+            _log.warning("⚠️ %.1f %% of rows mismatch and not one matches.", ratio * 100)
             return (
                 f"the hashes have drifted (mismatch {ratio:.2%}, 0 rows matched) — "
                 "a full load will seed them again"
@@ -420,7 +420,7 @@ class HashDiffStrategy(LoadStrategy):
         if to_fetch:
             rows_read, rows_written = self._download(ctx, snapshot, pk, hash_column)
         else:
-            ctx.log("warning", "ℹ️ No new or changed rows.")
+            _log.info("ℹ️ No new or changed rows.")
 
         # Deleted rows have to be marked even when nothing changed — a vanishing
         # row leaves no trace whatsoever in the hashes.
@@ -481,7 +481,7 @@ class HashDiffStrategy(LoadStrategy):
                     if export_df.empty:
                         continue
                     target_pg.copy_from_stdin(conn, staging, export_df, columns)
-                ctx.log("info", "📥 %s rows fetched.", f"{rows_read:,}")
+                _log.info("📥 %s rows fetched.", f"{rows_read:,}")
 
             rows_written = _upsert_from_staging(
                 conn, staging, ctx.target, columns, pk, ctx.partition_spec(conn)
@@ -493,7 +493,7 @@ class HashDiffStrategy(LoadStrategy):
                 target_pg.drop_shadow_table(conn, staging)
                 conn.commit()
             except Exception as cleanup_err:
-                ctx.log("error", "⚠️ The staging table could not be cleaned up: %s", cleanup_err)
+                _log.warning("⚠️ The staging table could not be cleaned up: %s", cleanup_err)
             raise
 
         return rows_read, rows_written

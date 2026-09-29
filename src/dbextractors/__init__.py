@@ -8,15 +8,21 @@
 and ``SOURCE_DB``. See the README for what goes in them, and ``ARCHITECTURE.md``
 for how the pieces fit together.
 
-Under Mage, ``run`` is what a ``data_loader`` block calls; pass the block's
-logger through so its output lands in the pipeline log::
+The package logs to the standard ``dbextractors`` loggers and configures no
+handlers. Pass the orchestrator's logger to have a run's records forwarded to it,
+e.g. in a Dagster asset::
 
-    @data_loader
-    def load_data(config, *args, **kwargs):
-        return run(config, dialect="mysql", logger=kwargs.get("logger"))
+    run(config, dialect="mysql", logger=context.log)
 """
 
+import logging
+
 from dbextractors.entrypoint import run
+
+# A library adds no handlers of its own; this only keeps Python's last-resort
+# handler from printing the package's warnings to stderr when the host has not
+# configured logging at all.
+logging.getLogger("dbextractors").addHandler(logging.NullHandler())
 
 __all__ = ["__version__", "run"]
 

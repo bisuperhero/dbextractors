@@ -35,6 +35,7 @@ Writes go through ``COPY ... FROM STDIN`` and nothing else.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from dbextractors.core import status, target_pg
@@ -61,6 +62,8 @@ from dbextractors.core.strategies.incremental import (
     _with_where,
 )
 from dbextractors.dialects.base import FEATURE_KEYSET
+
+_log = logging.getLogger(__name__)
 
 
 class IdWatermarkStrategy(LoadStrategy):
@@ -106,17 +109,17 @@ class IdWatermarkStrategy(LoadStrategy):
             # all NULL — which amounts to the same: nothing to start from).
             return fallback_full(ctx, "the target table is empty, there is no watermark to compute")
 
-        ctx.log("warning", "🚀 ID watermark: taking rows with %s > %r", pk, watermark)
+        _log.info("🚀 ID watermark: taking rows with %s > %r", pk, watermark)
         target_pg.assert_unique_pk_index(conn, ctx.target, pk)
 
         pk_source = _source_name(ctx, pk)
         where = _watermark_where(ctx, pk_source, watermark)
         estimate = ctx.dialect.estimate_size(ctx.engine, ctx.source, where)
         if estimate.rows == 0:
-            ctx.log("warning", "ℹ️ No new rows above the watermark.")
+            _log.info("ℹ️ No new rows above the watermark.")
             return LoadResult(0, 0, self.name, is_incremental=True, data_present=False)
 
-        ctx.log("warning", "🔢 New rows: %s", f"{estimate.rows:,}")
+        _log.info("🔢 New rows: %s", f"{estimate.rows:,}")
         batch_size = resolve_batch_size(ctx.settings, ctx.table_cfg, estimate)
         result = self._load_new_rows(ctx, where, batch_size, pk, total_rows=estimate.rows)
         result.phase_metrics.update({"watermark": str(watermark), "estimated_rows": estimate.rows})
@@ -162,7 +165,7 @@ class IdWatermarkStrategy(LoadStrategy):
         columns = _drop_columns_missing_in_target(ctx, columns)
 
         staging = target_pg.create_shadow_table(conn, ctx.target, columns=columns)
-        progress = status.BatchProgress(ctx.log, total_rows=total_rows, phase=self.name)
+        progress = status.BatchProgress(_log, total_rows=total_rows, phase=self.name)
         rows_read = rows_written = 0
         try:
             for batch in full.read_batches(window_ctx, hash_column, batch_size):
@@ -184,7 +187,7 @@ class IdWatermarkStrategy(LoadStrategy):
                 target_pg.drop_shadow_table(conn, staging)
                 conn.commit()
             except Exception as cleanup_err:
-                ctx.log("error", "⚠️ The staging table could not be cleaned up: %s", cleanup_err)
+                _log.warning("⚠️ The staging table could not be cleaned up: %s", cleanup_err)
             raise
 
         return LoadResult(

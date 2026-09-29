@@ -67,6 +67,7 @@ other strategies.
 
 from __future__ import annotations
 
+import logging
 from typing import Any, List, Tuple
 
 from dbextractors.core import status, target_pg
@@ -86,6 +87,8 @@ from dbextractors.core.strategies.full import (
     column_types,
 )
 from dbextractors.dialects.base import FEATURE_PARTITION_BY_SOURCE
+
+_log = logging.getLogger(__name__)
 
 
 class FullBySourceStrategy(LoadStrategy):
@@ -124,12 +127,11 @@ class FullBySourceStrategy(LoadStrategy):
         conn = ctx.target_conn
         source_label = ctx.source_label
 
-        ctx.log("warning", "🚀 Full load by source, source=%s", source_label or "-")
+        _log.info("🚀 Full load by source, source=%s", source_label or "-")
 
         fingerprint, parts = self._fingerprint(ctx)
         if self._can_skip(ctx, fingerprint):
-            ctx.log(
-                "warning",
+            _log.info(
                 "🔕 [%s] unchanged (fingerprint %s) — skipping the fetch.",
                 source_label,
                 fingerprint,
@@ -145,7 +147,7 @@ class FullBySourceStrategy(LoadStrategy):
         estimate = ctx.dialect.estimate_size(
             ctx.engine, ctx.source, ctx.where, known_total_rows=parts.get("count")
         )
-        ctx.log("warning", "🔢 Rows in the source: %s", f"{estimate.rows:,}")
+        _log.info("🔢 Rows in the source: %s", f"{estimate.rows:,}")
 
         target_exists = target_pg.table_exists(conn, ctx.target)
         partitioned = self._resolve_partitioning(ctx, target_exists)
@@ -178,8 +180,7 @@ class FullBySourceStrategy(LoadStrategy):
                 return None
             actual = by_lower_name.get(str(name).lower())
             if actual is None:
-                ctx.log(
-                    "warning",
+                _log.warning(
                     "⚠️ Column %r for the fingerprint is not in the source — ignoring it.",
                     name,
                 )
@@ -203,7 +204,7 @@ class FullBySourceStrategy(LoadStrategy):
         try:
             frame = next(iter(ctx.dialect.iter_batches(ctx.engine, sql, 1)))
         except Exception as err:
-            ctx.log("warning", "⚠️ The fingerprint query failed (%s) — fetching normally.", err)
+            _log.warning("⚠️ The fingerprint query failed (%s) — fetching normally.", err)
             return None, {}
         if frame.empty:
             return None, {}
@@ -226,7 +227,7 @@ class FullBySourceStrategy(LoadStrategy):
         if not fingerprint or not ctx.source_label:
             return False
         if _is_truthy(ctx.settings.get("force_reload")):
-            ctx.log("warning", "❗ force_reload — the fingerprint is ignored.")
+            _log.warning("❗ force_reload — the fingerprint is ignored.")
             return False
 
         try:
@@ -238,13 +239,12 @@ class FullBySourceStrategy(LoadStrategy):
             # with `InFailedSqlTransaction` — an error unrelated to the original
             # one.
             ctx.target_conn.rollback()
-            ctx.log("warning", "⚠️ The stored fingerprint could not be read (%s).", err)
+            _log.warning("⚠️ The stored fingerprint could not be read (%s).", err)
             return False
 
         if stored is None or stored != fingerprint:
             if stored is not None:
-                ctx.log(
-                    "warning",
+                _log.info(
                     "🔄 [%s] the fingerprint changed: %s -> %s",
                     ctx.source_label,
                     stored,
@@ -253,8 +253,7 @@ class FullBySourceStrategy(LoadStrategy):
             return False
 
         if not target_pg.target_holds_source(ctx.target_conn, ctx.target, ctx.source_label):
-            ctx.log(
-                "warning",
+            _log.warning(
                 "🔄 [%s] the fingerprint matches, but the slice is missing from the target — "
                 "fetching again.",
                 ctx.source_label,
@@ -276,8 +275,7 @@ class FullBySourceStrategy(LoadStrategy):
 
         already_partitioned = target_pg.is_partitioned(ctx.target_conn, ctx.target)
         if wants_partitioning and not already_partitioned:
-            ctx.log(
-                "warning",
+            _log.warning(
                 "⚠️ partition_by_source is on, but %s is a plain table — deleting with DELETE. "
                 "To convert: drop the table and run once with force_reload.",
                 ctx.target.qualified(),
@@ -300,7 +298,7 @@ class FullBySourceStrategy(LoadStrategy):
         must never quietly produce an empty target.
         """
         conn = ctx.target_conn
-        ctx.log("warning", "🔢 Source [%s] reports 0 rows.", ctx.source_label or ctx.source.name)
+        _log.info("🔢 Source [%s] reports 0 rows.", ctx.source_label or ctx.source.name)
 
         if not target_exists:
             if not _is_truthy(
@@ -316,7 +314,7 @@ class FullBySourceStrategy(LoadStrategy):
                 part = target_pg.ensure_partition(conn, ctx.target, ctx.source_label)
                 with conn.cursor() as cur:
                     cur.execute(f"TRUNCATE TABLE {target_pg.qualify(part)}")
-                ctx.log("warning", "🗑️ The source went empty — partition emptied.")
+                _log.info("🗑️ The source went empty — partition emptied.")
             else:
                 target_pg.ensure_source_index(conn, ctx.target)
                 with conn.cursor() as cur:
@@ -325,7 +323,7 @@ class FullBySourceStrategy(LoadStrategy):
                         f"WHERE {target_pg.quote_ident(target_pg.SOURCE_COLUMN)} = %s",
                         (ctx.source_label,),
                     )
-                    ctx.log("warning", "🗑️ The source went empty — %s rows deleted.", cur.rowcount)
+                    _log.info("🗑️ The source went empty — %s rows deleted.", cur.rowcount)
 
         self._finish(ctx, fingerprint, parts)
         return LoadResult(
@@ -357,7 +355,7 @@ class FullBySourceStrategy(LoadStrategy):
         finally:
             target_pg.drop_shadow_table(conn, staging)
         conn.commit()
-        ctx.log("warning", "ℹ️ empty_rows_ok — an empty target was created.")
+        _log.info("ℹ️ empty_rows_ok — an empty target was created.")
 
     def _replace_slice(
         self,
@@ -403,7 +401,7 @@ class FullBySourceStrategy(LoadStrategy):
         # fingerprint is off it is `None`, and progress is then logged without
         # percentages and ETA rather than lying about them.
         progress = status.BatchProgress(
-            ctx.log, total_rows=parts.get("count"), phase=ctx.source_label or self.name
+            _log, total_rows=parts.get("count"), phase=ctx.source_label or self.name
         )
         try:
             for batch in full.read_batches(ctx, hash_column, batch_size, compute_hash=compute_hash):
@@ -436,7 +434,7 @@ class FullBySourceStrategy(LoadStrategy):
                 target_pg.drop_shadow_table(conn, staging)
                 conn.commit()
             except Exception as cleanup_err:
-                ctx.log("error", "⚠️ The staging table could not be cleaned up: %s", cleanup_err)
+                _log.warning("⚠️ The staging table could not be cleaned up: %s", cleanup_err)
             raise
 
         self._finish(ctx, fingerprint, parts)
@@ -470,8 +468,7 @@ class FullBySourceStrategy(LoadStrategy):
                         f"CREATE TABLE {target_pg.qualify(ctx.target)} "
                         f"(LIKE {target_pg.qualify(staging)} INCLUDING DEFAULTS)"
                     )
-            ctx.log(
-                "warning",
+            _log.info(
                 "📝 Target %s did not exist — created from the staging table.",
                 ctx.target.qualified(),
             )
