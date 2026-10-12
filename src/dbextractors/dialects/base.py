@@ -322,6 +322,13 @@ class SourceDialect(ABC):
         """
         if isinstance(value, (int, float)) and not isinstance(value, bool):
             return str(value)
+        if isinstance(value, (bytes, bytearray, memoryview)):
+            # `str(b"6a…")` is the text "b'6a…'", which sorts above every key that
+            # starts with a digit — a resume above it silently reads nothing.
+            raise TypeError(
+                f"{type(self).__name__}.sql_literal cannot render a binary value; "
+                "the dialect has to override it with its own binary literal."
+            )
         return "'" + str(value).replace("'", "''") + "'"
 
     def render_fingerprint(

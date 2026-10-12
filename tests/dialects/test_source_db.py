@@ -1061,6 +1061,37 @@ def test_an_abandoned_mysql_stream_is_cancelled_not_read_to_the_end() -> None:
 
 
 @pytest.mark.needs_mysql
+def test_a_mysql_varbinary_key_resumes_above_its_literal() -> None:
+    """The resume key of a VARBINARY id arrives as bytes; its literal must select
+    exactly the rows above it (2026-10-12: rendered as "b'…'", it selected none)."""
+    import sqlalchemy as sa
+
+    require("mysql")
+    dialect = resolve_dialect("mysql")
+    eng = engine_for("mysql")
+    try:
+        with eng.connect() as conn:
+            rows = conn.exec_driver_sql(
+                "SELECT CAST(x AS BINARY) AS id FROM (SELECT '6abf5b2ace1033-1' x "
+                "UNION ALL SELECT '6ac95523d557f4-2' UNION ALL SELECT '6ad0000000000a-3') t"
+            ).fetchall()
+            key = rows[1][0]
+            assert isinstance(key, (bytes, bytearray))
+            above = conn.execute(
+                sa.text(
+                    "SELECT COUNT(*) FROM (SELECT CAST(x AS BINARY) AS id FROM ("
+                    "SELECT '6abf5b2ace1033-1' x UNION ALL SELECT '6ac95523d557f4-2' "
+                    "UNION ALL SELECT '6ad0000000000a-3') t) b "
+                    f"WHERE id > {dialect.sql_literal(key)}"
+                )
+            ).scalar()
+    finally:
+        eng.dispose()
+
+    assert above == 1
+
+
+@pytest.mark.needs_mysql
 def test_a_mysql_stream_dropped_mid_way_is_retryable() -> None:
     """The production failure mode: ``2013 Lost connection`` after some batches.
 

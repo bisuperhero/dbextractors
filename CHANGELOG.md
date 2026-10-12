@@ -21,6 +21,15 @@ this package.
   the target's collation), which turns each partition into an index range scan.
   Locally on 12 partitions × 3 M rows: 1.17 s → 0.2 ms. An empty staging table
   deletes nothing.
+- **A resume by a `VARBINARY` key no longer reads nothing and reports success.**
+  mysql-connector returns such a key as `bytes`, and `sql_literal` rendered it as
+  the text `'b''6ac9…'''`, which sorts above every key starting with a digit. After
+  a dropped connection the resumed query `WHERE id > 'b''…'''` returned no rows and
+  the run ended as a success with the rest of the delta unread (production,
+  2026-10-12: 5 M of 42.7 M rows). MySQL now renders bytes as a hex literal
+  (`X'…'`), which compares byte-wise like the column; the other dialects raise
+  `TypeError` instead of rendering a wrong literal. The watermark itself comes from
+  the target and was not affected, so the next run picked up the rest.
 
 ### Changed
 

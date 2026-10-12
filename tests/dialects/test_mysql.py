@@ -60,6 +60,16 @@ def test_literal_doubles_the_backslash_as_well(dialect) -> None:
     assert SourceDialect.sql_literal(dialect, "path\\") == "'path\\'"
 
 
+def test_literal_renders_a_binary_key_as_hex(dialect) -> None:
+    """A VARBINARY key resumes as ``X'…'``, never as the text ``"b'…'"``."""
+    from dbextractors.dialects.base import SourceDialect
+
+    assert dialect.sql_literal(b"6ac9-1") == "X'366163392d31'"
+    assert dialect.sql_literal(bytearray(b"\x00'")) == "X'0027'"
+    with pytest.raises(TypeError):
+        SourceDialect.sql_literal(dialect, b"6ac9-1")
+
+
 def test_literal_leaves_numbers_unquoted(dialect) -> None:
     assert dialect.sql_literal(42) == "42"
 

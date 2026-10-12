@@ -312,6 +312,12 @@ class MySQLDialect(DictTypeMapDialect):
         """
         if isinstance(value, (int, float)) and not isinstance(value, bool):
             return str(value)
+        if isinstance(value, (bytes, bytearray, memoryview)):
+            # A VARBINARY key (EIS ids) comes back from the driver as bytes; a hex
+            # literal compares byte-wise, exactly like the column. `str(bytes)`
+            # would be "b'…'" and a resume above it would read nothing (seen
+            # 2026-10-12: 5 M of 42.7 M rows, then "success").
+            return f"X'{bytes(value).hex()}'"
         escaped = str(value).replace("\\", "\\\\").replace("'", "''")
         return f"'{escaped}'"
 
