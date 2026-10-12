@@ -7,7 +7,20 @@ Every release is tagged, and the tag is what a deployment pins in `requirements.
 **Every change carries a note on what it breaks** — roughly 670 tables depend on
 this package.
 
-## [Unreleased]
+## [2.2.1]
+
+### Fixed
+
+- **An upsert into a partitioned target no longer scans every partition.**
+  `replace_by_key` deleted with `t.pk = s.pk` alone against a staging table that
+  had no statistics, so the planner picked a hash join over a seq scan of the
+  whole target. On a 61-partition production table one 5 M-row `id_watermark`
+  checkpoint ran over 40 minutes spilling to disk — and with checkpoints that
+  repeats every 5 M rows. The staging table is now `ANALYZE`d and the delete is
+  bounded by the staging key range (`BETWEEN MIN AND MAX`, taken from staging in
+  the target's collation), which turns each partition into an index range scan.
+  Locally on 12 partitions × 3 M rows: 1.17 s → 0.2 ms. An empty staging table
+  deletes nothing.
 
 ### Changed
 
