@@ -7,6 +7,38 @@ Every release is tagged, and the tag is what a deployment pins in `requirements.
 **Every change carries a note on what it breaks** — roughly 670 tables depend on
 this package.
 
+## [Unreleased]
+
+### Changed
+
+- **MSSQL `NVARCHAR`, `NCHAR` and `NTEXT` arrive whole with pymssql 2.4.4 —
+  the driver changed, not this package.** pymssql 2.4.4 (2026-10-09, *"Fixed
+  unicode encoding problem #854 & #1000"*) builds its Linux wheels with
+  `glibc-gconv-extra` (GNU libiconv on musl), so the bundled FreeTDS can
+  convert to the `cp1250` connection charset instead of falling back to latin-1.
+  Measured against the `dbo.unicode_edge` fixture with the key off:
+  `'příliš žluťoučký kůň'` arrives whole instead of as `'p'`, and a character
+  CP1250 cannot express (`ø`, Cyrillic, emoji) becomes `?` instead of cutting
+  the string or arriving as a different letter (`ø` → `ř`). 2.4.2 and 2.4.3 still
+  truncate. The legacy single-byte `VARCHAR`/`CHAR`/`TEXT` and
+  `convert_nchar_to_varchar` read identically on both. The dependency range
+  `pymssql>=2.3.13,<3` admits 2.4.4, so a fresh install gets it.
+
+  The live tests in `tests/dialects/test_source_db.py` now assert whichever
+  behaviour the installed pymssql has, instead of pinning the truncation.
+
+### Breaks
+
+- **What lands in N-typed MSSQL columns depends on the pymssql that gets
+  installed.** A deployment that resolves pymssql 2.4.4 or newer writes the whole
+  text where it used to write the truncated one, for every table — with or
+  without `convert_nchar_to_varchar`. `row_hash` is computed by the server from
+  the raw `NVARCHAR` and does not move, so under `load_method: hash` existing rows
+  are not rewritten and keep their truncated text next to new rows that are
+  whole; run a table with `forced_full_load` to make its history consistent. An
+  N-typed primary key changes its value along with the text. Pin
+  `pymssql<2.4.4` in the deployment's requirements to keep the old contents.
+
 ## [2.2.0]
 
 ### Fixed

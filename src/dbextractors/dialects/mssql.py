@@ -45,12 +45,18 @@ contract knows it. That is not an oversight — it is today's behaviour, and all
 pipelines of this source have ``utf8mb4`` in that key, i.e. the name of a MySQL
 encoding. Details at ``build_conn_str``.
 
-## Known limitation: NVARCHAR text arrives cut short
+## Known limitation: NVARCHAR text arrives cut short (pymssql < 2.4.4)
 
-**With this connection charset, ``NVARCHAR``, ``NCHAR`` and ``NTEXT`` values are
-truncated at the first character that latin-1 cannot express — silently, with no
-error and no replacement character.** ``'příliš žluťoučký kůň'`` arrives as
-``'p'``; a pure-ASCII value is unaffected.
+**With this connection charset and a pymssql before 2.4.4, ``NVARCHAR``,
+``NCHAR`` and ``NTEXT`` values are truncated at the first character that latin-1
+cannot express — silently, with no error and no replacement character.**
+``'příliš žluťoučký kůň'`` arrives as ``'p'``; a pure-ASCII value is unaffected.
+
+pymssql 2.4.4 removed the cause: its Linux wheels ship the iconv converters the
+bundled FreeTDS needs, so it converts to CP1250 instead of falling back to
+latin-1, and the N-types arrive whole (what CP1250 cannot express becomes
+``?``). Nothing in this module changed or depends on either behaviour — but what
+lands in the target does change with the installed driver.
 
 It is inherited rather than introduced: both predecessors open the connection
 with the same charset, so the target tables have been receiving the truncated
@@ -109,10 +115,12 @@ DEFAULT_SOURCE_SCHEMA = "dbo"
 #: cp1250 and both predecessors hard-code that in ``connect_args`` —
 #: ``SOURCE_DB.charset`` is not read for MSSQL, see ``build_conn_str``.
 #:
-#: **This value costs the N-types their contents** (see the module docstring):
-#: pymssql converts UCS-2 to the single-byte charset as latin-1 and then decodes
-#: the result as cp1250, so an ``NVARCHAR`` value is cut at its first character
-#: outside latin-1 and a character *inside* latin-1 arrives as a different one.
+#: **With a pymssql before 2.4.4 this value costs the N-types their contents**
+#: (see the module docstring): FreeTDS converts UCS-2 to the single-byte charset
+#: as latin-1 and pymssql decodes the result as cp1250, so an ``NVARCHAR`` value
+#: is cut at its first character outside latin-1 and a character *inside*
+#: latin-1 arrives as a different one. From 2.4.4 on the conversion is to CP1250
+#: and the N-types arrive whole.
 #: Setting it to ``"UTF-8"`` rescues the N-types and mangles every legacy
 #: ``VARCHAR`` under the source's CP1250 collation instead — measured across
 #: seven candidate values, none of which is right for both. The way out is not a

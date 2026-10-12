@@ -389,8 +389,9 @@ NULLABLE_IN_ROW_TWO: dict[str, tuple[str, ...]] = {
 # file, so both the local and the CI seeding paths pick it up. Asserted below.
 #
 # ``unicode_text`` in MSSQL is a different animal and is **not** a seed defect.
-# It is an inherited limitation of the client charset, pinned by the tests under
-# "the MSSQL client charset" further down and written up in
+# Before pymssql 2.4.4 it was truncated by the client charset — an inherited
+# limitation that a driver release removed. Both behaviours are pinned by the
+# tests under "the MSSQL client charset" further down and written up in
 # ``docs/legacy-compat.md``.
 
 
@@ -514,9 +515,12 @@ def test_mssql_values_arrive_intact() -> None:
     assert first["time_of_day"] == dt.time(12, 34, 56, 123456)
     assert first["flag"] is True
     assert first["cp1250_text"] == "prilis zlutoucky kun"
-    # Not a typo and not a broken seed: the connection charset truncates every
-    # N-type. Pinned rather than asserted intact — see the section below.
-    assert first["unicode_text"] == "p"
+    # Not a typo and not a broken seed: before pymssql 2.4.4 the connection
+    # charset truncates every N-type. Version-dependent — see the section below.
+    if PYMSSQL_CONVERTS_TO_CP1250:
+        assert first["unicode_text"] == "příliš žluťoučký kůň"
+    else:
+        assert first["unicode_text"] == "p"
     assert str(first["key_uuid"]) == "6f9619ff-8b86-d011-b42d-00c04fc964ff"
     assert first["xml_payload"] == "<r><a>1</a></r>"
     # The computed column is read, not skipped: order * 2.
@@ -539,14 +543,50 @@ def test_mssql_values_arrive_intact() -> None:
 #
 # ``MSSQLDialect.connect_args`` opens the connection with ``charset='cp1250'``,
 # inherited character for character from both predecessor extractors. That
-# setting is load-bearing for the legacy single-byte columns and destructive for
-# the N-types, and no charset value gets both right — measured, see
-# ``docs/legacy-compat.md``. What follows pins the boundary from both sides so
-# that neither half can be "improved" without the other half failing loudly.
+# setting is load-bearing for the legacy single-byte columns and, with a pymssql
+# before 2.4.4, destructive for the N-types — and there no charset value gets
+# both right, measured, see ``docs/legacy-compat.md``. What follows pins the
+# boundary from both sides so that neither half can be "improved" without the
+# other half failing loudly.
 #
 # The order of these tests is the order in which the question has to be asked:
 # first that the fixture holds what it claims to (otherwise every finding below
 # is a seeding accident), then what reading does to it.
+#
+# **What reading does to it depends on the pymssql release**, and the tests say
+# so instead of pinning one of them. Up to 2.4.3 the Linux wheels link a FreeTDS
+# whose iconv has no CP1250 converter (the manylinux image lacked glibc's extra
+# gconv modules), so FreeTDS falls back to latin-1 while pymssql decodes the
+# bytes as cp1250 — the N-types are cut at their first character outside
+# latin-1, and one inside latin-1 arrives as a different character. 2.4.4 builds
+# the wheels with ``glibc-gconv-extra`` (and GNU libiconv on musl), pymssql's
+# "Fixed unicode encoding problem #854 & #1000"; FreeTDS then really converts to
+# CP1250, so the N-types arrive whole and only what CP1250 cannot express
+# becomes ``?``. The legacy single-byte columns read the same on both.
+#
+# The gate is the version because the fix is in the published wheels, which is
+# what ``pip`` installs here and in CI; a pymssql built from source links the
+# system FreeTDS and iconv and may behave either way regardless of its number.
+
+
+def _pymssql_version() -> tuple[int, ...]:
+    """The installed pymssql as ``(major, minor, patch)``; ``()`` when absent."""
+    import re
+    from importlib.metadata import PackageNotFoundError, version
+
+    try:
+        found = re.match(r"(\d+)\.(\d+)\.(\d+)", version("pymssql"))
+    except PackageNotFoundError:
+        return ()
+    return tuple(int(part) for part in found.groups()) if found else ()
+
+
+#: The first pymssql whose wheels convert to the ``cp1250`` connection charset
+#: for real — see the section comment above. Before it, the N-types are cut.
+PYMSSQL_CHARSET_FIXED_IN = (2, 4, 4)
+
+#: Whether this environment reads the N-types whole without any help.
+PYMSSQL_CONVERTS_TO_CP1250 = _pymssql_version() >= PYMSSQL_CHARSET_FIXED_IN
 
 #: The bytes ``docker/seed/mssql/001_types.sql`` writes, as the hex MSSQL prints.
 #: Duplicated from the seed on purpose — a fixture that is only ever compared
@@ -589,8 +629,8 @@ def _mssql_edge_rows(*, convert_nchar: bool = False) -> dict:
 def test_the_mssql_unicode_fixtures_are_stored_correctly() -> None:
     """The seed is not the suspect. Establish that before blaming the read path.
 
-    Everything below asserts that correctly stored Unicode does **not** come
-    back intact. That is only a statement about reading if the bytes in the
+    Much of what follows asserts that correctly stored Unicode does **not** come
+    back intact (with a pymssql before 2.4.4). That is only a statement about reading if the bytes in the
     column are known-good first — otherwise it is indistinguishable from a seed
     that was loaded through the wrong code page, which is a defect this
     repository has had before (see ``SET NAMES utf8mb4`` in the MySQL seed).
@@ -614,9 +654,10 @@ def test_the_mssql_unicode_fixtures_are_stored_correctly() -> None:
 
 @pytest.mark.needs_mssql
 def test_an_mssql_nvarchar_is_cut_at_the_first_character_outside_latin1() -> None:
-    """The blast radius, pinned: this is truncation, and it is not total.
+    """The blast radius, pinned: before pymssql 2.4.4 this is truncation, and it
+    is not total.
 
-    With ``charset='cp1250'`` the driver converts UCS-2 to the single-byte
+    With ``charset='cp1250'`` an older driver converts UCS-2 to the single-byte
     charset as **latin-1**, and a character latin-1 cannot express ends the
     string there — silently, with no error and no replacement character. So:
 
@@ -627,12 +668,19 @@ def test_an_mssql_nvarchar_is_cut_at_the_first_character_outside_latin1() -> Non
     That is the difference between "every Unicode column is destroyed" and "only
     the values that contain a character outside latin-1 are", and it is worth
     a test of its own because the two are very different sizes of problem.
+
+    From 2.4.4 on the same rows arrive whole — the conversion is to CP1250, which
+    holds every Czech character — and that is asserted instead.
     """
     rows = _mssql_edge_rows()
 
     assert rows["ascii"]["nvarchar_value"] == "plain ascii"
-    assert rows["czech"]["nvarchar_value"] == "p"
-    assert rows["czech_mid"]["nvarchar_value"] == "abcdef-"
+    if PYMSSQL_CONVERTS_TO_CP1250:
+        assert rows["czech"]["nvarchar_value"] == "příliš žluťoučký kůň"
+        assert rows["czech_mid"]["nvarchar_value"] == "abcdef-ř-ghijkl"
+    else:
+        assert rows["czech"]["nvarchar_value"] == "p"
+        assert rows["czech_mid"]["nvarchar_value"] == "abcdef-"
 
 
 @pytest.mark.needs_mssql
@@ -641,12 +689,15 @@ def test_every_mssql_n_type_is_cut_the_same_way() -> None:
 
     The conversion happens on the wire, so it is a property of the connection
     and not of the column type. Worth pinning explicitly: a limitation written
-    up as "NVARCHAR" invites the reading that the other two are safe.
+    up as "NVARCHAR" invites the reading that the other two are safe. With
+    pymssql 2.4.4 or newer all three arrive whole, and equally so.
     """
     rows = _mssql_edge_rows()
 
-    assert rows["czech"]["nchar_value"] == "p"
-    assert rows["czech"]["ntext_value"] == "p"
+    expected = "příliš žluťoučký kůň" if PYMSSQL_CONVERTS_TO_CP1250 else "p"
+    assert rows["czech"]["nvarchar_value"] == expected
+    assert rows["czech"]["nchar_value"] == expected
+    assert rows["czech"]["ntext_value"] == expected
     # NCHAR pads to its declared width, and the padding survives what the text
     # did not — further evidence that the cut happens during conversion rather
     # than at the column.
@@ -659,13 +710,20 @@ def test_an_mssql_nvarchar_character_inside_latin1_arrives_as_a_different_one() 
 
     'ø' is in latin-1 and not in CP1250; 'ř' is in CP1250 and not in latin-1;
     both are byte ``0xF8`` in their own code page. The value arriving whole and
-    wrong — rather than cut short — is what proves the driver converts UCS-2 to
-    latin-1 while the client decodes the result as CP1250. Every other result on
-    this page follows from that one mismatch.
+    wrong — rather than cut short — is what proves a driver before 2.4.4
+    converts UCS-2 to latin-1 while the client decodes the result as CP1250.
+    Every other result on this page follows from that one mismatch.
+
+    From 2.4.4 on the driver converts to CP1250 itself, which has no 'ø', so the
+    character becomes ``?`` — lossy, but no longer a *different* letter, and the
+    rest of the string stays. That is also what identifies the fix.
     """
     rows = _mssql_edge_rows()
 
-    assert rows["latin1_only"]["nvarchar_value"] == "a-ř-b"
+    if PYMSSQL_CONVERTS_TO_CP1250:
+        assert rows["latin1_only"]["nvarchar_value"] == "a-?-b"
+    else:
+        assert rows["latin1_only"]["nvarchar_value"] == "a-ř-b"
 
 
 @pytest.mark.needs_mssql
@@ -689,10 +747,11 @@ def test_an_mssql_legacy_varchar_is_why_the_charset_is_cp1250() -> None:
 
 # --- convert_nchar_to_varchar, the way out ------------------------------------
 #
-# Everything above is the inherited behaviour, and it stays the default. What
-# follows is the opt-in: with `LOAD_SETTINGS.convert_nchar_to_varchar` the server
-# converts the N-types through their own collation before they reach the wire, so
-# they arrive over the same cp1250 connection whole.
+# Everything above is the default behaviour: the inherited truncation before
+# pymssql 2.4.4, whole values from it on. What follows is the opt-in: with
+# `LOAD_SETTINGS.convert_nchar_to_varchar` the server converts the N-types
+# through their own collation before they reach the wire, so they arrive over
+# the same cp1250 connection whole — with any pymssql.
 #
 # These tests are the reason the key can be trusted at all — the conversion
 # happens inside MSSQL, so no amount of reasoning about pymssql settles what
@@ -759,9 +818,13 @@ def test_what_cp1250_cannot_express_is_degraded_and_not_truncated() -> None:
 
     Two different degradations, and both are the collation's decision rather than
     ours: U+0416 (Cyrillic Ж) has no CP1250 equivalent at all and becomes ``?``,
-    while U+00F8 ``ø`` is folded onto its base letter ``o``. Without the key both
-    values are cut instead — ``'a-ř-b'`` is what the same ``ø`` row looks like
-    then, one character long in the Czech case.
+    while U+00F8 ``ø`` is folded onto its base letter ``o``. Without the key and
+    with a pymssql before 2.4.4 the values are cut or swapped instead — ``'a-'``
+    and ``'a-ř-b'``, and ``'p'`` in the Czech case.
+
+    From 2.4.4 on the key costs no more than the default does: without it the
+    driver's own conversion to CP1250 writes ``?`` for both characters, so the
+    only difference left is the server folding ``ø`` onto ``o``.
     """
     on = _mssql_edge_rows(convert_nchar=True)
     off = _mssql_edge_rows()
@@ -770,8 +833,14 @@ def test_what_cp1250_cannot_express_is_degraded_and_not_truncated() -> None:
     assert on["latin1_only"]["nvarchar_value"] == "a-o-b"
 
     # The default, for contrast: same rows, same connection, no conversion.
-    assert off["latin1_only"]["nvarchar_value"] == "a-ř-b"
-    assert off["czech"]["nvarchar_value"] == "p"
+    if PYMSSQL_CONVERTS_TO_CP1250:
+        assert off["outside_cp1250"]["nvarchar_value"] == "a-?-b"
+        assert off["latin1_only"]["nvarchar_value"] == "a-?-b"
+        assert off["czech"]["nvarchar_value"] == "příliš žluťoučký kůň"
+    else:
+        assert off["outside_cp1250"]["nvarchar_value"] == "a-"
+        assert off["latin1_only"]["nvarchar_value"] == "a-ř-b"
+        assert off["czech"]["nvarchar_value"] == "p"
 
 
 @pytest.mark.needs_firebird

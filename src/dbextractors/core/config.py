@@ -346,11 +346,12 @@ class LoadSettingsConfig:
     #: Read MSSQL's national-character columns through a server-side
     #: ``CONVERT(VARCHAR(MAX), …)``.
     #:
-    #: MSSQL is read over a ``cp1250`` connection, which pymssql and FreeTDS
-    #: disagree about: the bytes are produced as latin-1 and decoded as cp1250,
-    #: so an ``NVARCHAR``/``NCHAR``/``NTEXT`` value is **cut** at the first
-    #: character latin-1 cannot express and a character latin-1 *can* express
-    #: comes back as a different one. With this key on, the server converts those
+    #: MSSQL is read over a ``cp1250`` connection, which a pymssql before 2.4.4
+    #: and its FreeTDS disagree about: the bytes are produced as latin-1 and
+    #: decoded as cp1250, so an ``NVARCHAR``/``NCHAR``/``NTEXT`` value is **cut**
+    #: at the first character latin-1 cannot express and a character latin-1
+    #: *can* express comes back as a different one (2.4.4 converts to CP1250 and
+    #: no longer needs the key). With this key on, the server converts those
     #: columns before they reach the wire, so they arrive whole; see
     #: `dialects.mssql.MSSQLDialect.render_nchar_convert` and
     #: docs/legacy-compat.md.

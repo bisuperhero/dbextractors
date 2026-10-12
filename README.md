@@ -257,7 +257,8 @@ config = {
                                             # behaviour. See "Large integers and NULL".
         'convert_nchar_to_varchar': False,  # MSSQL only: read NVARCHAR/NCHAR/NTEXT through a
                                             # server-side CONVERT so the text arrives whole.
-                                            # Off = the inherited truncation. Turning it on
+                                            # Off = the inherited truncation with pymssql
+                                            # < 2.4.4 (whole from 2.4.4). Turning it on
                                             # means reloading that table — see "MSSQL and
                                             # NVARCHAR text".
         'read_retry_attempts': None,        # override core.reading.DEFAULT_ATTEMPTS for this
@@ -754,16 +755,28 @@ no check placed here can see.
 ## MSSQL and `NVARCHAR` text
 
 MSSQL is read over a `cp1250` connection, inherited character for character from
-both predecessor extractors, and pymssql and FreeTDS disagree about what that
-means: the bytes are produced as latin-1 and decoded as cp1250. An `NVARCHAR`,
-`NCHAR` or `NTEXT` value is therefore **cut** at the first character latin-1 cannot
-express — `'příliš žluťoučký kůň'` arrives as `'p'` — and a character latin-1 *can*
-express comes back as a different one (`ø` as `ř`). ASCII is unaffected, and so are
-the single-byte `VARCHAR`, `CHAR` and `TEXT`, which are read correctly **because**
-of that charset and are the majority of a CP1250-collated source.
+both predecessor extractors. **What that does to the N-types depends on the
+pymssql release.**
 
-No charset value gets both right; seven were measured. What does is converting on
-the server instead:
+**pymssql 2.4.4 and newer:** `NVARCHAR`, `NCHAR` and `NTEXT` arrive whole. Their
+Linux wheels ship the iconv converters FreeTDS needs, so the text really is
+converted to CP1250; a character CP1250 cannot express (`ø`, Cyrillic, emoji)
+becomes `?` and the rest of the value stays.
+
+**pymssql before 2.4.4** (2.4.2 and 2.4.3 measured): the wheel's FreeTDS has no
+CP1250 converter and falls back to latin-1, while pymssql decodes the bytes as
+cp1250. An N-typed value is therefore **cut** at the first character latin-1
+cannot express — `'příliš žluťoučký kůň'` arrives as `'p'` — and a character
+latin-1 *can* express comes back as a different one (`ø` as `ř`).
+
+The single-byte `VARCHAR`, `CHAR` and `TEXT` are read correctly on both, **because**
+of that charset, and are the majority of a CP1250-collated source. Upgrading
+pymssql changes what lands in the N-typed columns; see the
+[changelog](CHANGELOG.md) for what that does to existing rows, and pin
+`pymssql<2.4.4` to keep the old contents.
+
+With an older pymssql no charset value gets both right; seven were measured. What
+does is converting on the server instead:
 
 ```yaml
 LOAD_SETTINGS:

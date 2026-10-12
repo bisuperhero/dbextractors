@@ -154,6 +154,32 @@ closing the gap means changing that test on purpose.
 
 ## MSSQL: `NVARCHAR` text arrives truncated
 
+**Fixed by pymssql 2.4.4 — the driver, not this package.** Everything in this
+section describes pymssql **before 2.4.4** (2.3.13, 2.4.2 and 2.4.3 measured).
+pymssql 2.4.4 (2026-10-09, changelog *"Fixed unicode encoding problem #854 &
+#1000"*) changed no Python or Cython code; it builds the Linux wheels with
+`glibc-gconv-extra` (GNU libiconv on musl), so the statically linked FreeTDS has
+the CP1250 converter it was missing and stops falling back to latin-1. Measured
+against the same fixture with that release:
+
+| the value contains | key off, pymssql ≥ 2.4.4 | key on (any pymssql) |
+|---|---|---|
+| ASCII only | intact | intact |
+| CP1250 text (`ř`, `š`, `ž`) | intact | intact |
+| `ø` (latin-1, not CP1250) | `?` | folded onto `o` |
+| a character CP1250 cannot express (Cyrillic, emoji) | `?`, rest kept | `?`, rest kept |
+| single-byte `VARCHAR`/`CHAR`/`TEXT` | intact | intact — never wrapped |
+
+So with 2.4.4 the key is no longer needed for Czech text. What it costs to get
+there is the same as switching the key on: the contents of every N-typed column
+change while `row_hash` does not, so a `load_method: hash` table needs one
+`forced_full_load` to repair its history — but this time for **every** table
+with N-typed text, triggered by whatever pymssql the deployment resolves
+(`pymssql>=2.3.13,<3` admits 2.4.4). Pin `pymssql<2.4.4` in the deployment's
+requirements to keep the old contents until those reloads are planned. The
+fix is in the published wheels; a pymssql built from source links the system
+FreeTDS and iconv and may behave either way regardless of its version.
+
 **Symptom.** A Czech `NVARCHAR` value in an MSSQL source lands in the target as
 its first character. `'příliš žluťoučký kůň'` becomes `'p'`. There is no error,
 no warning and no replacement character; the row count matches and the column is
@@ -164,7 +190,7 @@ correct UTF-16 (`LEN()` returns 20, `CONVERT(…, VARBINARY(…), …)` shows th
 string). The loss happens on the way out.
 
 **Cause.** The connection is opened with `charset='cp1250'`
-(`MSSQLDialect.connect_args`). With pymssql 2.3.13 that combination is
+(`MSSQLDialect.connect_args`). With pymssql up to 2.4.3 that combination is
 internally inconsistent: the driver converts the server's UCS-2 to the
 single-byte charset as **latin-1**, and pymssql then decodes those bytes with
 the real **cp1250** codec. Two consequences follow from the one mismatch:
@@ -253,7 +279,8 @@ character rather than lossy, and costs two connections per table; it can be adde
 as another key if the `?` ever matters.
 
 Pinned by `tests/dialects/test_source_db.py` under "the MSSQL client charset" and
-"convert_nchar_to_varchar, the way out", against the `dbo.unicode_edge` fixture in
+"convert_nchar_to_varchar, the way out" — for both sides of the 2.4.4 boundary,
+choosing the expectation by the installed pymssql version — against the `dbo.unicode_edge` fixture in
 `docker/seed/mssql/001_types.sql`. Which columns get wrapped is settled in
 `tests/dialects/test_mssql.py`, and the wiring from `LOAD_SETTINGS` to the SELECT
 in `tests/strategies/test_nchar_conversion_wiring.py`.
