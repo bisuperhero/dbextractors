@@ -195,3 +195,57 @@ def test_abra_watermark_reads_only_newer_counters_from_firebird(target_schema) -
         cur.execute(f'SELECT id FROM "{target_schema}"."abra_ids"')
         ids = {row[0] for row in cur.fetchall()}
     assert ids == {"1000000101", "Z000000101", *newer}, "other suffixes wait for a full load"
+
+
+@pytest.mark.needs_mysql
+def test_id_watermark_streams_a_mysql_delta_in_checkpoints(target_schema, caplog) -> None:
+    """The production path of the 42.7 M-row failure, in miniature and end to end.
+
+    Live MySQL through the streaming read, ``id_watermark`` above a target
+    trimmed back to ``id <= 2``, a checkpoint every two rows: the delta (ids
+    3–5) must land complete, with a checkpoint on the way.
+    """
+    import logging
+
+    from dbextractors import run
+
+    params = require_source_params("mysql")
+
+    def config(load_method: str) -> dict:
+        return {
+            "TABLE": {
+                "source_name": "paged",
+                "source_schema": "",
+                "output_schema": target_schema,
+                "output_name": "paged",
+                "empty_rows_ok": False,
+            },
+            "SOURCE_DB": params,
+            "LOAD_SETTINGS": {
+                "load_method": load_method,
+                "primary_column": "id",
+                "batch_size": 1,
+                "checkpoint_rows": 2,
+            },
+            "connection_mode": "direct",
+        }
+
+    run(config("full"), dialect="mysql")
+    dsn = _target_dsn()
+    with psycopg2.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute(f'DELETE FROM "{target_schema}"."paged" WHERE id > 2')
+
+    with caplog.at_level(logging.INFO, logger="dbextractors"):
+        status = run(config("id_watermark"), dialect="mysql")
+
+    assert int(status["rows_written"].iloc[0]) == 3
+    assert any("Checkpoint 1" in r.getMessage() for r in caplog.records)
+    with psycopg2.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute(f'SELECT id FROM "{target_schema}"."paged" ORDER BY id')
+        assert [r[0] for r in cur.fetchall()] == [1, 2, 3, 4, 5]
+        cur.execute(
+            "SELECT count(*) FROM information_schema.tables "
+            "WHERE table_schema = %s AND table_name LIKE 'dbx_shadow_%%'",
+            (target_schema,),
+        )
+        assert cur.fetchone()[0] == 0

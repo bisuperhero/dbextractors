@@ -77,6 +77,7 @@ LOAD_SETTINGS_KEYS: frozenset[str] = frozenset(
         "convert_nchar_to_varchar",
         "read_retry_attempts",
         "read_retry_base_delay",
+        "checkpoint_rows",
         # An older spelling of the incremental window. Different names for the
         # same idea, but **not** the same window semantics — see
         # `IncrementalStrategy._build_where`. Without them the keys were
@@ -373,6 +374,13 @@ class LoadSettingsConfig:
     #: tuned without moving the default for the other ~670 tables.
     read_retry_attempts: int | None = None
     read_retry_base_delay: float | None = None
+    #: How many rows `id_watermark` stages before it projects them into the
+    #: target and commits. ``None`` means the strategy default
+    #: (`id_watermark.DEFAULT_CHECKPOINT_ROWS`, 5 000 000); ``0`` turns
+    #: checkpoints off and commits the whole delta in one transaction, as before
+    #: 2.1.2. A failed run keeps what it committed, and the next one resumes
+    #: above it.
+    checkpoint_rows: int | None = None
     #: An older spelling of the incremental window. **Not** aliases of
     #: `updated_at_column` / `created_at_column` — the window is built
     #: differently, see `IncrementalStrategy._build_where` and
@@ -657,6 +665,7 @@ def parse(config: dict) -> ParsedConfig:
         convert_nchar_to_varchar=is_truthy(load_cfg.get("convert_nchar_to_varchar", False)),
         read_retry_attempts=load_cfg.get("read_retry_attempts"),
         read_retry_base_delay=load_cfg.get("read_retry_base_delay"),
+        checkpoint_rows=load_cfg.get("checkpoint_rows"),
         incremental_date_column=load_cfg.get("incremental_date_column") or None,
         incremental_date_column_fallback=load_cfg.get("incremental_date_column_fallback") or None,
         incremental_lookback_hours=load_cfg.get("incremental_lookback_hours") or None,

@@ -52,6 +52,7 @@ from dbextractors.core.strategies.full import (
     FullLoadStrategy,
     _hash_column,
     _integer_columns,
+    _pk_in_source,
     _resolved_pk,
     column_types,
 )
@@ -64,6 +65,17 @@ from dbextractors.core.strategies.incremental import (
 from dbextractors.dialects.base import FEATURE_KEYSET
 
 _log = logging.getLogger(__name__)
+
+#: How many rows are staged before they are projected into the target and
+#: committed, when ``LOAD_SETTINGS.checkpoint_rows`` is not set.
+#:
+#: Without a checkpoint the whole delta is one transaction, so a run that fails
+#: three quarters of the way through rolls everything back and the retry reads
+#: the same delta from the same ``MAX(pk)`` again — after an OOM on a 42.7 M-row
+#: delta, every retry started from zero. Five million rows is minutes of reading
+#: and one upsert of tens of seconds, so the extra commits cost next to nothing
+#: against what a failure no longer throws away.
+DEFAULT_CHECKPOINT_ROWS = 5_000_000
 
 
 class IdWatermarkStrategy(LoadStrategy):
@@ -92,6 +104,7 @@ class IdWatermarkStrategy(LoadStrategy):
             raise StrategyError(
                 f"id_watermark: primary key {pk!r} is not among the table's columns."
             )
+        _checkpoint_rows(ctx)
 
     def run(self, ctx: LoadContext) -> LoadResult:
         self.validate(ctx)
@@ -146,6 +159,15 @@ class IdWatermarkStrategy(LoadStrategy):
         predecessor uses ``ON CONFLICT UPDATE`` and it is needed, because between
         the ``MAX(pk)`` and the read a row with that same key may already have
         reached the target by another route.
+
+        **Checkpoints.** Every ``checkpoint_rows`` staged rows (default
+        `DEFAULT_CHECKPOINT_ROWS`) the staging table is upserted into the target
+        and committed. Because the read is ordered by the key, what is committed
+        is always every delta row up to some key, so a failed run leaves the
+        target consistent and the next run's ``MAX(pk)`` resumes exactly after
+        it; whatever a resume reads twice, the upsert absorbs. Off (one
+        transaction, as before 2.1.2) with ``checkpoint_rows: 0``, and always off
+        for a surrogate key, whose read is not ordered.
         """
         full = FullLoadStrategy()
         hash_column = _hash_column(ctx)
@@ -164,9 +186,24 @@ class IdWatermarkStrategy(LoadStrategy):
         full._ensure_managed_columns(ctx, hash_column)
         columns = _drop_columns_missing_in_target(ctx, columns)
 
+        checkpoint_rows = _checkpoint_rows(ctx)
+        if checkpoint_rows and _pk_in_source(ctx) is None:
+            # Committing part of an **unordered** stream would leave the target
+            # holding an arbitrary subset, and resuming above its `MAX(pk)` would
+            # then skip every row not yet read below that key. Only a read
+            # ordered by the watermark key (see `full.read_batches`) makes what
+            # has been committed a prefix of the delta.
+            _log.info(
+                "ℹ️ Checkpoints are off: the read is not ordered by %s (surrogate key), "
+                "so the delta is committed in one transaction.",
+                pk,
+            )
+            checkpoint_rows = None
+
         staging = target_pg.create_shadow_table(conn, ctx.target, columns=columns)
         progress = status.BatchProgress(_log, total_rows=total_rows, phase=self.name)
-        rows_read = rows_written = 0
+        rows_read = rows_written = staged = checkpoints = 0
+        last_key: Any = None
         try:
             for batch in full.read_batches(window_ctx, hash_column, batch_size):
                 rows_read += len(batch)
@@ -174,9 +211,34 @@ class IdWatermarkStrategy(LoadStrategy):
                 if export_df.empty:
                     continue
                 target_pg.copy_from_stdin(conn, staging, export_df, columns)
+                staged += len(export_df)
+                if pk in export_df.columns:
+                    last_key = export_df[pk].max()
                 progress.tick(rows_read)
 
-            rows_written = _upsert_from_staging(
+                if checkpoint_rows and staged >= checkpoint_rows:
+                    rows_written += _upsert_from_staging(
+                        conn, staging, ctx.target, columns, pk, ctx.partition_spec(conn)
+                    )
+                    # Dropped and created anew rather than truncated, in the same
+                    # transaction as the upsert: the staging table is then never
+                    # committed, so a run killed outright (an OOM kill runs no
+                    # `except`) leaves no `dbx_shadow_*` table behind.
+                    target_pg.drop_shadow_table(conn, staging)
+                    conn.commit()
+                    checkpoints += 1
+                    staged = 0
+                    _log.info(
+                        "💾 Checkpoint %d: %s rows committed to the target so far "
+                        "(%s up to %r); a retry resumes above it.",
+                        checkpoints,
+                        f"{rows_written:,}",
+                        pk,
+                        last_key,
+                    )
+                    staging = target_pg.create_shadow_table(conn, ctx.target, columns=columns)
+
+            rows_written += _upsert_from_staging(
                 conn, staging, ctx.target, columns, pk, ctx.partition_spec(conn)
             )
             target_pg.drop_shadow_table(conn, staging)
@@ -188,6 +250,13 @@ class IdWatermarkStrategy(LoadStrategy):
                 conn.commit()
             except Exception as cleanup_err:
                 _log.warning("⚠️ The staging table could not be cleaned up: %s", cleanup_err)
+            if checkpoints:
+                _log.warning(
+                    "⚠️ The run failed after %d checkpoint(s); %s rows stay committed in "
+                    "the target and the next run resumes above them.",
+                    checkpoints,
+                    f"{rows_written:,}",
+                )
             raise
 
         return LoadResult(
@@ -196,6 +265,7 @@ class IdWatermarkStrategy(LoadStrategy):
             load_method=self.name,
             is_incremental=True,
             data_present=rows_written > 0,
+            phase_metrics={"checkpoints": checkpoints},
         )
 
 
@@ -216,6 +286,28 @@ def _watermark(conn: Any, target: Any, pk: str) -> Any | None:
         cur.execute(f"SELECT MAX({target_pg.quote_ident(pk)}) FROM {target_pg.qualify(target)}")
         row = cur.fetchone()
     return row[0] if row else None
+
+
+def _checkpoint_rows(ctx: LoadContext) -> int | None:
+    """``LOAD_SETTINGS.checkpoint_rows``: ``None`` (not set) is the default, ``0`` is off.
+
+    Raises on a value that is not a whole number, before the source is touched —
+    the same reasoning as everywhere else in this package: a typo must not quietly
+    choose a behaviour.
+    """
+    raw = ctx.settings.get("checkpoint_rows")
+    if raw is None or raw == "":
+        return DEFAULT_CHECKPOINT_ROWS
+    value: int | None = None
+    if isinstance(raw, int) and not isinstance(raw, bool):
+        value = raw
+    elif (isinstance(raw, float) and raw.is_integer()) or (
+        isinstance(raw, str) and raw.strip().lstrip("-").isdigit()
+    ):
+        value = int(raw)
+    if value is None:
+        raise StrategyError(f"id_watermark: checkpoint_rows must be a whole number, got {raw!r}.")
+    return value if value > 0 else None
 
 
 def _watermark_where(ctx: LoadContext, pk_source: str, watermark: Any) -> str:

@@ -200,3 +200,158 @@ def test_a_text_key_is_escaped(conn, schema) -> None:
 
     assert any("> 'b''c'" in (where or "") for where in source.estimate_calls)
     assert result.rows_written == 1, "'z' > \"b'c\", so it has to be transferred"
+
+
+# --- checkpoints ---------------------------------------------------------------
+#
+# A delta used to be one transaction: a run that died three quarters of the way
+# through rolled everything back, and every retry read the same delta from the
+# same `MAX(pk)` again. In production that was a 42.7 M-row delta that never got
+# anywhere.
+
+
+class _FailingSource(FakeHashSource):
+    """Dies after handing over ``fail_after`` batches — like an OOM kill or a dead source.
+
+    The error is deliberately not a connection error, so read recovery does not
+    retry it: the point is what the *strategy* leaves behind.
+    """
+
+    def __init__(self, *args, fail_after: int | None = None, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.fail_after = fail_after
+
+    def iter_batches(self, engine, sql, batch_size):
+        for handed, batch in enumerate(super().iter_batches(engine, sql, batch_size)):
+            if self.fail_after is not None and handed >= self.fail_after:
+                raise RuntimeError("the source died mid-delta")
+            yield batch
+
+
+def _shadows(conn, schema) -> list:
+    from dbextractors.core import target_pg
+
+    return target_pg.find_stale_shadows(conn, schema)
+
+
+def _committed_ids(dsn, schema) -> list:
+    """What another session sees — i.e. only what was really committed."""
+    import psycopg2
+
+    with psycopg2.connect(dsn) as other, other.cursor() as cur:
+        cur.execute(f'SELECT id FROM "{schema}"."cil" ORDER BY id')
+        ids = [r[0] for r in cur.fetchall()]
+    other.close()
+    return ids
+
+
+def _seeded(conn, schema, source) -> None:
+    FullLoadStrategy().run(_ctx(conn, schema, source))
+    for i in range(4, 14):
+        source.insert({"id": i, "name": f"new {i}"})
+
+
+def test_a_large_delta_is_committed_in_checkpoints(conn, schema, dsn) -> None:
+    source = _FailingSource(_source_rows(), pk="id")
+    _seeded(conn, schema, source)
+
+    result = IdWatermarkStrategy().run(
+        _ctx(conn, schema, source, settings={"batch_size": 2, "checkpoint_rows": 4})
+    )
+
+    assert result.rows_read == 10
+    assert result.rows_written == 10
+    assert result.phase_metrics["checkpoints"] == 2, "after rows 4 and 8; the last 2 at the end"
+    assert _committed_ids(dsn, schema) == list(range(1, 14))
+    assert _shadows(conn, schema) == []
+
+
+def test_a_failure_after_checkpoints_keeps_them_and_the_next_run_resumes(conn, schema, dsn) -> None:
+    """The guarantee the checkpoints exist for, end to end.
+
+    Four batches of two arrive, then the source dies. The checkpoint after six
+    rows (ids 4–9) is committed; the batch staged after it (ids 10–11) is rolled
+    back. The next run starts above 9 — not above 3 — reads only what is left,
+    and the target ends with every row exactly once.
+    """
+    source = _FailingSource(_source_rows(), pk="id", fail_after=4)
+    _seeded(conn, schema, source)
+    settings = {"batch_size": 2, "checkpoint_rows": 6}
+
+    with pytest.raises(RuntimeError, match="mid-delta"):
+        IdWatermarkStrategy().run(_ctx(conn, schema, source, settings=settings))
+
+    assert _committed_ids(dsn, schema) == list(range(1, 10))
+    assert _shadows(conn, schema) == [], "the failed run must not leave its staging table"
+
+    source.fail_after = None
+    source.estimate_calls.clear()
+    result = IdWatermarkStrategy().run(_ctx(conn, schema, source, settings=settings))
+
+    assert result.phase_metrics["watermark"] == "9"
+    assert any("> 9" in (where or "") for where in source.estimate_calls)
+    assert result.rows_read == 4
+    assert _committed_ids(dsn, schema) == list(range(1, 14))
+    assert _rows(conn, schema)[-1] == (13, "new 13")
+
+
+def test_checkpoints_off_keeps_the_delta_all_or_nothing(conn, schema, dsn) -> None:
+    """``checkpoint_rows: 0`` is the behaviour before 2.1.2: nothing survives a failure."""
+    source = _FailingSource(_source_rows(), pk="id", fail_after=4)
+    _seeded(conn, schema, source)
+
+    with pytest.raises(RuntimeError, match="mid-delta"):
+        IdWatermarkStrategy().run(
+            _ctx(conn, schema, source, settings={"batch_size": 2, "checkpoint_rows": 0})
+        )
+
+    assert _committed_ids(dsn, schema) == [1, 2, 3]
+    assert _shadows(conn, schema) == []
+
+
+def test_the_default_checkpoint_does_not_split_a_small_delta(conn, schema) -> None:
+    from dbextractors.core.strategies.id_watermark import DEFAULT_CHECKPOINT_ROWS
+
+    source = _FailingSource(_source_rows(), pk="id")
+    _seeded(conn, schema, source)
+
+    result = IdWatermarkStrategy().run(_ctx(conn, schema, source, settings={"batch_size": 2}))
+
+    assert DEFAULT_CHECKPOINT_ROWS == 5_000_000
+    assert result.phase_metrics["checkpoints"] == 0
+    assert result.rows_written == 10
+
+
+@pytest.mark.parametrize("value", ["many", 2.5, True, [4]])
+def test_a_checkpoint_size_that_is_not_a_whole_number_fails(conn, schema, value) -> None:
+    source = FakeHashSource(_source_rows(), pk="id")
+    FullLoadStrategy().run(_ctx(conn, schema, source))
+
+    with pytest.raises(StrategyError, match="checkpoint_rows"):
+        IdWatermarkStrategy().run(_ctx(conn, schema, source, settings={"checkpoint_rows": value}))
+
+
+def test_an_unordered_read_never_checkpoints(conn, schema, dsn) -> None:
+    """With a surrogate key the read carries no ``ORDER BY``.
+
+    A committed part of an unordered stream is an arbitrary subset, and resuming
+    above its ``MAX(pk)`` would skip whatever below that key had not arrived
+    yet. So the delta stays one transaction, whatever ``checkpoint_rows`` says.
+    """
+    import dataclasses
+
+    from dbextractors.dialects.base import SurrogateKey
+
+    source = _FailingSource(_source_rows(), pk="id")
+    _seeded(conn, schema, source)
+    ctx = dataclasses.replace(
+        _ctx(conn, schema, source, settings={"batch_size": 2, "checkpoint_rows": 4}),
+        surrogate=SurrogateKey(enabled=True, alias="_uni_surrogate_key", expr="CONCAT(id, name)"),
+    )
+    source.fail_after = 4
+
+    with pytest.raises(RuntimeError, match="mid-delta"):
+        IdWatermarkStrategy().run(ctx)
+
+    assert not any("ORDER BY" in sql for sql in source.seen_sql[-1:])
+    assert _committed_ids(dsn, schema) == [1, 2, 3]

@@ -264,6 +264,9 @@ config = {
                                             # table; None = the module default.
         'read_retry_base_delay': None,      # override core.reading.DEFAULT_BASE_DELAY (seconds);
                                             # None = the module default.
+        'checkpoint_rows': None,            # id_watermark: commit every N staged rows so a failed
+                                            # run keeps its progress; None = 5 000 000, 0 = one
+                                            # transaction for the whole delta.
     },
 
     # ── top-level keys ─────────────────────────────────────────────────────
@@ -487,6 +490,14 @@ method, not omissions**, and both are pinned by tests:
 An update below the watermark is likewise not transferred. If any of that matters
 for your table, use `hash` or `incremental` instead. A missing target and an empty
 target both fall back to a full load.
+
+A large delta is committed in **checkpoints**: every `checkpoint_rows` rows
+(5 000 000 unless set) are projected into the target and committed. The read is
+ordered by the key, so what a failed run leaves behind is always every new row up
+to some key, and the next run's `MAX(pk)` simply resumes after it — instead of
+reading the whole delta again. Set `checkpoint_rows: 0` to keep the whole delta in
+one transaction. A surrogate key is not read in key order, so it never
+checkpoints.
 
 ### `abra_watermark`
 

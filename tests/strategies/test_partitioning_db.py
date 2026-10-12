@@ -308,3 +308,31 @@ def test_upsert_adds_a_new_row_and_a_new_partition(conn, schema) -> None:
     )
 
     assert _rows_with_partition(conn, schema) == [(1, "cil__2026_08"), (2, "cil__2027_01")]
+
+
+def test_id_watermark_checkpoints_into_a_partitioned_target(conn, schema) -> None:
+    """Each checkpoint projects through `replace_by_key` and adds its own partitions.
+
+    A checkpoint is the same upsert as the end of a run, just more often — over
+    a partitioned target that means the partitions for a checkpoint's rows must
+    exist by the time it commits, and the staging table must not be left behind.
+    """
+    from dbextractors.core.strategies.id_watermark import IdWatermarkStrategy
+
+    FullLoadStrategy().run(_ctx(conn, schema, [_batch([(1, date(2026, 8, 4))])]))
+    delta = [
+        _batch([(2, date(2026, 9, 1))]),
+        _batch([(3, date(2026, 10, 1))]),
+        _batch([(4, date(2026, 11, 1))]),
+    ]
+
+    result = IdWatermarkStrategy().run(_ctx(conn, schema, delta, settings={"checkpoint_rows": 1}))
+
+    assert result.phase_metrics["checkpoints"] == 3
+    assert _rows_with_partition(conn, schema) == [
+        (1, "cil__2026_08"),
+        (2, "cil__2026_09"),
+        (3, "cil__2026_10"),
+        (4, "cil__2026_11"),
+    ]
+    assert target_pg.find_stale_shadows(conn, schema) == []
