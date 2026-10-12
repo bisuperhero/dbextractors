@@ -310,6 +310,41 @@ def test_upsert_adds_a_new_row_and_a_new_partition(conn, schema) -> None:
     assert _rows_with_partition(conn, schema) == [(1, "cil__2026_08"), (2, "cil__2027_01")]
 
 
+def test_replace_by_key_replaces_only_keys_present_in_staging(conn, schema) -> None:
+    """The key range bound (staging MIN..MAX) must not spare an in-range duplicate
+    nor touch a key outside it — rows 1 and 5 stay, 3 is replaced, 4 is new."""
+    rows = [(1, date(2026, 8, 4)), (3, date(2026, 8, 5)), (5, date(2026, 9, 6))]
+    FullLoadStrategy().run(_ctx(conn, schema, [_batch(rows)], settings=INCREMENTAL_SETTINGS))
+
+    change = _batch([(3, date(2026, 9, 1)), (4, date(2026, 8, 9))])
+    change["label"] = "after change"
+    IncrementalStrategy().run(_ctx(conn, schema, [change], settings=INCREMENTAL_SETTINGS))
+
+    with conn.cursor() as cur:
+        cur.execute(f'SELECT id, label, doc_date FROM "{schema}"."cil" ORDER BY id')
+        assert cur.fetchall() == [
+            (1, "row 1", date(2026, 8, 4)),
+            (3, "after change", date(2026, 9, 1)),
+            (4, "after change", date(2026, 8, 9)),
+            (5, "row 5", date(2026, 9, 6)),
+        ]
+
+
+def test_replace_by_key_with_an_empty_staging_deletes_nothing(conn, schema) -> None:
+    FullLoadStrategy().run(
+        _ctx(conn, schema, [_batch([(1, date(2026, 8, 4))])], settings=INCREMENTAL_SETTINGS)
+    )
+    target = _target_ref(schema)
+    staging = target_pg.create_shadow_table(conn, target, columns=[c[0] for c in COLUMNS])
+
+    inserted = target_pg.replace_by_key(conn, staging, target, [c[0] for c in COLUMNS], "id")
+    target_pg.drop_shadow_table(conn, staging)
+    conn.commit()
+
+    assert inserted == 0
+    assert _rows_with_partition(conn, schema) == [(1, "cil__2026_08")]
+
+
 def test_id_watermark_checkpoints_into_a_partitioned_target(conn, schema) -> None:
     """Each checkpoint projects through `replace_by_key` and adds its own partitions.
 

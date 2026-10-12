@@ -1142,10 +1142,23 @@ def replace_by_key(
     cols = _column_list(columns)
     key = quote_ident(pk)
     with conn.cursor() as cur:
-        cur.execute(
-            f"DELETE FROM {qualify(target)} t USING {qualify(staging)} s WHERE t.{key} = s.{key}"
-        )
-        deleted = int(cur.rowcount)
+        # A staging table created in this transaction has no statistics, so the
+        # planner guesses its size and picks a hash join over a seq scan of every
+        # partition (measured on a 61-partition target: one 5 M-row checkpoint
+        # ran > 40 min spilling to disk). ANALYZE gives it the real row count, and
+        # the key range — taken from staging itself, so in the target's collation —
+        # bounds the target side to an index range scan per partition.
+        cur.execute(f"ANALYZE {qualify(staging)}")
+        cur.execute(f"SELECT MIN({key}), MAX({key}) FROM {qualify(staging)}")
+        low, high = cur.fetchone()
+        deleted = 0
+        if low is not None:
+            cur.execute(
+                f"DELETE FROM {qualify(target)} t USING {qualify(staging)} s "
+                f"WHERE t.{key} = s.{key} AND t.{key} BETWEEN %s AND %s",
+                (low, high),
+            )
+            deleted = int(cur.rowcount)
         cur.execute(f"INSERT INTO {qualify(target)} ({cols}) SELECT {cols} FROM {qualify(staging)}")
         inserted = int(cur.rowcount)
 
