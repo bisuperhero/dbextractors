@@ -91,14 +91,171 @@ def test_key_filter_without_keys_fails(dialect) -> None:
 # --- Connection parameters --------------------------------------------------
 
 
-def test_streams_instead_of_buffering(dialect) -> None:
-    """Without ``buffered=False`` the whole result is pulled into client RAM.
+class _FakeCursor:
+    """An unbuffered DBAPI cursor: rows leave the "server" only on ``fetchmany``."""
 
-    SQLAlchemy 1.4 takes a buffered cursor for ``mysqlconnector``, so
-    ``read_sql(chunksize=)`` does return batches, but only after everything has
-    been downloaded. On 6 M rows that is 4 667 MB against 318 MB — and the
-    orchestrator runs 3 pipelines at once.
+    def __init__(self, conn: _FakeRaw, rows: list, *, fail_after: int | None = None) -> None:
+        self._conn = conn
+        self._rows = rows
+        self._fail_after = fail_after
+        self.description = [("id", 3), ("name", 253)]
+        self.fetched = 0
+        self.closed = False
+
+    def execute(self, sql: str) -> None:
+        self._conn.unread_result = True
+
+    def fetchmany(self, size: int) -> list:
+        if self._fail_after is not None and self.fetched >= self._fail_after:
+            import mysql.connector.errors as errors
+
+            raise errors.OperationalError(
+                msg="Lost connection to MySQL server during query", errno=2013
+            )
+        chunk = self._rows[self.fetched : self.fetched + size]
+        self.fetched += len(chunk)
+        if not chunk:
+            self._conn.unread_result = False
+        return chunk
+
+    def close(self) -> None:
+        if self._conn.unread_result:
+            # What mysql-connector really does with an abandoned unbuffered result.
+            raise RuntimeError("Unread result found")
+        self.closed = True
+
+
+class _FakeRaw:
+    def __init__(self, rows: list, **kw) -> None:
+        self.dbapi_connection = self
+        self.connection_id = 42
+        self.unread_result = False
+        self.cursor_kwargs: dict = {}
+        self._rows = rows
+        self._kw = kw
+        self.closed = self.invalidated = False
+        self.last_cursor: _FakeCursor | None = None
+
+    def cursor(self, **kwargs) -> _FakeCursor:
+        self.cursor_kwargs = kwargs
+        self.last_cursor = _FakeCursor(self, self._rows, **self._kw)
+        return self.last_cursor
+
+    def close(self) -> None:
+        self.closed = True
+
+    def invalidate(self) -> None:
+        self.invalidated = True
+
+
+class _FakeEngine:
+    """Just enough of an ``Engine`` for `iter_batches`, recording side statements."""
+
+    def __init__(self, raw: _FakeRaw) -> None:
+        import mysql.connector
+        from sqlalchemy.dialects.mysql.mysqlconnector import MySQLDialect_mysqlconnector
+
+        self.raw = raw
+        self.side_statements: list[str] = []
+        self.dialect = MySQLDialect_mysqlconnector(dbapi=mysql.connector)
+
+    def raw_connection(self) -> _FakeRaw:
+        return self.raw
+
+    def connect(self):
+        engine = self
+
+        class _Side:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc) -> None:
+                return None
+
+            def exec_driver_sql(self, sql: str) -> None:
+                engine.side_statements.append(sql)
+
+        return _Side()
+
+
+def _rows(n: int) -> list:
+    return [(i, f"r{i}") for i in range(n)]
+
+
+def test_batches_come_off_an_unbuffered_cursor_one_fetch_at_a_time(dialect) -> None:
+    """The first batch must not wait for the rest of the result.
+
+    ``connect_args={"buffered": False}`` used to be the whole fix, and a test
+    that only checked it stayed green while SQLAlchemy 2 opened every cursor
+    ``buffered=True`` underneath it: a 42.7 M-row delta was killed at 14 GiB
+    before the first batch. This checks the behaviour instead — the cursor is
+    asked for unbuffered, and after the first batch exactly one batch has been
+    fetched from it.
     """
+    raw = _FakeRaw(_rows(10))
+    batches = dialect.iter_batches(_FakeEngine(raw), "SELECT id, name FROM t", 4)
+
+    first = next(batches)
+
+    assert raw.cursor_kwargs == {"buffered": False}
+    assert raw.last_cursor is not None and raw.last_cursor.fetched == 4
+    assert list(first.columns) == ["id", "name"]
+    assert [len(b) for b in batches] == [4, 2]
+    assert raw.last_cursor.closed and raw.closed and not raw.invalidated
+
+
+def test_an_empty_result_still_yields_one_frame_with_the_columns(dialect) -> None:
+    """As ``pd.read_sql(chunksize=)`` does; `full_by_source` calls ``next()`` on it."""
+    raw = _FakeRaw([])
+    batches = list(dialect.iter_batches(_FakeEngine(raw), "SELECT id, name FROM t", 4))
+
+    assert len(batches) == 1
+    assert batches[0].empty and list(batches[0].columns) == ["id", "name"]
+
+
+def test_an_abandoned_stream_is_cancelled_not_drained(dialect) -> None:
+    """Closing early must neither raise *Unread result found* nor read the rest.
+
+    Closing the connection with a result still pending makes the client library
+    read and discard every remaining row; the query is killed first instead.
+    """
+    raw = _FakeRaw(_rows(10))
+    engine = _FakeEngine(raw)
+    batches = dialect.iter_batches(engine, "SELECT id, name FROM t", 4)
+    next(batches)
+    batches.close()
+
+    assert engine.side_statements == ["KILL QUERY 42"]
+    assert raw.invalidated and not raw.closed
+    assert raw.last_cursor is not None and raw.last_cursor.fetched == 4
+
+
+def test_a_dropped_connection_surfaces_as_a_retryable_sqlalchemy_error(dialect) -> None:
+    """Read recovery classifies by SQLAlchemy's taxonomy; reading past it must keep that.
+
+    The raw driver error would be ``mysql.connector.errors.OperationalError``,
+    which `is_temporary_error` does not recognise — every dropped connection
+    would become fatal. Nor is there anything left to kill.
+    """
+    from sqlalchemy import exc as sa_exc
+
+    from dbextractors.core.reading import is_temporary_error
+
+    raw = _FakeRaw(_rows(10), fail_after=4)
+    engine = _FakeEngine(raw)
+    batches = dialect.iter_batches(engine, "SELECT id, name FROM t", 4)
+    next(batches)
+    with pytest.raises(sa_exc.OperationalError, match="2013") as caught:
+        next(batches)
+
+    assert is_temporary_error(caught.value)
+    assert caught.value.connection_invalidated
+    assert engine.side_statements == []
+    assert raw.invalidated
+
+
+def test_streams_by_default_on_cursors_it_does_not_open_itself(dialect) -> None:
+    """A cursor opened without an explicit ``buffered`` must not buffer either."""
     assert dialect.connect_args.get("buffered") is False
 
 

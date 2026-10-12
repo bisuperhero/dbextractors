@@ -448,9 +448,10 @@ def build_context(
     # server" on dead idle connections — a pooled connection has time to fall
     # apart between batches.
     #
-    # `connect_args` is supplied by the dialect. With MySQL it decides whether the
-    # result is streamed or pulled into RAM in one piece — on 6 M rows that is the
-    # difference between 318 MB and 4 667 MB.
+    # `connect_args` is supplied by the dialect. With MySQL it makes cursors
+    # unbuffered by default; the streaming read itself opens its own unbuffered
+    # cursor, because SQLAlchemy 2 overrides this for every cursor it opens (see
+    # `MySQLDialect.iter_batches`).
     #
     # `conn_str` carries the password. When the URL is unusable for the dialect,
     # SQLAlchemy prints it in full in the exception text — and that ends up in the

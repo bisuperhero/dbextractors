@@ -77,15 +77,14 @@ class MySQLDialect(DictTypeMapDialect):
     #: MySQL can store a date that is not NULL and does not exist either.
     zero_datetime_literal: str | None = "0000-00-00 00:00:00"
 
-    #: **Without this the whole result is pulled into the client's RAM.**
-    #: SQLAlchemy 1.4 takes a buffered cursor for `mysqlconnector`, so
-    #: `read_sql(chunksize=)` does hand out batches, but only once everything has
-    #: been downloaded. Measured on 6 M rows: first batch after 15.53 s and a
-    #: peak RSS of 4 667 MB, against 0.41 s and 318 MB — **14.7x less memory**
-    #: (see `scripts/bench_hash_memory.py`).
-    #:
-    #: The orchestrator runs 3 pipelines at once, so the difference is threefold
-    #: at the peak.
+    #: The driver's default for cursors opened on the connection. **It is not
+    #: what makes reading stream any more**: SQLAlchemy 2 opens every cursor of
+    #: this dialect as ``cursor(buffered=True)`` and so overrides it, which is why
+    #: `iter_batches` opens its own unbuffered cursor on the DBAPI connection.
+    #: Kept because a cursor opened without an explicit ``buffered`` must still
+    #: not pull a whole result into RAM. Under SQLAlchemy 1.4 this alone was the
+    #: difference, measured on 6 M rows: first batch after 15.53 s and a peak RSS
+    #: of 4 667 MB, against 0.41 s and 318 MB (see `scripts/bench_hash_memory.py`).
     connect_args: ClassVar[dict] = {"buffered": False}
 
     #: The server waits for a slow client only ``net_write_timeout`` seconds
@@ -326,21 +325,174 @@ class MySQLDialect(DictTypeMapDialect):
     # -- reading -----------------------------------------------------------
 
     def iter_batches(self, engine: Engine, sql: str, batch_size: int) -> Iterator[pd.DataFrame]:
-        """Reads the result in batches from one query rather than by paging.
+        """Streams the result in batches from one query on an unbuffered cursor.
 
-        ``pd.read_sql(chunksize=)`` holds a single cursor and takes
-        ``batch_size`` rows from it at a time. Against the predecessors'
-        ``LIMIT/OFFSET`` paging that has two advantages: the source does not have
-        to skip a growing prefix for every next page (with 15 M rows and a batch
-        of 50 000 that is 302 queries with an average offset of 7.5 M), and the
-        result is consistent, so no duplicate can arise from data shifting
-        between pages.
+        One query rather than paging: the predecessors' ``LIMIT/OFFSET`` made the
+        source skip a growing prefix for every page (with 15 M rows and a batch of
+        50 000 that is 302 queries with an average offset of 7.5 M), and a single
+        result is consistent, so no duplicate can arise from data shifting between
+        pages.
 
-        How much this saves in practice still has to be measured against a live
-        source, not estimated.
+        **Not ``pd.read_sql(chunksize=)``.** That goes through SQLAlchemy, and
+        SQLAlchemy 2's ``mysqlconnector`` dialect opens every cursor as
+        ``cursor(buffered=True)`` — overriding ``connect_args`` — and has no
+        server-side cursor to ask for instead. The first ``fetchmany`` then waits
+        until the whole result is in client RAM: an ``id_watermark`` delta of
+        42.7 M rows was killed at 14 GiB without yielding a single batch. So the
+        cursor is opened here, on the DBAPI connection, unbuffered by name.
+        The ``connect`` listener with ``session_sql`` still runs —
+        ``raw_connection()`` checks out through the same pool.
+
+        The frames are built the way pandas builds them in ``read_sql`` (see
+        `_frame`), and an empty result still yields one empty frame with the
+        column names, as ``read_sql`` does.
         """
-        with engine.connect() as con:
-            yield from pd.read_sql(sql, con, chunksize=int(batch_size))
+        size = int(batch_size)
+        raw = engine.raw_connection()
+        cursor = None
+        drained = False
+        disconnected = False
+        # Taken before the query: it is what `KILL QUERY` needs if the result is
+        # abandoned, and asking a connection mid-stream is not possible.
+        connection_id = getattr(raw.dbapi_connection, "connection_id", None)
+        try:
+            try:
+                cursor = raw.cursor(buffered=False)
+                cursor.execute(sql)
+                columns = [d[0] for d in cursor.description or ()]
+            except Exception as err:
+                disconnected = _is_disconnect(engine, err, raw, cursor)
+                _raise_as_sqlalchemy(engine, sql, err, disconnected)
+                raise
+
+            yielded = False
+            while True:
+                try:
+                    rows = cursor.fetchmany(size)
+                except Exception as err:
+                    disconnected = _is_disconnect(engine, err, raw, cursor)
+                    _raise_as_sqlalchemy(engine, sql, err, disconnected)
+                    raise
+                if not rows:
+                    break
+                yielded = True
+                yield _frame(rows, columns)
+            drained = True
+            if not yielded:
+                yield _frame([], columns)
+        finally:
+            _release(
+                engine,
+                raw,
+                cursor,
+                drained=drained,
+                disconnected=disconnected,
+                connection_id=connection_id,
+            )
+
+
+# --- Helper functions -------------------------------------------------------
+
+
+def _frame(rows: Sequence[Any], columns: List[str]) -> pd.DataFrame:
+    """Rows from the driver -> a frame, **as ``pd.read_sql`` builds it**.
+
+    ``read_sql`` hands each ``fetchmany`` to ``DataFrame`` construction with
+    ``coerce_float=True`` and no ``dtype``; ``from_records`` with the same
+    argument goes through the same object-array inference, so ``Decimal`` stays
+    ``object``, an integer column with a NULL becomes ``float64``, ``TIME``
+    becomes ``timedelta64[ns]`` and ``BIGINT UNSIGNED`` ``uint64`` — exactly what
+    the conversion layer was written against. The one step of ``read_sql`` left
+    out is converting tz-aware columns to UTC: the driver returns MySQL
+    ``DATETIME``/``TIMESTAMP`` naive, so there is never such a column. Parity is
+    checked live against ``read_sql`` in ``tests/dialects/test_source_db.py``.
+    """
+    if not rows:
+        return pd.DataFrame(columns=columns)
+    return pd.DataFrame.from_records(list(rows), columns=columns, coerce_float=True)
+
+
+def _is_disconnect(engine: Engine, err: BaseException, raw: Any, cursor: Any) -> bool:
+    """SQLAlchemy's own verdict on whether the error means the connection is gone."""
+    try:
+        return bool(engine.dialect.is_disconnect(err, raw.dbapi_connection, cursor))  # type: ignore[arg-type]
+    except Exception:  # pragma: no cover - a classifier must never mask the error
+        return False
+
+
+def _raise_as_sqlalchemy(engine: Engine, sql: str, err: Exception, disconnected: bool) -> None:
+    """Re-raise a driver error wrapped the way SQLAlchemy wraps it on its own path.
+
+    Read recovery (`core.reading.is_temporary_error`) decides on SQLAlchemy's
+    exception taxonomy, and the text in the log stays the familiar
+    ``(mysql.connector.errors.OperationalError) 2013 …``. Reading past
+    SQLAlchemy must not quietly turn a retryable drop into a fatal error.
+    Anything that is not a driver error returns, for the caller to re-raise
+    unchanged.
+    """
+    from sqlalchemy import exc as sa_exc
+
+    dbapi = getattr(engine.dialect, "loaded_dbapi", None) or engine.dialect.dbapi
+    base_error = getattr(dbapi, "Error", None)
+    if base_error is None or not isinstance(err, base_error):
+        return
+    raise sa_exc.DBAPIError.instance(
+        sql,
+        None,
+        err,
+        base_error,
+        connection_invalidated=disconnected,
+        dialect=engine.dialect,
+    ) from err
+
+
+def _release(
+    engine: Engine,
+    raw: Any,
+    cursor: Any,
+    *,
+    drained: bool,
+    disconnected: bool,
+    connection_id: Any,
+) -> None:
+    """Close the cursor and the connection without draining an abandoned result.
+
+    When the result was read to the end this is an ordinary close. When it was
+    not — the consumer stopped early, or something failed mid-stream — the
+    unbuffered result is still coming down the wire, and neither close is
+    cheap: ``cursor.close()`` refuses with *Unread result found*, and closing
+    the connection makes the client library read and discard every remaining
+    row first (measured: 8.4 s for 10 M narrow rows; the 42.7 M-row delta
+    would take minutes). So the query is cancelled first with ``KILL QUERY``
+    from a second, short connection, and the connection is then discarded
+    rather than returned. A connection that is already gone is simply
+    discarded. Nothing here raises: it runs in ``finally`` and must not replace
+    the error that brought it here.
+    """
+    if drained:
+        try:
+            if cursor is not None:
+                cursor.close()
+        finally:
+            raw.close()
+        return
+
+    pending = getattr(getattr(raw, "dbapi_connection", None), "unread_result", True)
+    if pending and not disconnected and connection_id is not None:
+        try:
+            with engine.connect() as side:
+                side.exec_driver_sql(f"KILL QUERY {int(connection_id)}")
+            _log.debug("The abandoned query on connection %s was cancelled.", connection_id)
+        except Exception as err:
+            _log.warning(
+                "⚠️ The abandoned source query could not be cancelled (%s); "
+                "closing the connection will read out the rest of the result.",
+                type(err).__name__,
+            )
+    try:
+        raw.invalidate()
+    except Exception as err:  # pragma: no cover - best effort
+        _log.debug("Discarding the source connection failed: %s", type(err).__name__)
 
 
 __all__ = ["MySQLDialect"]

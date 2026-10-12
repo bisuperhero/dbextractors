@@ -846,6 +846,179 @@ def test_the_session_timeouts_reach_the_live_server() -> None:
     assert tuple(int(v) for v in after) == (600, 600)
 
 
+# --- MySQL streaming ------------------------------------------------------------
+#
+# Generated rather than seeded: the sources are read-only fixtures, and a
+# cross join of ten digits makes any number of rows without writing one.
+
+_DIGITS = " UNION ALL ".join(f"SELECT {i} n" for i in range(10))
+
+
+def _generated_rows_sql(rows: int, pad: int = 200) -> str:
+    joins = ", ".join(f"({_DIGITS}) d{i}" for i in range(7))
+    number = " + ".join(f"{10**i} * d{i}.n" for i in range(7))
+    return (
+        f"SELECT CONNECTION_ID() AS cid, {number} AS id, REPEAT('x', {pad}) AS pad "
+        f"FROM {joins} LIMIT {int(rows)}"
+    )
+
+
+def _mysql_sessions(eng) -> int:
+    with eng.connect() as conn:
+        return int(
+            conn.exec_driver_sql(
+                "SELECT COUNT(*) FROM information_schema.PROCESSLIST"
+                " WHERE USER = SUBSTRING_INDEX(CURRENT_USER(), '@', 1)"
+            ).scalar()
+        )
+
+
+@pytest.mark.needs_mysql
+def test_the_first_mysql_batch_arrives_before_the_rest_of_the_result() -> None:
+    """The production OOM, as a test: memory until the first batch must not scale with the result.
+
+    SQLAlchemy 2 opens every ``mysqlconnector`` cursor buffered, whatever
+    ``connect_args`` say, so ``read_sql(chunksize=)`` fetched all 42.7 M rows of
+    an ``id_watermark`` delta before yielding anything and was killed at 14 GiB.
+    With 300 000 rows of ~200 bytes, a buffered first batch costs well over
+    60 MB of Python objects; a streamed one, a batch of 1 000 rows.
+    """
+    import tracemalloc
+
+    require("mysql")
+    dialect = resolve_dialect("mysql")
+    eng = engine_for("mysql")
+    try:
+        tracemalloc.start()
+        batches = dialect.iter_batches(eng, _generated_rows_sql(300_000), 1_000)
+        first = next(batches)
+        _, peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        rest = sum(len(b) for b in batches)
+    finally:
+        tracemalloc.stop()
+        eng.dispose()
+
+    assert len(first) == 1_000
+    assert rest == 299_000
+    assert peak < 16 * 1024 * 1024, f"{peak / 2**20:.1f} MiB before the first batch"
+
+
+@pytest.mark.needs_mysql
+@pytest.mark.parametrize("batch_size", [1, 2, 1000])
+def test_mysql_batches_are_the_frames_read_sql_built(batch_size: int) -> None:
+    """Reading past SQLAlchemy must not change one dtype or one value.
+
+    ``_prepare``, the hash and the golden fingerprints were all written against
+    what ``pd.read_sql`` makes of a batch. ``read_sql`` still works over
+    SQLAlchemy — it just buffers — so it is the reference: same frames, same
+    dtypes, the same Python type in every cell (``None`` stays ``None``,
+    ``Decimal`` stays ``Decimal``).
+    """
+    import pandas as pd
+
+    require("mysql")
+    dialect = resolve_dialect("mysql")
+    eng = engine_for("mysql")
+    queries = [
+        "SELECT * FROM types_wide ORDER BY id",
+        "SELECT * FROM paged ORDER BY id",
+        "SELECT * FROM types_wide WHERE 1 = 0",
+    ]
+    try:
+        for sql in queries:
+            streamed = list(dialect.iter_batches(eng, sql, batch_size))
+            with eng.connect() as conn:
+                reference = list(pd.read_sql(sql, conn, chunksize=batch_size))
+
+            assert len(streamed) == len(reference), sql
+            for got, want in zip(streamed, reference, strict=True):
+                pd.testing.assert_frame_equal(got, want, check_exact=True)
+                for column in got.columns:
+                    assert [type(v) for v in got[column]] == [type(v) for v in want[column]], (
+                        sql,
+                        column,
+                    )
+    finally:
+        eng.dispose()
+
+
+@pytest.mark.needs_mysql
+def test_the_session_timeouts_reach_the_streaming_connection() -> None:
+    """``raw_connection()`` must still pass through the ``connect`` listener."""
+    from dbextractors import entrypoint
+
+    require("mysql")
+    dialect = resolve_dialect("mysql")
+    eng = engine_for("mysql")
+    try:
+        entrypoint._attach_session_sql(eng, dialect)
+        (frame,) = dialect.iter_batches(
+            eng, "SELECT @@SESSION.net_write_timeout AS w, @@SESSION.net_read_timeout AS r", 10
+        )
+    finally:
+        eng.dispose()
+
+    assert (int(frame["w"].iloc[0]), int(frame["r"].iloc[0])) == (600, 600)
+
+
+@pytest.mark.needs_mysql
+def test_an_abandoned_mysql_stream_is_cancelled_not_read_to_the_end() -> None:
+    """Stopping after one batch must not download the other ten million rows.
+
+    Without ``KILL QUERY``, closing the connection makes libmysqlclient read and
+    discard the rest of the result first — measured at 8.4 s here, minutes on a
+    production delta — and ``cursor.close()`` refuses with *Unread result found*.
+    The session must also be gone afterwards, not left hanging on the server.
+    """
+    import time
+
+    require("mysql")
+    dialect = resolve_dialect("mysql")
+    eng = engine_for("mysql")
+    try:
+        before = _mysql_sessions(eng)
+        started = time.monotonic()
+        batches = dialect.iter_batches(eng, _generated_rows_sql(10_000_000, pad=1), 1_000)
+        next(batches)
+        batches.close()
+        elapsed = time.monotonic() - started
+        after = _mysql_sessions(eng)
+    finally:
+        eng.dispose()
+
+    assert elapsed < 3.0, f"closing took {elapsed:.1f} s — the result was drained"
+    assert after == before
+
+
+@pytest.mark.needs_mysql
+def test_a_mysql_stream_dropped_mid_way_is_retryable() -> None:
+    """The production failure mode: ``2013 Lost connection`` after some batches.
+
+    It has to arrive as SQLAlchemy's ``OperationalError`` — what read recovery
+    classifies as temporary — not as the bare driver error it now starts as.
+    """
+    from sqlalchemy import exc as sa_exc
+
+    from dbextractors.core.reading import is_temporary_error
+
+    require("mysql")
+    dialect = resolve_dialect("mysql")
+    eng = engine_for("mysql")
+    try:
+        batches = dialect.iter_batches(eng, _generated_rows_sql(10_000_000, pad=1), 1_000)
+        first = next(batches)
+        with eng.connect() as conn:
+            conn.exec_driver_sql(f"KILL CONNECTION {int(first['cid'].iloc[0])}")
+        with pytest.raises(sa_exc.OperationalError) as caught:
+            for _ in batches:
+                pass
+    finally:
+        eng.dispose()
+
+    assert is_temporary_error(caught.value)
+
+
 # --- size estimate ------------------------------------------------------------
 
 
