@@ -378,7 +378,7 @@ class LoadSettingsConfig:
     #: target and commits. ``None`` means the strategy default
     #: (`id_watermark.DEFAULT_CHECKPOINT_ROWS`, 5 000 000); ``0`` turns
     #: checkpoints off and commits the whole delta in one transaction, as before
-    #: 2.1.2. A failed run keeps what it committed, and the next one resumes
+    #: 2.2.0. A failed run keeps what it committed, and the next one resumes
     #: above it.
     checkpoint_rows: int | None = None
     #: An older spelling of the incremental window. **Not** aliases of

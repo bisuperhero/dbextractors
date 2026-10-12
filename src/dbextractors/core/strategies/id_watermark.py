@@ -166,7 +166,7 @@ class IdWatermarkStrategy(LoadStrategy):
         is always every delta row up to some key, so a failed run leaves the
         target consistent and the next run's ``MAX(pk)`` resumes exactly after
         it; whatever a resume reads twice, the upsert absorbs. Off (one
-        transaction, as before 2.1.2) with ``checkpoint_rows: 0``, and always off
+        transaction, as before 2.2.0) with ``checkpoint_rows: 0``, and always off
         for a surrogate key, whose read is not ordered.
         """
         full = FullLoadStrategy()

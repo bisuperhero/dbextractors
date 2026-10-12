@@ -296,7 +296,7 @@ def test_a_failure_after_checkpoints_keeps_them_and_the_next_run_resumes(conn, s
 
 
 def test_checkpoints_off_keeps_the_delta_all_or_nothing(conn, schema, dsn) -> None:
-    """``checkpoint_rows: 0`` is the behaviour before 2.1.2: nothing survives a failure."""
+    """``checkpoint_rows: 0`` is the behaviour before 2.2.0: nothing survives a failure."""
     source = _FailingSource(_source_rows(), pk="id", fail_after=4)
     _seeded(conn, schema, source)
 

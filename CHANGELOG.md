@@ -7,6 +7,42 @@ Every release is tagged, and the tag is what a deployment pins in `requirements.
 **Every change carries a note on what it breaks** — roughly 670 tables depend on
 this package.
 
+## [2.2.0]
+
+### Fixed
+
+- **MySQL reads no longer pull the whole result into RAM.** Under SQLAlchemy 2
+  the `mysqlconnector` dialect opens every cursor buffered, overriding
+  `connect_args={"buffered": False}`, so `iter_batches` downloaded the entire
+  result before yielding the first batch: an `id_watermark` delta of 42.7 M
+  rows was killed at 14 GiB without a single batch. `MySQLDialect.iter_batches`
+  now reads through an unbuffered cursor on the DBAPI connection (the session
+  timeouts still apply). Measured on 3 M rows: first batch after 0.05 s instead
+  of 2.73 s, peak RSS 112 MB instead of 1 150 MB. The frames are identical to
+  what `pd.read_sql` produced (checked live, dtypes and cell types). A dropped
+  connection is still reported as SQLAlchemy's `OperationalError`, so read
+  recovery retries it as before; a stream abandoned half-way is cancelled with
+  `KILL QUERY` instead of being read to the end. PostgreSQL, MSSQL and Firebird
+  were measured as already streaming and are unchanged.
+
+### Added
+
+- **`id_watermark` commits a large delta in checkpoints.** Every
+  `LOAD_SETTINGS.checkpoint_rows` rows (default 5 000 000) are projected into
+  the target and committed. A failed run keeps what it committed and the next
+  run resumes above it, instead of reading the whole delta again. The read is
+  ordered by the key, so the target always holds every new row up to some key.
+  `checkpoint_rows: 0` keeps the old single transaction; a surrogate key never
+  checkpoints, because its read is not ordered.
+
+### Breaks
+
+- **A failed `id_watermark` run of more than `checkpoint_rows` rows is no
+  longer all-or-nothing**: the checkpoints before the failure stay in the
+  target. That is the point of the change; set `checkpoint_rows: 0` for a table
+  where a partial delta must never be visible.
+- An abandoned MySQL read opens a second, short connection for `KILL QUERY`.
+
 ## [2.1.1]
 
 ### Fixed
