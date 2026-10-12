@@ -995,8 +995,14 @@ def test_an_abandoned_mysql_stream_is_cancelled_not_read_to_the_end() -> None:
 def test_a_mysql_stream_dropped_mid_way_is_retryable() -> None:
     """The production failure mode: ``2013 Lost connection`` after some batches.
 
-    It has to arrive as SQLAlchemy's ``OperationalError`` — what read recovery
-    classifies as temporary — not as the bare driver error it now starts as.
+    It has to arrive as a SQLAlchemy error that read recovery classifies as
+    temporary — not as the bare driver error it now starts as.
+
+    Which SQLAlchemy class it is depends on timing, not on the code: if the
+    socket read fails first, mysql-connector raises ``InterfaceError`` 2013
+    (seen in CI); if the server's error packet is read first, it is
+    ``OperationalError`` 2013 (seen locally). Both are temporary, and both must
+    be flagged as a dropped connection.
     """
     from sqlalchemy import exc as sa_exc
 
@@ -1010,13 +1016,14 @@ def test_a_mysql_stream_dropped_mid_way_is_retryable() -> None:
         first = next(batches)
         with eng.connect() as conn:
             conn.exec_driver_sql(f"KILL CONNECTION {int(first['cid'].iloc[0])}")
-        with pytest.raises(sa_exc.OperationalError) as caught:
+        with pytest.raises((sa_exc.OperationalError, sa_exc.InterfaceError)) as caught:
             for _ in batches:
                 pass
     finally:
         eng.dispose()
 
     assert is_temporary_error(caught.value)
+    assert caught.value.connection_invalidated
 
 
 # --- size estimate ------------------------------------------------------------

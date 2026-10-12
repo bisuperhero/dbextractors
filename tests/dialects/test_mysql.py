@@ -94,10 +94,18 @@ def test_key_filter_without_keys_fails(dialect) -> None:
 class _FakeCursor:
     """An unbuffered DBAPI cursor: rows leave the "server" only on ``fetchmany``."""
 
-    def __init__(self, conn: _FakeRaw, rows: list, *, fail_after: int | None = None) -> None:
+    def __init__(
+        self,
+        conn: _FakeRaw,
+        rows: list,
+        *,
+        fail_after: int | None = None,
+        fail_with: str = "OperationalError",
+    ) -> None:
         self._conn = conn
         self._rows = rows
         self._fail_after = fail_after
+        self._fail_with = fail_with
         self.description = [("id", 3), ("name", 253)]
         self.fetched = 0
         self.closed = False
@@ -109,7 +117,7 @@ class _FakeCursor:
         if self._fail_after is not None and self.fetched >= self._fail_after:
             import mysql.connector.errors as errors
 
-            raise errors.OperationalError(
+            raise getattr(errors, self._fail_with)(
                 msg="Lost connection to MySQL server during query", errno=2013
             )
         chunk = self._rows[self.fetched : self.fetched + size]
@@ -230,22 +238,31 @@ def test_an_abandoned_stream_is_cancelled_not_drained(dialect) -> None:
     assert raw.last_cursor is not None and raw.last_cursor.fetched == 4
 
 
-def test_a_dropped_connection_surfaces_as_a_retryable_sqlalchemy_error(dialect) -> None:
+@pytest.mark.parametrize("driver_error", ["OperationalError", "InterfaceError"])
+def test_a_dropped_connection_surfaces_as_a_retryable_sqlalchemy_error(
+    dialect, driver_error: str
+) -> None:
     """Read recovery classifies by SQLAlchemy's taxonomy; reading past it must keep that.
 
     The raw driver error would be ``mysql.connector.errors.OperationalError``,
     which `is_temporary_error` does not recognise — every dropped connection
     would become fatal. Nor is there anything left to kill.
+
+    Both classes, because mysql-connector raises either for the same ``2013``:
+    ``InterfaceError`` when the socket read itself fails (``network.py``), and
+    ``OperationalError`` when the server's error packet arrives first. Which one
+    a live ``KILL`` produces is a matter of timing — CI got the first, a local
+    run the second. Each must keep its own class and be flagged as a disconnect.
     """
     from sqlalchemy import exc as sa_exc
 
     from dbextractors.core.reading import is_temporary_error
 
-    raw = _FakeRaw(_rows(10), fail_after=4)
+    raw = _FakeRaw(_rows(10), fail_after=4, fail_with=driver_error)
     engine = _FakeEngine(raw)
     batches = dialect.iter_batches(engine, "SELECT id, name FROM t", 4)
     next(batches)
-    with pytest.raises(sa_exc.OperationalError, match="2013") as caught:
+    with pytest.raises(getattr(sa_exc, driver_error), match="2013") as caught:
         next(batches)
 
     assert is_temporary_error(caught.value)
