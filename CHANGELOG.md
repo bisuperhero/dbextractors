@@ -7,6 +7,75 @@ Every release is tagged, and the tag is what a deployment pins in `requirements.
 **Every change carries a note on what it breaks** — roughly 670 tables depend on
 this package.
 
+## [2.3.0]
+
+### Added
+
+- **`load_method: key_sync` — deletion reconciliation that reads only the primary
+  key.** For a table whose content is kept current by `incremental` or
+  `id_watermark` and whose deletions are not tracked. The source gets one
+  streamed `SELECT <pk> FROM <table> ORDER BY <pk>`; the keys are `COPY`ed into a
+  temporary table and `mark_deleted_in_source` (the step `hash_diff` ends with)
+  sets `_deleted_in_source = TRUE` and `_timestamp` on target rows whose key left
+  the source, and flips it back to `FALSE` for keys that returned. No row is read
+  from the target or fetched from the source; a source key the target lacks is
+  only counted (`new_in_source` in the phase metrics, next to `source_keys`,
+  `target_rows`, `deleted_marked`, `revived`). A missing or empty target returns a
+  `fallback_reason` and does nothing, a surrogate key raises `StrategyError`, and
+  a failed scan or an empty key set against a non-empty target raises instead of
+  marking (`empty_rows_ok` allows the latter). New helpers:
+  `target_pg.SourceKeySnapshot`, `target_pg.mark_deleted_counts`.
+- `SOURCE_DB.time_zone` (MySQL/MariaDB), see Changed.
+
+### Fixed
+
+- **The incremental window no longer depends on a MySQL-only literal outside
+  MySQL.** The window expression is now built by the dialect
+  (`SourceDialect.incremental_window_expr`): only a dialect with a zero date
+  (MySQL/MariaDB) wraps the modification column in `NULLIF(col, '0000-00-00
+  00:00:00')`; PostgreSQL, MSSQL and Firebird get a plain
+  `COALESCE(updated, created)`. On PostgreSQL that literal is rejected whatever
+  the data holds (`date/time field value out of range` /
+  `invalid input syntax for type timestamp`). The legacy
+  `incremental_date_column` window had a second PostgreSQL-only failure,
+  `COALESCE(col, 0)` (`COALESCE types timestamp … and integer cannot be matched`);
+  PostgreSQL now renders the equivalent `col >= cutoff`, since `NULL >= x` is
+  already not true. MySQL, MSSQL and Firebird windows are character-for-character
+  what they were. The cutoff itself (`days_back`, `incremental_lookback_hours`,
+  the deep cutoff) is computed before the dialect is involved and is untouched.
+
+### Changed
+
+- **MySQL/MariaDB sessions are pinned to UTC.** Every new source connection now
+  runs `SET time_zone = '+00:00'` after the existing network timeouts, unless
+  `SOURCE_DB.time_zone` gives another offset or zone name (validated, since it is
+  interpolated into the statement; default `+00:00`). A MySQL `TIMESTAMP` is
+  stored as UTC and rendered in the session zone, so two servers configured with
+  different zones used to return different text for the same instant.
+  `SourceDialect.session_statements(time_zone)` is the new hook; other dialects
+  return their `session_sql` unchanged.
+
+### Breaks
+
+- **`TIMESTAMP` columns read from a MySQL/MariaDB server whose session zone is
+  not UTC now arrive in UTC.** The values written to the target for those columns
+  change by the server's offset (a `Europe/Prague` server: one or two hours
+  earlier). `DATETIME` columns are stored as written and do not move, and a
+  server already running in UTC is unaffected. `row_hash` computed by the source
+  (`SHA2` over the cast text) changes with it for a table with such a column, so
+  under `load_method: hash` every row of that table looks changed on the first
+  run — run it with `forced_full_load`, or set `SOURCE_DB.time_zone` to the
+  server's own zone to keep the old values. `incremental` windows are compared
+  against date literals and shift by the same offset, which a window measured in
+  days does not notice.
+- `load_method: key_sync` is a new value; nothing existing changes. A deployment
+  that sets it on 2.2.x fails with `Unknown load_method`, so pin 2.3.0 before
+  configuring it.
+- `forced_full_load` rewrites `key_sync` to `full`, as it does every other method.
+- The PostgreSQL legacy window (`incremental_date_column`) is rendered
+  differently (see Fixed); it returns the same rows, and previously could not run
+  at all.
+
 ## [2.2.1]
 
 ### Fixed

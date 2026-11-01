@@ -1,4 +1,4 @@
-.PHONY: venv install lint fix types test test-mage bench bench-write check verify-runtime db-up db-down clean
+.PHONY: venv install lint fix types test test-mage bench bench-write check verify-runtime build db-up db-down clean
 
 # The image `core/naming.py` and the write path were replicated from. It is no
 # longer the runtime (that is v1.0.x), but the parity tests for the replicas
@@ -79,6 +79,11 @@ check: lint types test verify-runtime
 # the check that matters in an image that already ships pandas or a driver.
 verify-runtime:
 	$(BIN)/python scripts/verify_runtime.py
+
+# The wheel and the sdist for the version in `src/dbextractors/__init__.py`, into
+# `dist/` (git-ignored). Other versions' files already there are left alone.
+build:
+	uv build --out-dir dist
 
 clean:
 	rm -rf $(VENV) build dist *.egg-info src/*.egg-info

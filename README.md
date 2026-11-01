@@ -196,6 +196,11 @@ config = {
         'password': os.environ['SOURCE_DB_PASSWORD'],   # a secret store, not the source file
         'database': 'source_database',
         'charset': 'utf8mb4',
+        'time_zone': '+00:00',              # MySQL/MariaDB only: the session time zone. Default
+                                            # '+00:00' (UTC), so TIMESTAMP columns read the same
+                                            # whatever zone the server is set to. An offset
+                                            # ('+02:00') or a zone name ('Europe/Prague').
+                                            # DATETIME columns are not affected.
 
         'host': '10.0.0.1',                 # direct connection
         'port': 3306,                       # empty = the dialect's default port
@@ -217,6 +222,7 @@ config = {
     'LOAD_SETTINGS': {
         'load_method': 'hash',              # full | full_by_source | incremental
                                             # hash (= hash_diff) | id_watermark | abra_watermark
+                                            # key_sync (deletions only, reads just the PK)
                                             # parent_incremental is inferred from 'incremental_parent_*'
                                             # An unknown value raises — no quiet fallback to full load.
         'primary_column': 'id',             # PK, case-sensitive (alias: 'primary_key_column')
@@ -312,6 +318,7 @@ is the most expensive possible outcome of a typo in YAML.
 | `id_watermark` | append-only, increasing PK | an increasing `primary_column` | appends rows above `MAX(pk)` in the target | only the rows above the watermark |
 | `abra_watermark` | ABRA ERP tables with no change timestamp | the ABRA record ID as `primary_column`, `abra_id_suffixes` | upserts records whose ID counter is above the watermark | a scan on the source, but only the new rows travel |
 | `parent_incremental` | child tables with no change date of their own | a parent table with a date column, and a key into it; Firebird only today | deletes the window and reloads it, in one transaction | only the window |
+| `key_sync` | deletions only, next to a method that keeps the content current (`incremental`, `id_watermark`) | `primary_column`; no surrogate key; the target must exist | flips `_deleted_in_source` for keys that left the source (and back for ones that returned); loads no rows | the source's primary keys, nothing else |
 
 Two methods are not selected by name:
 
@@ -597,6 +604,39 @@ Two things will surprise you, and both are deliberate parity with the predecesso
 
 A missing target, and a parent that is not in the target, both fall back to a full
 load.
+
+### `key_sync`
+
+Reconciles **deletions only**, for a table whose content another pipeline already
+keeps current. `incremental` never sees a row that was deleted, and `id_watermark`
+never marks one; `hash_diff` would, but only by hashing every column of every row.
+`key_sync` reads **just the primary key** — one streamed `SELECT <pk> FROM <table>
+ORDER BY <pk>`, in `batch_size` batches — and nothing else leaves the source.
+
+The keys are `COPY`ed into a temporary PostgreSQL table, and the same two `UPDATE`
+statements `hash_diff` ends with do the rest, on the keys alone (no target row is
+read out):
+
+- a target row whose key is no longer in the source gets `_deleted_in_source =
+  TRUE` and a fresh `_timestamp`;
+- a row already marked that is back in the source is set to `FALSE` again;
+- every other row is left exactly as it is.
+
+It **never fetches a row**. A source key the target lacks is only counted
+(`new_in_source` in the phase metrics, with `source_keys`, `target_rows`,
+`deleted_marked` and `revived`); loading it is the other method's job. Run it as
+its own pipeline on a slower schedule than the loader, against the same target.
+
+It needs `primary_column`, and the target table has to exist. A missing or empty
+target is **not** turned into a full load, as `incremental` does: the run does
+nothing and says why in `fallback_reason`, because a multi-million row reload is a
+surprising result of a deletion check. A **surrogate key is not supported** and
+raises: the key is an expression over several columns, so it cannot be read on its
+own. It also refuses to mark from an incomplete view of the source: a failed scan
+raises rather than falling back, and a scan that returns no keys while the target
+has rows raises unless `empty_rows_ok` is set. `where_clause` narrows the key scan,
+so a row the filter hides counts as deleted — as it does under `hash_diff`.
+`forced_full_load` rewrites it to `full`, like every other non-`full` method.
 
 ### What every method does the same
 
