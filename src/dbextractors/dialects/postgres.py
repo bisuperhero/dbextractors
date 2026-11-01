@@ -222,6 +222,16 @@ class PostgresDialect(DictTypeMapDialect):
             )
         return out
 
+    def incremental_at_least(self, column: str, value: str) -> str:
+        """A plain comparison: ``NULL >= value`` is already not true.
+
+        ``COALESCE(column, 0)`` — the form the other dialects use — is rejected by
+        PostgreSQL for a date column (``COALESCE types timestamp without time zone
+        and integer cannot be matched``), and the ``0`` would only have served to
+        make an empty value fail the test, which this does by itself.
+        """
+        return f"{column} >= {value}"
+
     def estimate_size(
         self,
         engine: Engine,

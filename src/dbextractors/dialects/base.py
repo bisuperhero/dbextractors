@@ -373,6 +373,37 @@ class SourceDialect(ABC):
         sql = f"SELECT {', '.join(casti)} FROM {tabulka}"
         return f"{sql} WHERE ({where})" if where else sql
 
+    def incremental_window_expr(self, updated: str, created: str | None = None) -> str:
+        """The expression the incremental window compares with the cutoff.
+
+        ``updated`` and ``created`` are **already quoted** column names. With a
+        creation column the row falls back to it when the modification column is
+        empty; a dialect with a zero date (`zero_datetime_literal`) flattens that
+        to ``NULL`` first, otherwise ``COALESCE`` would never reach for
+        ``created``. Without a zero date there is nothing to flatten — and
+        ``NULLIF(col, '0000-00-00 00:00:00')`` must not be emitted there at all:
+        PostgreSQL parses the literal against the column type and rejects it
+        (``invalid input syntax for type timestamp``) even though no row holds it.
+        """
+        if created is None:
+            return updated
+        sentinel = self.zero_datetime_literal
+        if sentinel:
+            return f"COALESCE(NULLIF({updated}, {sentinel!r}), {created})"
+        return f"COALESCE({updated}, {created})"
+
+    def incremental_at_least(self, column: str, value: str) -> str:
+        """``column >= value`` where an empty ``column`` must fail the test.
+
+        The legacy ``incremental_date_column`` window. The predecessors write it as
+        ``COALESCE(column, 0) >= value`` and that works where an integer 0 coerces
+        to a date (MySQL, MSSQL, Firebird). PostgreSQL does not coerce it
+        (``COALESCE types timestamp and integer cannot be matched``), and a plain
+        comparison is already false for ``NULL`` — the same outcome — so it
+        overrides this.
+        """
+        return f"COALESCE({column}, 0) >= {value}"
+
     def cutoff_value(self, cutoff: Any) -> Any:
         """How a cutoff date is compared against a date column **in this source**.
 

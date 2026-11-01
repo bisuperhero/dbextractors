@@ -209,7 +209,6 @@ class IncrementalStrategy(LoadStrategy):
         assert updated_raw is not None  # guaranteed by validate()
         updated = ctx.dialect.quote_ident(updated_raw)
         created = _created_column(ctx)
-        sentinel = getattr(ctx.dialect, "zero_datetime_literal", None)
 
         if _uses_legacy_date_column_window(ctx):
             # Literally the predecessor's parent condition: `OR` across both
@@ -217,21 +216,18 @@ class IncrementalStrategy(LoadStrategy):
             # condition.
             value = ctx.dialect.sql_literal(ctx.dialect.cutoff_value(cutoff))
             columns = [updated] + ([ctx.dialect.quote_ident(created)] if created else [])
-            parts = [f"COALESCE({c}, 0) >= {value}" for c in columns]
+            parts = [ctx.dialect.incremental_at_least(c, value) for c in columns]
             clause = "(" + " OR ".join(parts) + ")"
             if ctx.where:
                 clause = f"({clause}) AND ({ctx.where})"
             return clause
 
-        if created:
-            created_q = ctx.dialect.quote_ident(created)
-            expr = (
-                f"COALESCE(NULLIF({updated}, {sentinel!r}), {created_q})"
-                if sentinel
-                else f"COALESCE({updated}, {created_q})"
-            )
-        else:
-            expr = updated
+        # The dialect decides how the two columns combine (a zero date exists only
+        # on MySQL), so a literal that is invalid for another dialect never reaches
+        # its source.
+        expr = ctx.dialect.incremental_window_expr(
+            updated, ctx.dialect.quote_ident(created) if created else None
+        )
 
         clause = f"{expr} >= '{cutoff.strftime('%Y-%m-%d')} 00:00:00'"
         if ctx.where:
