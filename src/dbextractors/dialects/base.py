@@ -178,6 +178,15 @@ class SourceDialect(ABC):
     #: settings that cannot be passed through ``connect_args``.
     session_sql: ClassVar[tuple] = ()
 
+    def session_statements(self, time_zone: str | None = None) -> tuple:
+        """The statements to run on every new connection to the source.
+
+        ``time_zone`` is ``SOURCE_DB.time_zone``. The default is just
+        `session_sql`; a dialect whose driver converts time-zone-aware values
+        according to the session overrides this.
+        """
+        return tuple(self.session_sql)
+
     # -- connecting --------------------------------------------------------
 
     @abstractmethod

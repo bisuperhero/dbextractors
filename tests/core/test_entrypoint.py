@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 from types import SimpleNamespace
-from typing import Any, List
+from typing import Any, ClassVar, List
 
 import pytest
 
@@ -581,3 +581,19 @@ def test_an_unknown_dialect_fails_and_lists_the_known_names() -> None:
     with pytest.raises(entrypoint.EntrypointError) as err:
         entrypoint.resolve_dialect("postgress")
     assert "firebird" in str(err.value), "the message should list what is accepted"
+
+
+def test_the_configured_time_zone_reaches_the_dialect(tmp_path) -> None:
+    class _Dialect:
+        session_sql = ()
+        seen: ClassVar[list] = []
+
+        def session_statements(self, time_zone=None):
+            self.seen.append(time_zone)
+            return (f"PRAGMA user_version = {9 if time_zone == '+02:00' else 1}",)
+
+    engine = _sqlite_engine(tmp_path)
+    entrypoint._attach_session_sql(engine, _Dialect(), "+02:00")
+
+    assert _Dialect.seen == ["+02:00"]
+    assert _user_version(engine) == 9

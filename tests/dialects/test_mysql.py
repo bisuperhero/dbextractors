@@ -514,3 +514,43 @@ def test_a_failed_sample_fails_loudly_too(dialect, engine, monkeypatch) -> None:
 
     with pytest.raises(RuntimeError, match="mid-sample"):
         dialect.estimate_size(engine, TableRef(name="paged"))
+
+
+# --- Session time zone -------------------------------------------------------
+
+
+def test_the_session_is_pinned_to_utc_by_default(dialect) -> None:
+    """A ``TIMESTAMP`` is stored as UTC and rendered in the session's zone, so
+    without this the same row reads differently from servers set to different
+    zones. ``DATETIME`` is stored as written and is not affected."""
+    statements = dialect.session_statements()
+
+    assert statements[-1] == "SET time_zone = '+00:00'"
+    assert statements[:-1] == dialect.session_sql, "the timeouts must still be set"
+    assert dialect.session_statements("") == statements
+    assert dialect.session_statements(None) == statements
+
+
+@pytest.mark.parametrize(
+    "zone", ["+02:00", "-05:30", "Europe/Prague", "UTC", "America/Argentina/Buenos_Aires"]
+)
+def test_a_configured_time_zone_replaces_the_default(dialect, zone) -> None:
+    statements = dialect.session_statements(zone)
+
+    assert statements[-1] == f"SET time_zone = '{zone}'"
+    assert not any("+00:00" in s for s in statements)
+
+
+@pytest.mark.parametrize("zone", ["'; DROP TABLE x; --", "+25:00", "UTC'--", "a b"])
+def test_a_time_zone_that_is_not_a_zone_is_refused(dialect, zone) -> None:
+    """The value is interpolated into a ``SET`` statement."""
+    with pytest.raises(ValueError, match="time_zone"):
+        dialect.session_statements(zone)
+
+
+def test_the_other_dialects_add_no_time_zone_statement() -> None:
+    from dbextractors.dialects.mssql import MSSQLDialect
+    from dbextractors.dialects.postgres import PostgresDialect
+
+    for other in (MSSQLDialect(), PostgresDialect()):
+        assert other.session_statements("+02:00") == ()

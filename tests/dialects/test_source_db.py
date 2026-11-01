@@ -915,6 +915,27 @@ def test_the_session_timeouts_reach_the_live_server() -> None:
     assert tuple(int(v) for v in after) == (600, 600)
 
 
+@pytest.mark.needs_mysql
+def test_the_session_time_zone_reaches_the_live_server() -> None:
+    """``SET time_zone`` must be accepted by the server and applied to the connection
+    the reading happens on — by default UTC, or what ``SOURCE_DB.time_zone`` says."""
+    from dbextractors import entrypoint
+
+    require("mysql")
+    dialect = resolve_dialect("mysql")
+    results = {}
+    for given in (None, "+05:30"):
+        eng = engine_for("mysql")
+        try:
+            entrypoint._attach_session_sql(eng, dialect, given)
+            with eng.connect() as conn:
+                results[given] = conn.exec_driver_sql("SELECT @@SESSION.time_zone").scalar()
+        finally:
+            eng.dispose()
+
+    assert results == {None: "+00:00", "+05:30": "+05:30"}
+
+
 # --- MySQL streaming ------------------------------------------------------------
 #
 # Generated rather than seeded: the sources are read-only fixtures, and a

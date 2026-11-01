@@ -673,6 +673,7 @@ def _full_config() -> dict:
             "port": 3306,
             "database": "db_name",
             "charset": "cp1250",
+            "time_zone": "+02:00",
             "ssh_address_or_host": "bastion.internal",
             "ssh_port": 2222,
             "ssh_username": "ssh_user",
@@ -768,6 +769,7 @@ def test_full_roundtrip_of_the_source_db_section() -> None:
     assert db.port == 3306
     assert db.database == "db_name"
     assert db.charset == "cp1250"
+    assert db.time_zone == "+02:00"
     assert db.ssh_address_or_host == "bastion.internal"
     assert db.ssh_port == 2222
     assert db.ssh_username == "ssh_user"
@@ -1021,3 +1023,28 @@ def test_only_selected_columns_with_an_empty_selection_keeps_every_column() -> N
     kept = _select_columns(columns, parsed.table, parsed.load_settings)
 
     assert [c.name for c in kept] == ["id", "note"]
+
+
+# --- SOURCE_DB.time_zone ------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("given", "expected"),
+    [(None, None), ("", None), ("  ", None), (" +02:00 ", "+02:00"), ("UTC", "UTC")],
+)
+def test_source_db_time_zone(given, expected) -> None:
+    cfg = _modern_config()
+    if given is not None:
+        cfg["SOURCE_DB"]["time_zone"] = given
+
+    assert config.parse(cfg).source_db.time_zone == expected
+
+
+def test_source_db_time_zone_is_a_known_key(caplog) -> None:
+    cfg = _modern_config()
+    cfg["SOURCE_DB"]["time_zone"] = "+00:00"
+
+    with caplog.at_level("WARNING"):
+        config.parse(cfg)
+
+    assert not [r for r in caplog.records if "time_zone" in r.getMessage()]

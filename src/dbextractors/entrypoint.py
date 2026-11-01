@@ -474,7 +474,7 @@ def build_context(
             f"{secrets.redact(err, extra=[source_db.password])}"
         ) from None
 
-    _attach_session_sql(engine, source_dialect)
+    _attach_session_sql(engine, source_dialect, source_db.time_zone)
 
     ref = TableRef(
         name=parsed.table.source_name,
@@ -629,7 +629,7 @@ def _settings_dict(load_settings, runtime: dict | None = None) -> dict:
     return out
 
 
-def _attach_session_sql(engine, source_dialect) -> None:
+def _attach_session_sql(engine, source_dialect, time_zone: str | None = None) -> None:
     """Run ``dialect.session_sql`` on every new connection to the source.
 
     It cannot be done through ``connect_args`` — ``mysql-connector`` has no
@@ -641,7 +641,14 @@ def _attach_session_sql(engine, source_dialect) -> None:
     logged and the run continues — it mitigates a cause, it is not a precondition,
     and the resilience rests on read recovery in `core.reading`.
     """
-    commands = tuple(getattr(source_dialect, "session_sql", ()) or ())
+    # `session_statements` rather than `session_sql`: the time zone comes from the
+    # configuration, which a class constant cannot see. A dialect-like object that
+    # predates the method (a test double) still works through `session_sql`.
+    statements = getattr(source_dialect, "session_statements", None)
+    if statements is not None:
+        commands = tuple(statements(time_zone) or ())
+    else:
+        commands = tuple(getattr(source_dialect, "session_sql", ()) or ())
     if not commands:
         return
 

@@ -16,6 +16,7 @@ unlike Firebird where the sign of ``scale`` also decides the PostgreSQL type.
 from __future__ import annotations
 
 import logging
+import re
 import socket
 import urllib.parse
 from typing import TYPE_CHECKING, Any, ClassVar, Iterator, List, Sequence
@@ -39,6 +40,12 @@ if TYPE_CHECKING:  # pragma: no cover
     from sqlalchemy.engine import Engine
 
 _log = logging.getLogger(__name__)
+
+#: What ``SOURCE_DB.time_zone`` may hold: an offset or a named zone. Checked because
+#: the value is interpolated into a ``SET`` statement.
+_TIME_ZONE_RE = re.compile(
+    r"[+-](?:0?\d|1[0-4]):[0-5]\d|[A-Za-z][A-Za-z0-9_+\-]*(?:/[A-Za-z0-9_+\-]+)*"
+)
 
 
 class MySQLDialect(DictTypeMapDialect):
@@ -99,6 +106,27 @@ class MySQLDialect(DictTypeMapDialect):
     #: batch of 50 000). It does not replace read recovery (`core.reading`) — it
     #: only removes the most frequent cause.
     session_sql: ClassVar[tuple] = ("SET SESSION net_write_timeout = 600, net_read_timeout = 600",)
+
+    #: Session time zone when ``SOURCE_DB.time_zone`` is not given.
+    DEFAULT_TIME_ZONE: ClassVar[str] = "+00:00"
+
+    def session_statements(self, time_zone: str | None = None) -> tuple:
+        """`session_sql` plus ``SET time_zone``.
+
+        A MySQL ``TIMESTAMP`` is stored as UTC and rendered in the **session's**
+        zone, so the same row reads differently from servers configured with
+        different zones — and the target (`TIMESTAMP` without a zone) keeps
+        whatever text it was given. Pinning the session to UTC makes the value
+        independent of the server's setting. ``DATETIME`` is stored as written and
+        is not affected.
+        """
+        zone = (time_zone or "").strip() or self.DEFAULT_TIME_ZONE
+        if not _TIME_ZONE_RE.fullmatch(zone):
+            raise ValueError(
+                f"SOURCE_DB.time_zone {zone!r} is not an offset ('+01:00') or a zone name "
+                "('Europe/Prague', 'UTC')."
+            )
+        return (*self.session_sql, f"SET time_zone = '{zone}'")
 
     #: Source type (lowercase) -> PostgreSQL type. Taken verbatim from the
     #: predecessor's ``MYSQL_TO_PG_TYPES``. ``tinyint`` is ``INTEGER`` here, not

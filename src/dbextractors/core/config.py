@@ -110,6 +110,7 @@ SOURCE_DB_KEYS: frozenset[str] = frozenset(
         "port",
         "database",
         "charset",
+        "time_zone",
         "ssh_address_or_host",
         "ssh_port",
         "ssh_username",
@@ -431,6 +432,10 @@ class SourceDbConfig:
     port: int | None = None
     database: str | None = None
     charset: str | None = None
+    #: Session time zone for the source connection. ``None`` = the dialect's own
+    #: default (MySQL: ``+00:00``, see `MySQLDialect.session_statements`); other
+    #: dialects ignore it.
+    time_zone: str | None = None
     ssh_address_or_host: str | None = None
     ssh_port: int = 22
     ssh_username: str | None = None
@@ -688,6 +693,8 @@ def parse(config: dict) -> ParsedConfig:
         port=source_db_cfg.get("port", legacy_conn.get("port")),
         database=source_db_cfg.get("database", legacy_conn.get("database")),
         charset=source_db_cfg.get("charset"),
+        # `or None`: an empty value means "not filled in", not "the empty zone".
+        time_zone=str(source_db_cfg.get("time_zone") or "").strip() or None,
         ssh_address_or_host=source_db_cfg.get(
             "ssh_address_or_host", ssh_defaults.get("ssh_address_or_host")
         ),
