@@ -1568,7 +1568,25 @@ def mark_deleted_in_source(
     *,
     pk_as_text: bool = False,
 ) -> int:
+    """`mark_deleted_counts` summed: how many rows changed their flag."""
+    deleted, revived = mark_deleted_counts(
+        conn, target, resolved_pk, live_pk_table, source_label, pk_as_text=pk_as_text
+    )
+    return revived + deleted
+
+
+def mark_deleted_counts(
+    conn: Any,
+    target: TargetRef,
+    resolved_pk: str,
+    live_pk_table: str,
+    source_label: str | None = None,
+    *,
+    pk_as_text: bool = False,
+) -> Tuple[int, int]:
     """Mark rows that vanished and unmark those that came back.
+
+    Returns ``(marked_deleted, revived)``.
 
     In the predecessor this sits inside `apply_live_pk_snapshot`. It is pulled out
     because **every** strategy has to be able to do it, not only the ones that
@@ -1613,7 +1631,7 @@ def mark_deleted_in_source(
         f"{deleted:,}",
         f"{revived:,}",
     )
-    return int(revived) + int(deleted)
+    return int(deleted), int(revived)
 
 
 # --- Snapshot of source hashes -----------------------------------------------
@@ -1737,6 +1755,82 @@ class SourceHashSnapshot:
                     batch = []
             if batch:
                 yield batch
+
+
+class SourceKeySnapshot:
+    """The primary keys of the source in a temporary PostgreSQL table, nothing else.
+
+    `SourceHashSnapshot` without the hash: what `key_sync` needs is the set of
+    live keys, and the same `mark_deleted_in_source` that `hash_diff` ends with
+    can work from it. The key is held as ``TEXT`` and compared as
+    ``target.pk::text`` — the identical rendering (`hashing.pk_series_to_str`)
+    `hash_diff` uses, so the two strategies agree on what "the same key" means.
+    """
+
+    def __init__(self, conn: Any, pk_column: str) -> None:
+        self._conn = conn
+        self._pk = pk_column
+        self.table = f"dbx_src_keys_{uuid.uuid4().hex[:8]}"
+        self._open = False
+
+    def __enter__(self) -> SourceKeySnapshot:
+        with self._conn.cursor() as cur:
+            cur.execute(
+                f"CREATE TEMP TABLE {quote_ident(self.table)} ({quote_ident(self._pk)} TEXT)"
+            )
+        self._open = True
+        return self
+
+    def __exit__(self, *exc: Any) -> None:
+        self.close()
+
+    def close(self) -> None:
+        """Drop the table. Must not mask the exception it is cleaning up after —
+        in an aborted transaction the ``DROP`` fails too (see `SeenKeys.close`)."""
+        if not self._open:
+            return
+        try:
+            with self._conn.cursor() as cur:
+                cur.execute(f"DROP TABLE IF EXISTS {quote_ident(self.table)}")
+        except Exception as err:
+            _log.warning(
+                "⚠️ The temporary table %s could not be cleaned up (%s). It will disappear "
+                "with the connection.",
+                self.table,
+                err,
+            )
+        self._open = False
+
+    def add(self, df: pd.DataFrame) -> int:
+        """Add a batch of keys (a frame holding the key column)."""
+        from dbextractors.core import hashing
+
+        if df.empty:
+            return 0
+        frame = pd.DataFrame({self._pk: hashing.pk_series_to_str(df[self._pk])})
+        with self._conn.cursor() as cur:
+            cur.copy_expert(
+                f"COPY {quote_ident(self.table)} ({quote_ident(self._pk)}) "
+                f"FROM STDIN (FORMAT csv, DELIMITER ',')",
+                _CsvChunkReader(frame),
+            )
+        return len(frame)
+
+    def index(self) -> None:
+        """Index and ``ANALYZE`` — without them the planner picks a nested loop."""
+        with self._conn.cursor() as cur:
+            cur.execute(f"CREATE INDEX ON {quote_ident(self.table)} ({quote_ident(self._pk)})")
+            cur.execute(f"ANALYZE {quote_ident(self.table)}")
+
+    def count_new(self, target: TargetRef) -> int:
+        """How many source keys the target does not have (counted, never fetched)."""
+        pk = quote_ident(self._pk)
+        with self._conn.cursor() as cur:
+            cur.execute(
+                f"SELECT count(*) FROM {quote_ident(self.table)} s "
+                f"WHERE NOT EXISTS (SELECT 1 FROM {qualify(target)} t WHERE t.{pk}::text = s.{pk})"
+            )
+            return int(cur.fetchone()[0])
 
 
 # --- Per-source slice: `_source`, partitions and fingerprints ----------------

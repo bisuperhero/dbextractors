@@ -52,6 +52,7 @@ MODULES = [
     "dbextractors.core.strategies.hash_diff",
     "dbextractors.core.strategies.id_watermark",
     "dbextractors.core.strategies.incremental",
+    "dbextractors.core.strategies.key_sync",
     "dbextractors.core.strategies.parent_incremental",
     "dbextractors.dialects",
     "dbextractors.dialects.base",

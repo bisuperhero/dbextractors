@@ -324,7 +324,8 @@ class FakeHashSource(FakeDialect):
         if "SHA2(" in sql:
             selected[self.hash_alias] = self._hashes(selected)
         if self._je_sken(sql):
-            selected = selected[[self.pk, self.hash_alias]]
+            # A bare ``SELECT <pk>`` (`key_sync`) has no hash to return.
+            selected = selected[[self.pk, self.hash_alias] if "SHA2(" in sql else [self.pk]]
 
         step = max(1, int(batch_size))
         for start in range(0, len(selected), step):

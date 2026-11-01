@@ -75,6 +75,7 @@ SETTINGS = {
     "incremental": {"primary_column": "id", "updated_at_column": "changed_at", "days_back": 7},
     "id_watermark": {"primary_column": "id", "primary_key_column": "id", "resume_full_load": True},
     "abra_watermark": {"primary_column": "id", "abra_id_suffixes": ["101"]},
+    "key_sync": {"primary_column": "id"},
     "parent_incremental": {
         "primary_column": "id",
         "incremental_parent_table": "orders",
@@ -174,4 +175,9 @@ def test_legacy_target_without_mandatory_columns(conn, schema, name) -> None:
     assert "_deleted_in_source" in columns, (
         f"{name}: `_deleted_in_source` is mandatory for every strategy"
     )
-    assert result.rows_written > 0, f"{name}: not a single row was written"
+    if name == "key_sync":
+        # It writes no rows by design: the source holds one key the target lacks, and
+        # that is counted, not loaded.
+        assert result.phase_metrics["new_in_source"] == 1
+    else:
+        assert result.rows_written > 0, f"{name}: not a single row was written"

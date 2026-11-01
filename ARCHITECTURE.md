@@ -43,6 +43,7 @@ src/dbextractors/
       abra_watermark.py    advance by the counter in an ABRA ERP record ID
       full_by_source.py    partitioning of the target by source (MSSQL only so far)
       parent_incremental.py window taken from a parent table (Firebird only so far)
+      key_sync.py          deletions only: compare primary keys, fetch no rows
 
   dialects/
     base.py                SourceDialect ABC
@@ -156,6 +157,7 @@ Notes from the existing code:
 | `abra_watermark` | ABRA ERP tables with no change timestamp | — |
 | `full_by_source` | one target table fed from several sources | 16 |
 | `parent_incremental` | window taken from a parent table (Firebird) | 24 |
+| `key_sync` | deletions only, next to a loader that keeps content current | — |
 
 `hash_diff` is both the dominant and the most expensive one — today it is
 **O(source rows, not changed rows)**, ~15,000 rows/s. Optimising this single strategy

@@ -11,6 +11,7 @@ How many tables each one serves in production today:
 | ``abra_watermark`` | ABRA ERP tables with no change timestamp: new records by the ID counter | — |
 | ``full_by_source`` | one target table assembled from several sources | 16 |
 | ``parent_incremental`` | window derived from a parent table | 24 |
+| ``key_sync`` | deletions only: compare primary keys, flag what vanished, fetch nothing | — |
 
 ``hash_diff`` is both the dominant and the most expensive strategy — optimising
 this one touches ~530 tables.

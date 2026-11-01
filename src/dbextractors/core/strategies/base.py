@@ -181,7 +181,7 @@ class LoadStrategy(ABC):
     """One way of getting a table from the source into the target."""
 
     #: 'full' | 'hash_diff' | 'incremental' | 'id_watermark' | 'abra_watermark' |
-    #: 'full_by_source' | 'parent_incremental'
+    #: 'full_by_source' | 'parent_incremental' | 'key_sync'
     name: str
     #: Dialect features without which the strategy makes no sense.
     #: Checked in `validate()`, i.e. before the first read from the source.
@@ -352,6 +352,7 @@ STRATEGIES: Dict[str, str] = {
         "abra_watermark": "abra_watermark:AbraWatermarkStrategy",
         "full_by_source": "full_by_source:FullBySourceStrategy",
         "parent_incremental": "parent_incremental:ParentIncrementalStrategy",
+        "key_sync": "key_sync:KeySyncStrategy",
     }.items()
 }
 
