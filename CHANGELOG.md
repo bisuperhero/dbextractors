@@ -11,6 +11,26 @@ this package.
 
 ### Added
 
+- **`DBX_TARGET_COPY_TIMEOUT` — an upper bound for one `COPY … FROM STDIN` into
+  the target**, as a PostgreSQL duration (`300000` = ms, `300s`, `5min`). Seen in
+  production: a COPY on one connection slowed down to ~10 kB/s, every batch of a
+  full load took 15–16 minutes and the run hit the orchestrator's limit after five
+  hours, while a fresh connection loaded the same table at full speed. With the
+  bound the COPY raises `target_pg.CopyTimeoutError`, the load rolls back and the
+  orchestrator's retry starts on a new connection. Two halves: the client stops
+  feeding `copy_expert` once the bound is up (psycopg2 reads the server's answer
+  only after the last `read()`, so a server cancel alone surfaced only after all
+  data had been sent), and `SET LOCAL statement_timeout` covers the server's own
+  share; it is put back to the default right after the COPY, so the swap and the
+  rest of the transaction stay unbounded. `SET LOCAL`, not `SET` or a DSN option,
+  because the target sits behind pgbouncer in transaction mode. All five COPY
+  paths in `target_pg` go through the new `target_pg.copy_in`. An invalid value
+  raises `TargetError` before the first statement.
+
+  **Breaks:** nothing while the variable is unset. With it set, the only new
+  statements are the two `SET LOCAL` around each COPY; on an autocommit connection
+  only the client half applies.
+
 - **`load_method: key_sync` — deletion reconciliation that reads only the primary
   key.** For a table whose content is kept current by `incremental` or
   `id_watermark` and whose deletions are not tracked. The source gets one

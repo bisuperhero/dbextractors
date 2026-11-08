@@ -64,6 +64,8 @@ from __future__ import annotations
 import csv
 import json
 import logging
+import os
+import re
 import uuid
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Iterator, List, Sequence, Set, Tuple
@@ -114,6 +116,129 @@ EMPTY_STRING_AS_NULL = True
 #: memory peak independent of it. The orchestrator runs 3 pipelines side by side,
 #: so the peak is tripled.
 COPY_CHUNK_ROWS = 10_000
+
+#: Environment variable with an upper bound for one ``COPY … FROM STDIN`` into the
+#: target, as a PostgreSQL duration (``300000`` = ms, ``300s``, ``5min``). Unset or
+#: empty means no bound — the behaviour before it existed.
+#:
+#: **Why only COPY and not every statement.** Measured in production: a COPY on one
+#: connection slowed down to ~10 kB/s and every batch took 15–16 minutes, so a full
+#: load ran into the orchestrator's run limit after five hours. A fresh connection
+#: then loaded the same table at full speed. The longest healthy COPY there takes
+#: ~76 s, while the swap ``INSERT`` of the largest table takes ~290 s and keeps
+#: growing — a bound on every statement would have to sit in the narrow gap between
+#: them; a bound on COPY alone has plenty of room on both sides.
+#:
+#: **Two halves.** The client stops handing data to ``copy_expert`` once the bound is
+#: up; that is the half that actually ends a trickling COPY, because psycopg2 only
+#: reads the server's answer after the last ``read()`` — a server-side cancel alone
+#: was measured to surface only when all data had been sent. ``SET LOCAL
+#: statement_timeout`` covers the server's own share (rows already sent, the end of
+#: the COPY). ``SET LOCAL`` and not ``SET``: the target is reached through pgbouncer in
+#: transaction mode, where a session ``SET`` leaks into other clients and
+#: ``options=-c statement_timeout=…`` in the DSN is rejected as an unsupported startup
+#: parameter.
+COPY_TIMEOUT_ENV = "DBX_TARGET_COPY_TIMEOUT"
+
+_DURATION_RE = re.compile(r"^(\d+)\s*(ms|s|min|h|d)?$")
+_UNIT_SECONDS = {None: 0.001, "ms": 0.001, "s": 1, "min": 60, "h": 3600, "d": 86400}
+
+#: SQLSTATE ``query_canceled`` — a statement timeout, and also a COPY the client failed.
+_QUERY_CANCELED = "57014"
+
+
+class CopyTimeoutError(TargetError):
+    """A ``COPY … FROM STDIN`` ran past `COPY_TIMEOUT_ENV`."""
+
+
+def copy_timeout() -> str | None:
+    """The COPY bound from `COPY_TIMEOUT_ENV`, validated; ``None`` when unset.
+
+    An invalid value raises here rather than as a PostgreSQL error in the middle of a
+    load: the variable applies to every table, so a typo has to stop the first one
+    with a message that names the variable.
+    """
+    value = os.environ.get(COPY_TIMEOUT_ENV, "").strip()
+    if not value:
+        return None
+    if not _DURATION_RE.match(value):
+        raise TargetError(
+            f"{COPY_TIMEOUT_ENV}={value!r} is not a PostgreSQL duration "
+            "(examples: 300000, 300s, 5min)."
+        )
+    return value
+
+
+def _duration_seconds(value: str) -> float:
+    match = _DURATION_RE.match(value)
+    assert match is not None, value  # copy_timeout() has validated it
+    return int(match.group(1)) * _UNIT_SECONDS[match.group(2)]
+
+
+class _DeadlineReader:
+    """Passes ``read`` through to the wrapped reader until the deadline, then raises.
+
+    psycopg2 answers an exception from ``read`` with ``CopyFail``, so the COPY ends
+    at the next 8 kB piece instead of after the whole batch.
+    """
+
+    def __init__(self, reader: Any, seconds: float) -> None:
+        import time
+
+        self._reader = reader
+        self._clock = time.monotonic
+        self._deadline = self._clock() + seconds
+        self.expired = False
+
+    def _check(self) -> None:
+        if self._clock() > self._deadline:
+            self.expired = True
+            raise CopyTimeoutError(f"COPY ran past {COPY_TIMEOUT_ENV}")
+
+    def read(self, size: int | None = -1) -> str:
+        self._check()
+        return self._reader.read(size)
+
+    def readline(self, size: int | None = -1) -> str:  # pragma: no cover
+        self._check()
+        return self._reader.readline(size)
+
+
+def copy_in(cur: Any, sql: str, reader: Any) -> None:
+    """``cur.copy_expert`` with the optional bound from `COPY_TIMEOUT_ENV`.
+
+    The server half is set with ``SET LOCAL`` right before the COPY and put back to
+    the default right after it, so the rest of the transaction (the swap above all)
+    runs unbounded as before. On autocommit ``SET LOCAL`` would have no effect, so only
+    the client half applies there. Either half leaves the transaction aborted and
+    raises `CopyTimeoutError`; the caller rolls back and the step fails, so a retry
+    starts on a new connection.
+    """
+    timeout = copy_timeout()
+    if timeout is None:
+        cur.copy_expert(sql, reader)
+        return
+    guarded = _DeadlineReader(reader, _duration_seconds(timeout))
+    in_transaction = not getattr(cur.connection, "autocommit", False)
+    if in_transaction:
+        cur.execute("SET LOCAL statement_timeout = %s", (timeout,))
+    try:
+        cur.copy_expert(sql, guarded)
+    except Exception as err:
+        if guarded.expired or getattr(err, "pgcode", None) == _QUERY_CANCELED:
+            _log.error(
+                "⏱️ COPY cancelled after %s (%s); the step fails so a retry can start "
+                "on a new connection.",
+                timeout,
+                COPY_TIMEOUT_ENV,
+            )
+            raise CopyTimeoutError(
+                f"COPY cancelled after {timeout} ({COPY_TIMEOUT_ENV}): {err}"
+            ) from err
+        raise
+    if in_transaction:
+        cur.execute("SET LOCAL statement_timeout TO DEFAULT")
+
 
 #: Prefix of shadow tables. It has to be recognisable — leftovers from crashed runs
 #: are cleaned up by it.
@@ -864,7 +989,7 @@ def copy_from_stdin(
     reader = _CsvChunkReader(frame, chunk_rows)
 
     with conn.cursor() as cur:
-        cur.copy_expert(build_copy_sql(target, cols), reader)
+        copy_in(cur, build_copy_sql(target, cols), reader)
 
     return len(frame)
 
@@ -1430,8 +1555,10 @@ class SeenKeys:
         with self._conn.cursor() as cur:
             cur.execute(f"CREATE TEMP TABLE IF NOT EXISTS {quote_ident(staging)} (k TEXT)")
             cur.execute(f"TRUNCATE {quote_ident(staging)}")
-            cur.copy_expert(
-                f"COPY {quote_ident(staging)} (k) FROM STDIN (FORMAT csv, DELIMITER ',')", reader
+            copy_in(
+                cur,
+                f"COPY {quote_ident(staging)} (k) FROM STDIN (FORMAT csv, DELIMITER ',')",
+                reader,
             )
             cur.execute(
                 f"INSERT INTO {quote_ident(self._table)} (k) "
@@ -1506,7 +1633,8 @@ def apply_live_pk_snapshot(
             f"CREATE TEMP TABLE {quote_ident(temp_table)} "
             f"({quote_ident(resolved_pk)} {pk_type_sql})"
         )
-        cur.copy_expert(
+        copy_in(
+            cur,
             f"COPY {quote_ident(temp_table)} ({quote_ident(resolved_pk)}) "
             f"FROM STDIN (FORMAT csv, DELIMITER ',')",
             _live_pk_reader(live_pk_source),
@@ -1690,7 +1818,8 @@ class SourceHashSnapshot:
         )
         reader = _CsvChunkReader(frame)
         with self._conn.cursor() as cur:
-            cur.copy_expert(
+            copy_in(
+                cur,
                 f"COPY {quote_ident(self.table)} "
                 f"({quote_ident(self._pk)}, {quote_ident(self._hash)}) "
                 f"FROM STDIN (FORMAT csv, DELIMITER ',')",
@@ -1809,7 +1938,8 @@ class SourceKeySnapshot:
             return 0
         frame = pd.DataFrame({self._pk: hashing.pk_series_to_str(df[self._pk])})
         with self._conn.cursor() as cur:
-            cur.copy_expert(
+            copy_in(
+                cur,
                 f"COPY {quote_ident(self.table)} ({quote_ident(self._pk)}) "
                 f"FROM STDIN (FORMAT csv, DELIMITER ',')",
                 _CsvChunkReader(frame),

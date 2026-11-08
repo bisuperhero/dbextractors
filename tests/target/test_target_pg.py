@@ -300,6 +300,119 @@ def test_copy_without_columns_fails() -> None:
         target_pg.copy_from_stdin(None, TARGET, pd.DataFrame({"a": [1]}), [])
 
 
+# --- COPY timeout (DBX_TARGET_COPY_TIMEOUT) -----------------------------------
+
+
+class _Conn:
+    def __init__(self, autocommit: bool = False) -> None:
+        self.autocommit = autocommit
+
+
+class _Cursor:
+    """Records what `copy_in` sends; `copy_error` makes the COPY raise."""
+
+    def __init__(self, autocommit: bool = False, copy_error: Exception | None = None) -> None:
+        self.connection = _Conn(autocommit)
+        self.calls: list = []
+        self._copy_error = copy_error
+        self.drain = False  # read the data like psycopg2 does
+
+    def execute(self, sql, params=None) -> None:
+        self.calls.append(("execute", sql, params))
+
+    def copy_expert(self, sql, reader) -> None:
+        self.calls.append(("copy", sql))
+        if self._copy_error is not None:
+            raise self._copy_error
+        while self.drain and reader.read(8192):
+            pass
+
+
+class _Canceled(Exception):
+    pgcode = "57014"
+
+
+def test_copy_in_without_the_variable_is_a_plain_copy(monkeypatch) -> None:
+    monkeypatch.delenv(target_pg.COPY_TIMEOUT_ENV, raising=False)
+    cur = _Cursor()
+    target_pg.copy_in(cur, "COPY t FROM STDIN", None)
+    assert cur.calls == [("copy", "COPY t FROM STDIN")]
+
+
+def test_copy_in_bounds_only_the_copy(monkeypatch) -> None:
+    monkeypatch.setenv(target_pg.COPY_TIMEOUT_ENV, "5min")
+    cur = _Cursor()
+    target_pg.copy_in(cur, "COPY t FROM STDIN", None)
+    assert cur.calls == [
+        ("execute", "SET LOCAL statement_timeout = %s", ("5min",)),
+        ("copy", "COPY t FROM STDIN"),
+        ("execute", "SET LOCAL statement_timeout TO DEFAULT", None),
+    ]
+
+
+@pytest.mark.parametrize("value", ["300000", "300s", "5min", " 5 min "])
+def test_copy_timeout_accepts_postgres_durations(monkeypatch, value) -> None:
+    monkeypatch.setenv(target_pg.COPY_TIMEOUT_ENV, value)
+    assert target_pg.copy_timeout() == value.strip()
+
+
+@pytest.mark.parametrize("value", ["5 minutes", "-1", "five", "5m"])
+def test_an_invalid_copy_timeout_fails_before_any_statement(monkeypatch, value) -> None:
+    monkeypatch.setenv(target_pg.COPY_TIMEOUT_ENV, value)
+    cur = _Cursor()
+    with pytest.raises(target_pg.TargetError, match=target_pg.COPY_TIMEOUT_ENV):
+        target_pg.copy_in(cur, "COPY t FROM STDIN", None)
+    assert cur.calls == []
+
+
+def test_copy_in_on_autocommit_sends_no_set(monkeypatch) -> None:
+    """``SET LOCAL`` outside a transaction does nothing and a session ``SET`` would
+    leak through pgbouncer, so only the client half applies."""
+    monkeypatch.setenv(target_pg.COPY_TIMEOUT_ENV, "5min")
+    cur = _Cursor(autocommit=True)
+    target_pg.copy_in(cur, "COPY t FROM STDIN", None)
+    assert cur.calls == [("copy", "COPY t FROM STDIN")]
+
+
+@pytest.mark.parametrize(
+    ("value", "seconds"),
+    [("300000", 300), ("300s", 300), ("5min", 300), ("1h", 3600), ("250ms", 0.25)],
+)
+def test_duration_seconds_follows_postgres_units(value, seconds) -> None:
+    """A bare number is milliseconds, the default unit of ``statement_timeout``."""
+    assert target_pg._duration_seconds(value) == pytest.approx(seconds)
+
+
+class _SlowReader:
+    def __init__(self, clock: list) -> None:
+        self._clock = clock
+
+    def read(self, size: int = -1) -> str:
+        self._clock[0] += 0.4
+        return "x\n"
+
+
+def test_the_client_half_stops_a_trickling_copy(monkeypatch) -> None:
+    clock = [0.0]
+    monkeypatch.setattr("time.monotonic", lambda: clock[0])
+    monkeypatch.setenv(target_pg.COPY_TIMEOUT_ENV, "1s")
+    cur = _Cursor()
+    cur.drain = True
+    with pytest.raises(target_pg.CopyTimeoutError, match="1s"):
+        target_pg.copy_in(cur, "COPY t FROM STDIN", _SlowReader(clock))
+    assert clock[0] == pytest.approx(1.2)  # three reads, not an endless loop
+
+
+def test_a_cancelled_copy_is_reported_and_raised(monkeypatch, caplog) -> None:
+    monkeypatch.setenv(target_pg.COPY_TIMEOUT_ENV, "5min")
+    cur = _Cursor(copy_error=_Canceled("canceling statement due to statement timeout"))
+    with pytest.raises(target_pg.CopyTimeoutError):
+        target_pg.copy_in(cur, "COPY t FROM STDIN", None)
+    # The transaction is aborted: no reset is sent into it.
+    assert [c[0] for c in cur.calls] == ["execute", "copy"]
+    assert "COPY cancelled after 5min" in caplog.text
+
+
 # --- Names derived from the table -------------------------------------------
 
 

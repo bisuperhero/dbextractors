@@ -120,6 +120,54 @@ def test_copy_of_an_empty_batch_does_nothing(conn, target) -> None:
     assert target_pg.copy_from_stdin(conn, target, pd.DataFrame({"id": []}), ["id", "text"]) == 0
 
 
+class _TrickleReader:
+    """Hands psycopg2 one row per ``read`` with a pause — a COPY whose data trickles
+    in, like the stuck connection in production. Ends after ``rows`` rows, so a bound
+    that does not work fails the test instead of hanging it."""
+
+    def __init__(self, rows: int, pause_s: float) -> None:
+        self._left = rows
+        self._pause = pause_s
+        self._next_id = 100
+
+    def read(self, size: int = -1) -> str:
+        import time
+
+        if self._left <= 0:
+            return ""
+        time.sleep(self._pause)
+        self._left -= 1
+        self._next_id += 1
+        return f'"{self._next_id}","x"\n'
+
+
+def test_copy_timeout_cancels_a_trickling_copy(conn, target, monkeypatch) -> None:
+    import time
+
+    monkeypatch.setenv(target_pg.COPY_TIMEOUT_ENV, "1s")
+    started = time.monotonic()
+    with pytest.raises(target_pg.CopyTimeoutError), conn.cursor() as cur:
+        target_pg.copy_in(
+            cur,
+            target_pg.build_copy_sql(target, ["id", "text"]),
+            _TrickleReader(rows=40, pause_s=0.2),  # ~8 s unbounded
+        )
+    conn.rollback()
+    # Measured without the client half: the cancel surfaced only after all ~8 s.
+    assert time.monotonic() - started < 3
+
+
+def test_copy_timeout_does_not_outlive_the_copy(conn, target, monkeypatch) -> None:
+    """The bound covers the COPY only; the rest of the transaction (the swap) keeps
+    the default."""
+    before = _fetch(conn, "SHOW statement_timeout")
+    monkeypatch.setenv(target_pg.COPY_TIMEOUT_ENV, "5min")
+    df = pd.DataFrame({"id": [1, 2], "text": ["a", "b"]})
+    assert target_pg.copy_from_stdin(conn, target, df, ["id", "text"]) == 2
+    assert _fetch(conn, "SHOW statement_timeout") == before
+    assert _fetch(conn, f"SELECT count(*) FROM {target_pg.qualify(target)}") == [(2,)]
+
+
 # --- The target table's schema ----------------------------------------------
 
 
