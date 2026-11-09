@@ -67,6 +67,7 @@ import logging
 import os
 import re
 import uuid
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Iterator, List, Sequence, Set, Tuple
 
@@ -167,6 +168,98 @@ def copy_timeout() -> str | None:
             "(examples: 300000, 300s, 5min)."
         )
     return value
+
+
+#: Environment variable with an upper bound on how long a run waits for a lock
+#: during the DDL phase of a multi-source target (`ddl_lock`): the advisory lock
+#: itself and every table lock taken under it (``ALTER TABLE … ADD COLUMN``,
+#: ``CREATE TABLE … PARTITION OF``, ``CREATE UNIQUE INDEX``). A PostgreSQL
+#: duration; unset or empty means `DEFAULT_LOCK_TIMEOUT`.
+#:
+#: **Why a bound at all.** DDL over the parent waits for every running
+#: ``INSERT`` into it (another source's slice swap) and every reader (dbt). An
+#: unbounded wait turns a stuck reader into a stuck extraction, and every run
+#: queued behind it waits too. With the bound the run fails with a message that
+#: says what it waited for, and the next run tries again.
+LOCK_TIMEOUT_ENV = "DBX_TARGET_LOCK_TIMEOUT"
+
+#: Long enough for the slice swap of the largest multi-source table seen so far
+#: (1.4 M rows, well under a minute) many times over; short enough that a lock
+#: held by a forgotten session does not eat the whole nightly window.
+DEFAULT_LOCK_TIMEOUT = "10min"
+
+#: SQLSTATE ``lock_not_available`` — what ``lock_timeout`` raises.
+_LOCK_NOT_AVAILABLE = "55P03"
+
+
+def lock_timeout() -> str:
+    """The DDL lock bound from `LOCK_TIMEOUT_ENV`, validated; `DEFAULT_LOCK_TIMEOUT` when unset."""
+    value = os.environ.get(LOCK_TIMEOUT_ENV, "").strip()
+    if not value:
+        return DEFAULT_LOCK_TIMEOUT
+    if not _DURATION_RE.match(value):
+        raise TargetError(
+            f"{LOCK_TIMEOUT_ENV}={value!r} is not a PostgreSQL duration "
+            "(examples: 600000, 600s, 10min)."
+        )
+    return value
+
+
+def _lock_key(kind: str, name: str) -> str:
+    """The text an advisory lock is keyed by. The ``dbx:`` prefix keeps the
+    package's keys apart from anybody else's ``hashtextextended`` keys."""
+    return f"dbx:{kind}:{name}"
+
+
+@contextmanager
+def ddl_lock(conn: Any, target: TargetRef) -> Iterator[None]:
+    """One short transaction that holds the DDL lock of ``target``. Commits on exit.
+
+    Several runs may write one multi-source target at the same time — one
+    source each. Their **data** never collide (each swaps its own slice), but
+    their **DDL** does: the schema, the partitioned parent, a partition, a new
+    column, the fingerprint ledger and the unique index are all created by
+    whichever run gets there first, and two runs creating the same object
+    concurrently do not both succeed in PostgreSQL. Everything of that kind runs
+    inside this block:
+
+    - ``pg_advisory_xact_lock`` keyed by ``schema.table`` serialises the DDL of
+      one target. Transaction-scoped on purpose: the target is reached through
+      pgbouncer in transaction mode, where a session lock could outlive the run
+      on a pooled connection, and a transaction lock is released by the commit
+      or rollback that ends the block — also when the process dies.
+    - ``SET LOCAL lock_timeout`` bounds every wait inside, the advisory lock
+      included — see `LOCK_TIMEOUT_ENV`.
+    - The caller re-checks inside the block whatever it checked before it: a run
+      that waited for the lock finds the objects the previous holder created.
+
+    The block is meant to be **short**: no source reads, no streaming. The data
+    swap of a slice stays outside it, so sources do not wait for one another's
+    data. The caller must not have an open transaction it wants to keep
+    separate — the block commits it.
+    """
+    if conn.autocommit:
+        raise TargetError(
+            "ddl_lock requires autocommit to be off — the lock lives in a transaction."
+        )
+    timeout = lock_timeout()
+    key = _lock_key("ddl", f"{target.schema}.{target.table}")
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT set_config('lock_timeout', %s, true)", (timeout,))
+            cur.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))", (key,))
+        yield
+        conn.commit()
+    except Exception as err:
+        conn.rollback()
+        if getattr(err, "pgcode", None) == _LOCK_NOT_AVAILABLE:
+            raise TargetError(
+                f"Waiting for a lock on {qualify(target)} timed out after {timeout} "
+                f"({LOCK_TIMEOUT_ENV}). Another run's DDL, a running slice swap or a "
+                f"long reader holds it; the target is unchanged. Original error: "
+                f"{str(err).strip()}"
+            ) from err
+        raise
 
 
 def _duration_seconds(value: str) -> float:
@@ -394,9 +487,32 @@ def table_exists(conn: Any, target: TargetRef) -> bool:
         return cur.fetchone()[0] is not None
 
 
-def ensure_schema(conn: Any, schema: str) -> None:
-    """``CREATE SCHEMA IF NOT EXISTS`` — ``export()`` does this on every batch."""
+def schema_exists(conn: Any, schema: str) -> bool:
     with conn.cursor() as cur:
+        cur.execute("SELECT 1 FROM pg_namespace WHERE nspname = %s", (schema,))
+        return cur.fetchone() is not None
+
+
+def ensure_schema(conn: Any, schema: str) -> None:
+    """``CREATE SCHEMA IF NOT EXISTS`` — ``export()`` does this on every batch.
+
+    **Safe against a concurrent run.** Two transactions that both find the
+    schema missing and both issue ``CREATE SCHEMA IF NOT EXISTS`` do not both
+    succeed: the second one waits for the first to commit and then fails with
+    ``UniqueViolation … pg_namespace_nspname_index`` (verified on PG 17 with
+    parallel runs into a new schema). So when the schema is missing, the
+    creation is serialised by a transaction-scoped advisory lock keyed by the
+    schema name: the second run waits for the first one's commit, and its
+    ``IF NOT EXISTS`` then sees the committed schema. When the schema exists —
+    every run but the first — nothing is executed and nothing is locked.
+    """
+    if schema_exists(conn, schema):
+        return
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+            (_lock_key("schema", schema),),
+        )
         cur.execute(f"CREATE SCHEMA IF NOT EXISTS {quote_ident(schema)}")
 
 
@@ -1065,6 +1181,62 @@ def index_name(target: TargetRef, resolved_pk: str) -> str:
     return name
 
 
+_INDEX_BY_COLUMNS_SQL = """
+SELECT ic.relname
+FROM pg_index i
+JOIN pg_class ic ON ic.oid = i.indexrelid
+WHERE i.indrelid = to_regclass(%(rel)s)
+  AND (NOT %(unique)s OR i.indisunique)
+  AND i.indisvalid
+  AND i.indpred IS NULL
+  AND i.indexprs IS NULL
+  AND i.indnkeyatts = cardinality(%(columns)s::text[])
+  AND (
+    SELECT array_agg(a.attname::text)
+    FROM unnest(i.indkey[0:i.indnkeyatts - 1]) AS k(attnum)
+    JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = k.attnum
+  ) <@ %(columns)s::text[]
+ORDER BY ic.relname
+LIMIT 1
+"""
+# Compared as **sets** (same count, every key column among the wanted ones), not
+# as sorted arrays: `ORDER BY attname` follows the database collation, and under
+# glibc `en_US.UTF-8` `_source` sorts as if it were `source` — a Python-sorted
+# list would never match there.
+
+
+def find_index_on_columns(
+    conn: Any, target: TargetRef, columns: Sequence[str], *, unique: bool = True
+) -> str | None:
+    """The name of a valid index over exactly ``columns`` (in any order), or ``None``.
+
+    **By columns, not by name.** ``CREATE INDEX IF NOT EXISTS`` compares only the
+    name, and the indexes already in the targets do not all carry the name this
+    package would give them: the predecessor's multi-source targets have
+    ``idx_<t>_id_source_unique`` (one underscore), while
+    `index_name` of ``(id, _source)`` is ``idx_<t>_id__source_unique``. Asking by
+    name would build a second, identical unique index over the whole table on the
+    first run after an upgrade — and hold a ``ShareLock`` on it while it does.
+
+    Only an index that can do the job counts: valid (a failed ``CONCURRENTLY``
+    leaves an invalid one behind), not partial, no expressions, and — with
+    ``unique`` — unique. ``INCLUDE`` columns are not key columns and are ignored.
+    On a partitioned parent the parent's own (partitioned) index is found.
+    Answers from the catalogue only: no lock on the table.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            _INDEX_BY_COLUMNS_SQL,
+            {
+                "rel": f"{quote_ident(target.schema)}.{quote_ident(target.table)}",
+                "unique": unique,
+                "columns": sorted(set(columns)),
+            },
+        )
+        row = cur.fetchone()
+    return row[0] if row else None
+
+
 def create_unique_pk_index(
     conn: Any,
     target: TargetRef,
@@ -1095,6 +1267,9 @@ def create_unique_pk_index(
     Note: a unique index over a partitioned table has to contain the partition
     key. With ``partition_by_source`` the caller therefore passes ``columns=[pk,
     _source]``.
+
+    An index that already covers exactly those columns — under **any** name —
+    counts as in place; see `find_index_on_columns`. Both branches commit.
     """
     if not resolved_pk or resolved_pk not in set(all_columns_ordered):
         if resolved_pk:
@@ -1118,10 +1293,38 @@ def create_unique_pk_index(
     )
     try:
         if partitioned:
-            with conn.cursor() as cur:
-                cur.execute(query)
+            # Asked first, and by columns — see `find_index_on_columns`. Over a
+            # partitioned parent ``CREATE INDEX`` takes a ``ShareLock`` even when
+            # the index exists, so without the question every run of a
+            # one-source-per-run setup (each run is the "last source") would
+            # queue behind the other sources' running inserts.
+            existing = find_index_on_columns(conn, target, index_columns)
+            if existing is None:
+                with conn.cursor() as cur:
+                    cur.execute(query)
+            # **Committed here.** This branch used to leave the index in the
+            # caller's transaction, and `full_by_source` calls it after its last
+            # commit, after which the connection is closed — so the index was
+            # rolled back and never existed (verified: present in the session,
+            # gone after ``close()``). The plain branch below has always
+            # committed.
+            conn.commit()
+            if existing is not None:
+                _log.debug(
+                    "The unique index over %s is already in place: %s.", index_columns, existing
+                )
+                return True
         else:
             conn.commit()
+            existing = find_index_on_columns(conn, target, index_columns)
+            # Ends the transaction the question opened: psycopg2 refuses to
+            # switch to autocommit inside one.
+            conn.commit()
+            if existing is not None:
+                _log.debug(
+                    "The unique index over %s is already in place: %s.", index_columns, existing
+                )
+                return True
             original_autocommit = conn.autocommit
             conn.autocommit = True
             try:
@@ -2012,6 +2215,13 @@ def partition_name(target: TargetRef, source_label: str) -> str:
     return partitioning.partition_ref(target, _source_spec(), source_label).table
 
 
+def partition_ref_for(target: TargetRef, source_label: str) -> TargetRef:
+    """The address of one source's partition, without creating or checking it."""
+    from dbextractors.core import partitioning
+
+    return partitioning.partition_ref(target, _source_spec(), source_label)
+
+
 def create_partitioned_table(conn: Any, target: TargetRef, like: TargetRef) -> None:
     """Create the target as ``PARTITION BY LIST (_source)`` from another table's shape.
 
@@ -2029,10 +2239,48 @@ def ensure_partition(conn: Any, target: TargetRef, source_label: str) -> TargetR
 
     This is what makes a new source database self-service: it shows up in the
     control layer and its partition is created here, with no manual DDL.
+
+    **Two labels, one partition name.** The name is a slug of the label
+    (`partitioning._slug`), so ``A-B`` and ``a_b`` both map to ``<t>__a_b``. The
+    second one used to find "its" partition, truncate it — the first label's
+    rows — and then fail on the insert with ``no partition of relation … found
+    for row``, which rolled the truncate back. No data was lost, but the message
+    said nothing about labels. An existing partition is therefore checked to
+    hold **this** label, and a `TargetError` names both.
     """
     from dbextractors.core import partitioning
 
-    return partitioning.ensure_partition_for(conn, target, _source_spec(), source_label)
+    part = partitioning.ensure_partition_for(conn, target, _source_spec(), source_label)
+    holds = partition_source_value(conn, part)
+    if holds is not None and holds != source_label:
+        raise TargetError(
+            f"Source labels {holds!r} and {source_label!r} both map to partition "
+            f"{qualify(part)}, which already holds {holds!r}. Partition names are "
+            "made from the label lowercased with every other character turned into "
+            "'_'; give one of the sources a label that differs after that."
+        )
+    return part
+
+
+def partition_source_value(conn: Any, part: TargetRef) -> str | None:
+    """The one ``_source`` value a LIST partition was created for, or ``None``.
+
+    ``None`` also for anything that is not a single-value LIST partition — the
+    check in `ensure_partition` then has nothing to compare and stays out of the
+    way. Read from the partition bound through ``pg_get_expr``, which renders it
+    as ``FOR VALUES IN ('value')`` with the value as a quoted literal.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT pg_get_expr(c.relpartbound, c.oid) FROM pg_class c "
+            "JOIN pg_namespace n ON n.oid = c.relnamespace "
+            "WHERE n.nspname = %s AND c.relname = %s",
+            (part.schema, part.table),
+        )
+        row = cur.fetchone()
+    bound = row[0] if row else None
+    match = re.fullmatch(r"FOR VALUES IN \('((?:[^']|'')*)'\)", bound or "")
+    return match.group(1).replace("''", "'") if match else None
 
 
 def ensure_source_index(conn: Any, target: TargetRef) -> None:
@@ -2044,6 +2292,11 @@ def ensure_source_index(conn: Any, target: TargetRef) -> None:
     pruning.
     """
     if is_partitioned(conn, target):
+        return
+    # By columns, like the unique index: a predecessor's index over `_source`
+    # under another name does the same job, and over an existing name the
+    # catalogue question saves the ``ShareLock`` that ``CREATE INDEX`` takes.
+    if find_index_on_columns(conn, target, [SOURCE_COLUMN], unique=False) is not None:
         return
     name = f"idx_{target.table}__source"[:MAX_IDENTIFIER_LENGTH]
     with conn.cursor() as cur:
@@ -2071,6 +2324,11 @@ def replace_source_slice(
     """
     deleted = -1
     if source_label and is_partitioned(conn, target):
+        # `ensure_partition` is idempotent: in `full_by_source` the DDL phase has
+        # already created the partition under the target's lock, so here it is a
+        # catalogue lookup and the label check, not DDL inside the swap. (The
+        # partition used to be created right here, holding the parent's lock
+        # through the whole `TRUNCATE` + `INSERT`.)
         part = ensure_partition(conn, target, source_label)
         with conn.cursor() as cur:
             cur.execute(f"TRUNCATE TABLE {qualify(part)}")
@@ -2130,9 +2388,20 @@ def ensure_fingerprint_store(conn: Any, schema: str) -> None:
     living in the **client repository** — so the behaviour differs per repo and
     would be missing from a shared package. Here the package has its own store and
     the client has to supply nothing.
+
+    The ledger is shared by every table in the schema, so runs of **different**
+    targets race for it too — the target's `ddl_lock` does not cover them. A
+    missing ledger is therefore created under an advisory lock of its own, and an
+    existing one costs a catalogue lookup and nothing else.
     """
+    if fingerprint_store_exists(conn, schema):
+        return
     ensure_schema(conn, schema)
     with conn.cursor() as cur:
+        cur.execute(
+            "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+            (_lock_key("ledger", schema),),
+        )
         cur.execute(
             f"CREATE TABLE IF NOT EXISTS {quote_ident(schema)}.{quote_ident(FINGERPRINT_TABLE)} ("
             f"  table_name TEXT NOT NULL,"
@@ -2144,9 +2413,24 @@ def ensure_fingerprint_store(conn: Any, schema: str) -> None:
         )
 
 
+def fingerprint_store_exists(conn: Any, schema: str) -> bool:
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT to_regclass(%s)", (f"{quote_ident(schema)}.{quote_ident(FINGERPRINT_TABLE)}",)
+        )
+        return cur.fetchone()[0] is not None
+
+
 def read_fingerprint(conn: Any, target: TargetRef, source_label: str) -> str | None:
-    """The last stored fingerprint, or ``None`` when there is none."""
-    ensure_fingerprint_store(conn, target.schema)
+    """The last stored fingerprint, or ``None`` when there is none.
+
+    A missing ledger means no fingerprint — and is **not** created here. Reading
+    used to create the schema and the ledger, i.e. DDL in the read phase of a
+    run, held in an open transaction for the rest of it and racing every other
+    run into the same schema. The ledger is created where it is written.
+    """
+    if not fingerprint_store_exists(conn, target.schema):
+        return None
     with conn.cursor() as cur:
         cur.execute(
             f"SELECT fingerprint FROM {quote_ident(target.schema)}."

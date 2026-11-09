@@ -429,15 +429,17 @@ def test_the_probe_retries(dialect, monkeypatch) -> None:
 # --- Capabilities -----------------------------------------------------------
 
 
-def test_it_is_the_only_one_that_can_partition(dialect) -> None:
-    """MSSQL is the only source that today assembles the target from several databases."""
+def test_it_can_partition_and_so_can_mysql(dialect) -> None:
+    """MSSQL assembles a target from several databases; MySQL can too since 2.4.0."""
     from dbextractors.dialects.base import FEATURE_PARTITION_BY_SOURCE
+    from dbextractors.dialects.firebird import FirebirdDialect
     from dbextractors.dialects.mysql import MySQLDialect
     from dbextractors.dialects.postgres import PostgresDialect
 
     assert dialect.supports(FEATURE_PARTITION_BY_SOURCE)
-    assert not MySQLDialect().supports(FEATURE_PARTITION_BY_SOURCE)
+    assert MySQLDialect().supports(FEATURE_PARTITION_BY_SOURCE)
     assert not PostgresDialect().supports(FEATURE_PARTITION_BY_SOURCE)
+    assert not FirebirdDialect().supports(FEATURE_PARTITION_BY_SOURCE)
 
 
 def test_it_can_do_hash_diff_and_keyset(dialect) -> None:

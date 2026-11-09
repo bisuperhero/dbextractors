@@ -41,7 +41,7 @@ src/dbextractors/
       hash_diff.py         hash comparison without a CDC log
       id_watermark.py      advance by an increasing PK
       abra_watermark.py    advance by the counter in an ABRA ERP record ID
-      full_by_source.py    partitioning of the target by source (MSSQL only so far)
+      full_by_source.py    partitioning of the target by source (MSSQL, MySQL)
       parent_incremental.py window taken from a parent table (Firebird only so far)
       key_sync.py          deletions only: compare primary keys, fetch no rows
 
@@ -138,8 +138,9 @@ Firebird will not find them.
 
 Notes from the existing code:
 
-- **MSSQL** has `TOP (n)` and `OFFSET … ROWS`, not `LIMIT`. It is the only one that
-  currently has multi-source and partitioning.
+- **MSSQL** has `TOP (n)` and `OFFSET … ROWS`, not `LIMIT`. It has multi-source and
+  partitioning, as does MySQL since 2.4.0 (`full_by_source` needs nothing
+  dialect-specific beyond the generic fingerprint).
 - **Firebird** is the most distant (55 % identical). It has no hash mode at all today,
   introspection goes through the `RDB$` tables, and incremental loading is resolved
   through a parent table. **Migrate it last.**
@@ -158,6 +159,20 @@ Notes from the existing code:
 | `full_by_source` | one target table fed from several sources | 16 |
 | `parent_incremental` | window taken from a parent table (Firebird) | 24 |
 | `key_sync` | deletions only, next to a loader that keeps content current | — |
+
+**Concurrent runs over one target.** `full_by_source` is the one strategy meant to
+have several runs write one table at once (one source per run, `source_label`). Its
+DDL — schema, staging table, partitioned parent, partition, new columns, fingerprint
+ledger, unique index — runs in one short transaction under
+`target_pg.ddl_lock`: a transaction-scoped advisory lock keyed by `schema.table`
+(the target sits behind pgbouncer in transaction mode, so no session locks) with
+`SET LOCAL lock_timeout` (`DBX_TARGET_LOCK_TIMEOUT`), and everything re-checked from
+the catalogue inside. The data swap — `TRUNCATE` of the own partition, `INSERT …
+SELECT` into the parent — takes no advisory lock, so sources swap side by side.
+Measured on PG 17.10: `CREATE TABLE … PARTITION OF` and `ALTER TABLE … ADD COLUMN`
+take `AccessExclusiveLock` on the parent, `TRUNCATE` of a partition only on that
+partition, `INSERT` into the parent `RowExclusiveLock`. The schema and the ledger are
+shared by every table of a schema, so their creation has advisory locks of their own.
 
 `hash_diff` is both the dominant and the most expensive one — today it is
 **O(source rows, not changed rows)**, ~15,000 rows/s. Optimising this single strategy

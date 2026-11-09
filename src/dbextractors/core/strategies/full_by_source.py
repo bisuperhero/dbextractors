@@ -68,7 +68,11 @@ other strategies.
 from __future__ import annotations
 
 import logging
+import re
+from dataclasses import dataclass
 from typing import Any, List, Tuple
+
+import pandas as pd
 
 from dbextractors.core import status, target_pg
 from dbextractors.core.strategies.base import (
@@ -130,7 +134,14 @@ class FullBySourceStrategy(LoadStrategy):
         _log.info("🚀 Full load by source, source=%s", source_label or "-")
 
         fingerprint, parts = self._fingerprint(ctx)
-        if self._can_skip(ctx, fingerprint):
+        skip = self._can_skip(ctx, fingerprint)
+        # The read phase ends here. Reading the ledger and asking whether the
+        # target still holds the slice opened a transaction with an
+        # `AccessShareLock` on the target; left open, it would last through the
+        # whole stream, and another source's `ALTER TABLE … ADD COLUMN` — and
+        # everything queued behind it — would wait for this one's download.
+        conn.commit()
+        if skip:
             _log.info(
                 "🔕 [%s] unchanged (fingerprint %s) — skipping the fetch.",
                 source_label,
@@ -149,14 +160,11 @@ class FullBySourceStrategy(LoadStrategy):
         )
         _log.info("🔢 Rows in the source: %s", f"{estimate.rows:,}")
 
-        target_exists = target_pg.table_exists(conn, ctx.target)
-        partitioned = self._resolve_partitioning(ctx, target_exists)
-
         if estimate.rows == 0:
-            return self._empty_source(ctx, target_exists, partitioned, fingerprint, parts)
+            return self._empty_source(ctx, fingerprint, parts)
 
         batch_size = resolve_batch_size(ctx.settings, ctx.table_cfg, estimate)
-        return self._replace_slice(ctx, batch_size, partitioned, fingerprint, parts)
+        return self._replace_slice(ctx, batch_size, fingerprint, parts)
 
     # -- steps -------------------------------------------------------------
 
@@ -202,7 +210,15 @@ class FullBySourceStrategy(LoadStrategy):
             where=ctx.where,
         )
         try:
-            frame = next(iter(ctx.dialect.iter_batches(ctx.engine, sql, 1)))
+            # **Read to the end**, not `next()`: the aggregate is one row, but on
+            # MySQL the stream is an unbuffered cursor, and a generator left
+            # suspended after its first frame counts as abandoned — `_release`
+            # then cancels the query with `KILL QUERY` from a second connection
+            # and discards the first one. With one run per source and table that
+            # is a thrown-away connection per run. Draining one row costs
+            # nothing and closes the cursor normally.
+            frames = list(ctx.dialect.iter_batches(ctx.engine, sql, 1))
+            frame = frames[0]
         except Exception as err:
             _log.warning("⚠️ The fingerprint query failed (%s) — fetching normally.", err)
             return None, {}
@@ -282,119 +298,190 @@ class FullBySourceStrategy(LoadStrategy):
             )
         return already_partitioned
 
-    def _empty_source(
-        self,
-        ctx: LoadContext,
-        target_exists: bool,
-        partitioned: bool,
-        fingerprint: str | None,
-        parts: dict,
-    ) -> LoadResult:
+    def _empty_source(self, ctx: LoadContext, fingerprint: str | None, parts: dict) -> LoadResult:
         """The source reports zero rows. What happens to the target depends on whether it exists.
 
         An empty source with an **existing** target is legitimate: the database
         was emptied and its slice should disappear. With a target that does not
         exist, this **raises** unless ``empty_rows_ok`` is set — an empty read
-        must never quietly produce an empty target.
+        must never quietly produce an empty target. The first source **may** be
+        empty and the target must still come out in the right shape
+        (partitioned, when asked for).
         """
         conn = ctx.target_conn
         _log.info("🔢 Source [%s] reports 0 rows.", ctx.source_label or ctx.source.name)
 
-        if not target_exists:
-            if not _is_truthy(
-                ctx.table_cfg.get("empty_rows_ok", ctx.table_cfg.get("EMPTY_ROWS_OK", False))
-            ):
-                raise StrategyError(
-                    f"Source {ctx.source.name} in {ctx.source_label or '-'} is empty and the "
-                    f"target {ctx.target.qualified()} does not exist (empty_rows_ok=False)."
-                )
-            self._create_empty_target(ctx, partitioned)
-        elif ctx.source_label:
-            if partitioned:
-                part = target_pg.ensure_partition(conn, ctx.target, ctx.source_label)
-                with conn.cursor() as cur:
-                    cur.execute(f"TRUNCATE TABLE {target_pg.qualify(part)}")
-                _log.info("🗑️ The source went empty — partition emptied.")
-            else:
-                target_pg.ensure_source_index(conn, ctx.target)
-                with conn.cursor() as cur:
-                    cur.execute(
-                        f"DELETE FROM {target_pg.qualify(ctx.target)} "
-                        f"WHERE {target_pg.quote_ident(target_pg.SOURCE_COLUMN)} = %s",
-                        (ctx.source_label,),
-                    )
-                    _log.info("🗑️ The source went empty — %s rows deleted.", cur.rowcount)
+        target_exists = target_pg.table_exists(conn, ctx.target)
+        conn.commit()
+        if not target_exists and not _is_truthy(
+            ctx.table_cfg.get("empty_rows_ok", ctx.table_cfg.get("EMPTY_ROWS_OK", False))
+        ):
+            raise StrategyError(
+                f"Source {ctx.source.name} in {ctx.source_label or '-'} is empty and the "
+                f"target {ctx.target.qualified()} does not exist (empty_rows_ok=False)."
+            )
+
+        partitioned = False
+        if not target_exists or ctx.source_label:
+            plan = self._prepare_ddl(ctx)
+            partitioned = plan.partitioned
+            try:
+                if ctx.source_label:
+                    if partitioned:
+                        part = target_pg.partition_ref_for(ctx.target, ctx.source_label)
+                        with conn.cursor() as cur:
+                            cur.execute(f"TRUNCATE TABLE {target_pg.qualify(part)}")
+                        _log.info("🗑️ The source is empty — partition emptied.")
+                    else:
+                        with conn.cursor() as cur:
+                            cur.execute(
+                                f"DELETE FROM {target_pg.qualify(ctx.target)} "
+                                f"WHERE {target_pg.quote_ident(target_pg.SOURCE_COLUMN)} = %s",
+                                (ctx.source_label,),
+                            )
+                            _log.info("🗑️ The source is empty — %s rows deleted.", cur.rowcount)
+                target_pg.drop_shadow_table(conn, plan.staging)
+                conn.commit()
+            except Exception:
+                self._discard_staging(conn, plan.staging)
+                raise
+            if plan.created:
+                _log.info("ℹ️ empty_rows_ok — an empty target was created.")
 
         self._finish(ctx, fingerprint, parts)
         return LoadResult(
-            0, 0, self.name, data_present=False, phase_metrics={"fingerprint": fingerprint}
+            0,
+            0,
+            self.name,
+            data_present=False,
+            phase_metrics={"fingerprint": fingerprint, "partitioned": partitioned},
         )
 
-    def _create_empty_target(self, ctx: LoadContext, partitioned: bool) -> None:
-        """An empty target of the right shape — via a staging table when partitioned.
+    def _prepare_ddl(self, ctx: LoadContext) -> _DdlPlan:
+        """The DDL phase: everything the slice swap needs to exist, in one short transaction.
 
-        A partitioned parent cannot be produced by renaming a plain table, so the
-        shape is taken through ``LIKE``. The first source **may** be empty and
-        the target must still come out partitioned.
+        Runs under `target_pg.ddl_lock`, so concurrent runs over the same target
+        (one source each) take turns here instead of failing on one another's
+        ``CREATE``. Inside, everything is decided **again** from the catalogue —
+        a run that waited for the lock finds whatever the previous holder
+        created:
+
+        1. the schema;
+        2. on an existing target: the types it really has, the managed columns
+           and columns the source has newly started sending;
+        3. the staging table — ``LIKE`` the target when it exists, so it has
+           every column just added, otherwise from the source's types;
+        4. a missing target, shaped like the staging table: partitioned by
+           ``_source`` when asked for, plain otherwise;
+        5. this source's partition (or, on a plain multi-source target, the
+           index over ``_source``);
+        6. the fingerprint ledger, when a fingerprint is configured.
+
+        The commit at the end publishes all of it, the **empty** staging table
+        included. That is what lets the stream run without any lock on the
+        target: before, the staging table was created ``LIKE`` the target inside
+        the data transaction, which kept an ``AccessShareLock`` on the target for
+        the whole download. The cost: a process killed mid-stream leaves its
+        ``dbx_shadow_*`` behind instead of having it vanish with a rollback
+        (`target_pg.find_stale_shadows` lists them). A failure the process
+        survives drops it as before.
         """
         conn = ctx.target_conn
+        full = FullLoadStrategy()
         hash_column, _ = _hash_plan(ctx)
-        columns = _all_columns(ctx, hash_column)
-        types = column_types(ctx, hash_column)
-        types.setdefault(target_pg.SOURCE_COLUMN, target_pg.SOURCE_COLUMN_TYPE)
+        with target_pg.ddl_lock(conn, ctx.target):
+            target_pg.ensure_schema(conn, ctx.target.schema)
+            types = column_types(ctx, hash_column)
+            types.setdefault(target_pg.SOURCE_COLUMN, target_pg.SOURCE_COLUMN_TYPE)
+            # Under the lock: the column order is read off the target as it is
+            # now, not as it was before another run created or widened it.
+            columns = _all_columns(ctx, hash_column)
+            target_types: dict = {}
+            exists = target_pg.table_exists(conn, ctx.target)
+            if exists:
+                schema = target_pg.load_pg_schema(conn, ctx.target, types, _integer_columns(types))
+                target_types = dict(schema.types)
+                # **Before** the staging table: it is created `LIKE <target>`,
+                # so it inherits the target's gaps too, and the first batch's
+                # `COPY` then fails with `column "row_hash" … does not exist`.
+                # Not `full._ensure_managed_columns`: that one commits, which
+                # would end the lock half-way through.
+                target_pg.ensure_generated_columns(
+                    conn, ctx.target, include_row_hash=True, hash_column=hash_column
+                )
+                # The source may gain a column. `full_by_source` is still a full
+                # load — that source's whole slice is rewritten — so the column
+                # is adopted rather than dropped; in the other slices it is NULL.
+                full._adopt_new_columns(ctx, columns, types)
+            partitioned = self._resolve_partitioning(ctx, exists)
 
-        staging = target_pg.create_shadow_table(
-            conn, ctx.target, columns=columns, overwrite_types=types
+            staging = target_pg.create_shadow_table(
+                conn, ctx.target, columns=columns, overwrite_types=types
+            )
+            if not exists:
+                self._create_target(ctx, staging, partitioned)
+            if ctx.source_label:
+                if partitioned:
+                    target_pg.ensure_partition(conn, ctx.target, ctx.source_label)
+                else:
+                    target_pg.ensure_source_index(conn, ctx.target)
+                if _fingerprint_on(ctx):
+                    target_pg.ensure_fingerprint_store(conn, ctx.target.schema)
+        return _DdlPlan(
+            staging=staging,
+            columns=columns,
+            types=types,
+            target_types=target_types,
+            partitioned=partitioned,
+            created=not exists,
         )
-        try:
-            if partitioned:
-                target_pg.create_partitioned_table(conn, ctx.target, staging)
-                target_pg.ensure_partition(conn, ctx.target, str(ctx.source_label))
-            else:
-                target_pg.swap_shadow_table(conn, staging, ctx.target)
-        finally:
-            target_pg.drop_shadow_table(conn, staging)
-        conn.commit()
-        _log.info("ℹ️ empty_rows_ok — an empty target was created.")
+
+    def _create_target(self, ctx: LoadContext, staging: TargetRef, partitioned: bool) -> None:
+        """A missing target, shaped like the staging table. Inside the DDL phase.
+
+        The shape comes from the staging table, not from a guess: it was built
+        from the very columns about to be streamed. A partitioned parent cannot
+        be produced by renaming a plain table, so it is created through ``LIKE``;
+        the plain target is too, so the slice swap fills both the same way.
+        """
+        conn = ctx.target_conn
+        if partitioned:
+            target_pg.create_partitioned_table(conn, ctx.target, staging)
+        else:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"CREATE TABLE {target_pg.qualify(ctx.target)} "
+                    f"(LIKE {target_pg.qualify(staging)} INCLUDING DEFAULTS)"
+                )
+        _log.info(
+            "📝 Target %s did not exist — created from the staging table.",
+            ctx.target.qualified(),
+        )
 
     def _replace_slice(
         self,
         ctx: LoadContext,
         batch_size: int,
-        partitioned: bool,
         fingerprint: str | None,
         parts: dict,
     ) -> LoadResult:
         """Stream the source into a staging table and swap the target's slice for it.
 
-        A failure mid-stream therefore leaves the target **untouched** — unlike
-        `full`, where the whole table is swapped, only a slice is swapped here,
-        so the other databases do not lose their rows even on a failure.
+        A failure mid-stream therefore leaves the target's data **untouched** —
+        unlike `full`, where the whole table is swapped, only a slice is swapped
+        here, so the other databases do not lose their rows even on a failure.
+
+        Three transactions: the DDL phase (`_prepare_ddl`, under the target's
+        lock), the stream into the staging table (no lock on the target), and
+        the swap — ``TRUNCATE`` of this source's partition plus ``INSERT …
+        SELECT`` — which takes no advisory lock, so sources swap side by side.
         """
         conn = ctx.target_conn
         full = FullLoadStrategy()
         hash_column, compute_hash = _hash_plan(ctx)
-        columns = _all_columns(ctx, hash_column)
 
-        types = column_types(ctx, hash_column)
-        types.setdefault(target_pg.SOURCE_COLUMN, target_pg.SOURCE_COLUMN_TYPE)
-        if target_pg.table_exists(conn, ctx.target):
-            target_pg.load_pg_schema(conn, ctx.target, types, _integer_columns(types))
-            # **Before** the staging table: it is created with `LIKE <target>`,
-            # so it inherits the target's gaps too, and the first batch's `COPY`
-            # then fails with `column "row_hash" … does not exist`. When the
-            # target does not exist yet, the shape comes from `overwrite_types`
-            # and there is nothing to add.
-            full._ensure_managed_columns(ctx, hash_column)
-            # The source may gain a column. `full_by_source` is still a full load
-            # — that source's whole slice is rewritten — so the column is adopted
-            # rather than dropped. Same ordering and same reason as the line
-            # above.
-            full._adopt_new_columns(ctx, columns, types)
-
-        staging = target_pg.create_shadow_table(
-            conn, ctx.target, columns=columns, overwrite_types=types
-        )
+        plan = self._prepare_ddl(ctx)
+        staging, columns, types = plan.staging, plan.columns, plan.types
         rows_read = rows_written = 0
         deleted = 0
         # `parts["count"]` is the row count from the fingerprint — when the
@@ -403,16 +490,28 @@ class FullBySourceStrategy(LoadStrategy):
         progress = status.BatchProgress(
             _log, total_rows=parts.get("count"), phase=ctx.source_label or self.name
         )
+        lossy = _columns_of_another_type(ctx, plan)
         try:
-            for batch in full.read_batches(ctx, hash_column, batch_size, compute_hash=compute_hash):
-                rows_read += len(batch)
-                export_df = full._prepare(ctx, batch, hash_column, types, compute_hash=compute_hash)
-                if ctx.source_label:
-                    export_df[target_pg.SOURCE_COLUMN] = ctx.source_label
-                if export_df.empty:
-                    continue
-                target_pg.copy_from_stdin(conn, staging, export_df, columns)
-                progress.tick(rows_read)
+            try:
+                for batch in full.read_batches(
+                    ctx, hash_column, batch_size, compute_hash=compute_hash
+                ):
+                    rows_read += len(batch)
+                    export_df = full._prepare(
+                        ctx, batch, hash_column, types, compute_hash=compute_hash
+                    )
+                    _check_nothing_was_lost(ctx, plan, lossy, batch, export_df)
+                    if ctx.source_label:
+                        export_df[target_pg.SOURCE_COLUMN] = ctx.source_label
+                    if export_df.empty:
+                        continue
+                    target_pg.copy_from_stdin(conn, staging, export_df, columns)
+                    progress.tick(rows_read)
+            except Exception as err:
+                explained = _explain_type_mismatch(ctx, err, plan)
+                if explained is None:
+                    raise
+                raise explained from err
 
             if rows_read == 0:
                 # The estimate reported rows, but the source returned not one.
@@ -422,19 +521,13 @@ class FullBySourceStrategy(LoadStrategy):
                     "but streamed none — refusing to swap the slice in the target."
                 )
 
-            self._prepare_target(ctx, staging, partitioned)
             deleted, rows_written = target_pg.replace_source_slice(
                 conn, ctx.target, staging, columns, ctx.source_label
             )
             target_pg.drop_shadow_table(conn, staging)
             conn.commit()
         except Exception:
-            conn.rollback()
-            try:
-                target_pg.drop_shadow_table(conn, staging)
-                conn.commit()
-            except Exception as cleanup_err:
-                _log.warning("⚠️ The staging table could not be cleaned up: %s", cleanup_err)
+            self._discard_staging(conn, staging)
             raise
 
         self._finish(ctx, fingerprint, parts)
@@ -446,42 +539,47 @@ class FullBySourceStrategy(LoadStrategy):
             phase_metrics={
                 "fingerprint": fingerprint,
                 "deleted": deleted,
-                "partitioned": partitioned,
+                "partitioned": plan.partitioned,
                 "source": ctx.source_label,
             },
         )
 
-    def _prepare_target(self, ctx: LoadContext, staging: TargetRef, partitioned: bool) -> None:
-        """Make sure the target exists and has every column the staging table streamed."""
-        conn = ctx.target_conn
-        if not target_pg.table_exists(conn, ctx.target):
-            if partitioned:
-                target_pg.create_partitioned_table(conn, ctx.target, staging)
-            else:
-                # The shape comes from the staging table, not from a guess: the
-                # staging table was built from the very data about to be
-                # inserted. `replace_source_slice` fills it with the same
-                # `INSERT … SELECT` as for an existing target, so that path does
-                # not fork.
-                with conn.cursor() as cur:
-                    cur.execute(
-                        f"CREATE TABLE {target_pg.qualify(ctx.target)} "
-                        f"(LIKE {target_pg.qualify(staging)} INCLUDING DEFAULTS)"
-                    )
-            _log.info(
-                "📝 Target %s did not exist — created from the staging table.",
-                ctx.target.qualified(),
-            )
+    @staticmethod
+    def _discard_staging(conn: Any, staging: TargetRef) -> None:
+        """Roll back and drop the staging table. Never replaces the error that got here.
 
-        if ctx.source_label:
-            target_pg.ensure_source_index(conn, ctx.target)
+        The staging table was committed in the DDL phase, so the rollback alone
+        no longer removes it.
+        """
+        conn.rollback()
+        try:
+            target_pg.drop_shadow_table(conn, staging)
+            conn.commit()
+        except Exception as cleanup_err:
+            conn.rollback()
+            _log.warning("⚠️ The staging table could not be cleaned up: %s", cleanup_err)
 
     def _finish(self, ctx: LoadContext, fingerprint: str | None, parts: dict) -> None:
-        """The fingerprint and the unique index. Both only **after** a successful transfer."""
+        """The fingerprint and the unique index. Both only **after** a successful transfer.
+
+        Neither may turn a source whose data is already in the target into a
+        failed one: the fingerprint is an optimisation (failing to store it
+        means the next run fetches again), and the index is created with
+        ``fatal=False``.
+        """
         conn = ctx.target_conn
         if fingerprint and ctx.source_label:
-            target_pg.write_fingerprint(conn, ctx.target, ctx.source_label, fingerprint, parts)
-            conn.commit()
+            try:
+                target_pg.write_fingerprint(conn, ctx.target, ctx.source_label, fingerprint, parts)
+                conn.commit()
+            except Exception as err:
+                conn.rollback()
+                _log.warning(
+                    "⚠️ [%s] the fingerprint could not be stored (%s) — the data is in "
+                    "the target; the next run will fetch this source again.",
+                    ctx.source_label,
+                    err,
+                )
 
         if not ctx.is_last_source:
             return
@@ -491,12 +589,205 @@ class FullBySourceStrategy(LoadStrategy):
         # The index spans the pair (pk, _source): the same key recurs across
         # different databases, so on its own it is not unique.
         index_columns = [pk, target_pg.SOURCE_COLUMN] if ctx.source_label else [pk]
+        if target_pg.is_partitioned(conn, ctx.target):
+            # Under the DDL lock: concurrent sources must not race to create the
+            # same index. `create_unique_pk_index` asks the catalogue first (by
+            # columns), so once the index exists this costs a lookup and no
+            # `ShareLock`; it commits, which also releases the lock.
+            conn.commit()
+            try:
+                with target_pg.ddl_lock(conn, ctx.target):
+                    target_pg.create_unique_pk_index(
+                        conn, ctx.target, pk, ctx.target_names, fatal=False, columns=index_columns
+                    )
+            except Exception as err:  # the data is committed; the index must not fail it
+                _log.error(
+                    "🛑 The unique index over %s could not be created: %s", index_columns, err
+                )
+            return
         target_pg.create_unique_pk_index(
             conn, ctx.target, pk, ctx.target_names, fatal=False, columns=index_columns
         )
 
 
+@dataclass(frozen=True)
+class _DdlPlan:
+    """What the DDL phase created and decided, for the stream and the swap."""
+
+    staging: TargetRef
+    columns: List[str]
+    types: dict
+    #: The target's own column types as they were before this run — empty for a
+    #: target this run created. For explaining a type mismatch.
+    target_types: dict
+    partitioned: bool
+    created: bool
+
+
 # --- Helper functions -------------------------------------------------------
+
+
+def _fingerprint_on(ctx: LoadContext) -> bool:
+    """Is a fingerprint configured? The same test `_fingerprint` applies."""
+    mode = str((ctx.fingerprint_cfg or {}).get("mode") or "off").lower()
+    return mode not in ("off", "none", "")
+
+
+#: SQLSTATE class 22, "data exception": a value the target column type cannot
+#: hold (invalid text for a number, out of range, a bad date, …).
+_DATA_EXCEPTION_CLASS = "22"
+
+#: The column a ``COPY`` failed on, from the error context PostgreSQL attaches:
+#: ``COPY dbx_shadow_…, line 1, column label: "abc"``.
+_COPY_COLUMN_RE = re.compile(r"COPY [^,]+, line \d+, column ([^:]+):")
+
+
+def _explain_type_mismatch(ctx: LoadContext, err: Exception, plan: _DdlPlan) -> Exception | None:
+    """A readable error for a source column whose values the target's type rejects.
+
+    The schema of the sources may differ for a while (a rollout reaches one
+    tenant before another). A column **missing** in this source is NULL in its
+    slice, and a column **only** this source has is adopted; but a column the
+    target already has with a type this source's values do not fit fails the
+    ``COPY`` into the staging table — before the swap, so the target and the
+    other slices are unchanged. PostgreSQL's message names the column at best
+    and neither type nor source; this names all of them.
+
+    Returns ``None`` when ``err`` is something else — the caller re-raises it
+    unchanged. Only explains, never decides: the run fails either way.
+    """
+    if not str(getattr(err, "pgcode", None) or "").startswith(_DATA_EXCEPTION_CLASS):
+        return None
+    diag = getattr(err, "diag", None)
+    context = str(getattr(diag, "context", None) or "")
+    match = _COPY_COLUMN_RE.search(context)
+    label = ctx.source_label or ctx.source.name
+    if not match:
+        return StrategyError(f"[{label}] a source value does not fit the target column: {err}")
+
+    column = match.group(1).strip()
+    source_type = next(
+        (
+            f"{c.source_type} (→ {c.pg_type})"
+            for c in ctx.columns
+            if (c.target_name or c.name) == column
+        ),
+        "unknown",
+    )
+    target_type = plan.target_types.get(column) or plan.types.get(column) or "unknown"
+    detail = str(getattr(diag, "message_primary", None) or err).strip()
+    return StrategyError(
+        f"[{label}] column {column!r}: the source type {source_type} does not fit the "
+        f"target column type {target_type} of {ctx.target.qualified()} — {detail}. "
+        "Nothing was written: the target and the other sources' slices are unchanged. "
+        "Align the column type across the sources, or change the target column by hand."
+    )
+
+
+#: Type families for telling "the same kind of column" from "another kind".
+#: Checked in order, by substring of the lowercased PostgreSQL type name.
+_TYPE_FAMILIES: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
+    ("timestamp", ("timestamp",)),
+    ("date", ("date",)),
+    ("time", ("time", "interval")),
+    ("boolean", ("bool",)),
+    ("integer", ("smallint", "integer", "bigint", "int2", "int4", "int8", "serial")),
+    ("number", ("numeric", "decimal", "real", "double", "float", "money")),
+    ("binary", ("bytea",)),
+    ("json", ("json",)),
+    ("uuid", ("uuid",)),
+    ("text", ("char", "text", "citext", "name")),
+)
+
+
+def _type_family(pg_type: str | None) -> str:
+    text = str(pg_type or "").lower()
+    for family, needles in _TYPE_FAMILIES:
+        if any(needle in text for needle in needles):
+            return family
+    return text or "unknown"
+
+
+def _columns_of_another_type(ctx: LoadContext, plan: _DdlPlan) -> List[Tuple[str, str, str, str]]:
+    """Columns the target already has with another kind of type than the source's.
+
+    ``[(batch column, target column, source type, target type)]``. Only these can
+    lose values on the way: the conversion layer converts a batch to the
+    **target's** types (`target_pg.load_pg_schema`), and a value that does not
+    convert — text into an integer column — becomes NULL there without a word.
+    Columns of the same family (``integer``/``bigint``, ``varchar``/``text``,
+    ``timestamp``/``timestamptz``) are left alone.
+    """
+    if not plan.target_types:
+        return []
+    out = []
+    for column in ctx.columns:
+        target_name = column.target_name or column.name
+        target_type = plan.target_types.get(target_name)
+        if target_type is None:
+            continue
+        if _type_family(column.pg_type) != _type_family(target_type):
+            # The batch is compared **before** `_prepare` renames it, so it still
+            # carries the source name.
+            batch_name = column.name
+            source_type = f"{column.source_type} (→ {column.pg_type})"
+            out.append((batch_name, target_name, source_type, target_type))
+    return out
+
+
+def _present(values: pd.Series) -> Any:
+    """Which values carry something: not NULL and not an empty string.
+
+    An empty string becomes NULL in the target whatever the column type (see
+    `target_pg.EMPTY_STRING_AS_NULL`), so its turning into NULL is not a loss.
+    """
+    blank = values.map(lambda v: isinstance(v, str) and not v.strip())
+    return (values.notna() & ~blank.astype(bool)).to_numpy()
+
+
+def _check_nothing_was_lost(
+    ctx: LoadContext,
+    plan: _DdlPlan,
+    lossy: List[Tuple[str, str, str, str]],
+    batch: pd.DataFrame,
+    export_df: pd.DataFrame,
+) -> None:
+    """Fail the source when a value would be written as NULL because of the target's type.
+
+    Sources whose schemas differ for a while (a rollout reaches one tenant before
+    another) must not quietly blank a column in their slice: the run fails, before
+    the swap, so the target and the other slices stay as they were, and the
+    message names the column, both types and the source. Decided by the values,
+    not by the types alone — a text column holding only numbers still loads into
+    an integer column, as it always has.
+
+    **Only for a run with a configured** ``source_label``. Without one — the
+    multi-source loop over ``DATABASES`` from before 2.4.0 — the same finding is a
+    warning and the values are written as before: failing those runs now would
+    change the behaviour of configurations that exist, which a new version must
+    not do.
+    """
+    if not lossy or len(batch) != len(export_df):
+        return
+    for batch_name, target_name, source_type, target_type in lossy:
+        if batch_name not in batch.columns or target_name not in export_df.columns:
+            continue
+        lost = int((_present(batch[batch_name]) & ~_present(export_df[target_name])).sum())
+        if not lost:
+            continue
+        message = (
+            f"[{ctx.source_label or ctx.source.name}] column {target_name!r}: {lost} value(s) of "
+            f"the source type {source_type} do not fit the target column type {target_type} of "
+            f"{ctx.target.qualified()} and would be written as NULL."
+        )
+        if not ctx.settings.get("source_label"):
+            _log.warning("⚠️ %s They are written as NULL, as before 2.4.0.", message)
+            continue
+        raise StrategyError(
+            f"{message} Nothing was written: the target and the other sources' slices are "
+            "unchanged. Align the column type across the sources, or change the target "
+            "column by hand."
+        )
 
 
 def _hash_plan(ctx: LoadContext) -> Tuple[str, bool]:

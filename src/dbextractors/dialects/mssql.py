@@ -134,7 +134,7 @@ BINARY_TYPES: frozenset = frozenset({"image", "binary", "varbinary"})
 
 
 class MSSQLDialect(DictTypeMapDialect):
-    """Adapter for MSSQL. The only dialect that knows partitioning and multi-source today."""
+    """Adapter for MSSQL. Knows partitioning and multi-source, as does MySQL since 2.4.0."""
 
     name: str = "mssql"
     default_port: int = 1433

@@ -7,6 +7,155 @@ Every release is tagged, and the tag is what a deployment pins in `requirements.
 **Every change carries a note on what it breaks** — roughly 670 tables depend on
 this package.
 
+## [2.4.0]
+
+One target table assembled from several MySQL sources on different hosts, one
+`run()` per source, several runs at once. Motivation: one MySQL cluster per tenant,
+each with a database of the same name, reported on as one table with a source
+column — without a proxy database of union views.
+
+### Added
+
+- **`LOAD_SETTINGS.source_label` — the `_source` value of a run.** One run is one
+  slice of a shared `full_by_source` target, named by the configuration instead of
+  by the database: every tenant's database may be called the same. Given, the run
+  is multi-source whatever it selected, and the label goes verbatim into
+  `_source`, the partition name (as a slug) and the fingerprint ledger. Absent
+  (the default), everything is as before: `_source` is the database name, and only
+  in a multi-source run. Looping over the sources, their hosts and running them in
+  parallel is the caller's. `ConfigError` for: another strategy than
+  `full_by_source` (all others ignore the label and would rewrite the whole table —
+  `forced_full_load` keeps `full_by_source`, so it passes), an empty or blank or
+  non-string label, `DATABASES` with more than one entry, `multi_source: false`.
+  Read from `LOAD_SETTINGS` only. A failure is logged as `🛑 [<label>]`.
+- **`full_by_source` for MySQL/MariaDB.** `MySQLDialect` now offers
+  `FEATURE_PARTITION_BY_SOURCE`; the fingerprint is the generic one
+  (`COUNT(*)`, `MAX(pk)`, `MAX(ts)`, `SUM(CAST(… AS DECIMAL(38,6)))`), verified
+  live against MySQL 8.
+- **`SourceExtractionError.statuses`** — the status row of every source of the
+  failed run (the keys and order of `status.STATUS_COLUMNS`, error text redacted),
+  so a caller can report which source failed and why. The message and the fact
+  that no frame is returned on a failure are unchanged. New helper:
+  `status.normalize_statuses`.
+- **`DBX_TARGET_LOCK_TIMEOUT`** — an upper bound on lock waits in the DDL phase of
+  a `full_by_source` run (see Changed), a PostgreSQL duration, default `10min`. An
+  invalid value raises `TargetError` naming the variable.
+- New `target_pg` helpers: `ddl_lock`, `lock_timeout`, `find_index_on_columns`,
+  `schema_exists`, `fingerprint_store_exists`, `partition_ref_for`,
+  `partition_source_value`.
+
+### Changed
+
+- **The DDL of a `full_by_source` run happens in one short transaction under an
+  advisory lock** (`pg_advisory_xact_lock` keyed by `schema.table`, with
+  `SET LOCAL lock_timeout`): the schema, the staging table, the partitioned parent,
+  this source's partition, new and managed columns, the fingerprint ledger. Inside,
+  everything is re-checked from the catalogue, so a run that waited finds what the
+  previous one created. The slice swap (`TRUNCATE` of the own partition +
+  `INSERT … SELECT`) takes no advisory lock — sources swap side by side.
+  Transaction-scoped on purpose: the target sits behind pgbouncer in transaction
+  mode. Measured lock levels (PG 17.10): `CREATE TABLE … PARTITION OF` and
+  `ADD COLUMN` take `AccessExclusiveLock` on the parent, so they wait for running
+  swaps and readers — bounded by `DBX_TARGET_LOCK_TIMEOUT` — and no longer sit
+  inside the swap transaction; `TRUNCATE` of a partition locks only that
+  partition.
+- **The staging table is committed (empty) before the stream**, and the read phase
+  (ledger, "does the target still hold the slice") is committed before the source
+  is read. Before, the staging table was created `LIKE` the target inside the data
+  transaction, which held an `AccessShareLock` on the target for the whole
+  download, and another source's `ADD COLUMN` — and everything queued behind it —
+  waited for it.
+- `full_by_source` creates a **missing plain target** in the DDL phase, before the
+  stream, rather than after it; a stream that then fails leaves an empty target
+  (the next run fills it — no fingerprint was written).
+- **Reading a fingerprint no longer creates the schema and the ledger**; a missing
+  ledger means no fingerprint. The ledger is created in the DDL phase (and, as
+  before, when one is written), under an advisory lock of its own because every
+  table of the schema shares it. **A failure to store the fingerprint is a
+  warning**, not a failed source: the data is already in the target; the next run
+  fetches again.
+- **`ensure_schema` no longer issues `CREATE SCHEMA` for an existing schema**, and
+  creates a missing one under an advisory lock keyed by the schema — for every
+  strategy.
+- **The unique index is looked up by its columns, not by its name**, before
+  `CREATE UNIQUE INDEX` (all strategies, `create_unique_pk_index`) and before the
+  plain index over `_source` (`ensure_source_index`). The predecessor's
+  multi-source targets have `idx_<t>_id_source_unique`, while the package's name
+  for `(id, _source)` is `idx_<t>_id__source_unique`; asking by name
+  (`IF NOT EXISTS`) would have built a second, identical index over the whole
+  table on the first run after the fix below, holding a `ShareLock`. Only a valid,
+  non-partial, expression-free index over exactly those key columns counts. On a
+  partitioned parent the lookup also saves the `ShareLock` that
+  `CREATE INDEX IF NOT EXISTS` takes even when the index exists — every
+  one-source run is the "last source" and would otherwise queue behind the other
+  sources' inserts. The index of a partitioned `full_by_source` target is created
+  under the DDL lock.
+- **Two labels with the same partition name fail with both names.** `A-B` and
+  `a_b` both map to `<t>__a_b`. It failed before too — `CheckViolation: no
+  partition … found for row`, with the first label's slice intact after the
+  rollback — now it is a `TargetError` naming both labels, raised in the DDL phase
+  before the stream.
+- **A value that the target column's type cannot hold fails a labelled source**
+  instead of being written as NULL. Verified before the change: a source sending
+  `'not a number'` into a column the target has as `integer` loaded green, with
+  NULL in the slice (the conversion layer converts to the target's types with
+  `errors='coerce'`). Decided by the values, only for columns whose type family
+  (text, integer, number, date, timestamp, …) differs from the target's: a text
+  column holding only numbers loads as it always has, and an empty string is not
+  counted (it becomes NULL in every column type). The message names the source,
+  the column, both types and the count; nothing is written. **Only with a
+  configured `source_label`**; the `DATABASES` loop logs the same finding as a
+  warning and writes NULL as before. A `COPY` that rejects a value
+  (SQLSTATE class 22) is re-raised the same way.
+- `full_by_source` reads the fingerprint stream to the end instead of taking
+  `next()`: on MySQL a suspended unbuffered stream counts as abandoned and was
+  cancelled with `KILL QUERY` from a second connection, the first one discarded.
+
+### Fixed
+
+- **The unique index of a partitioned target is committed.** The partitioned branch
+  of `create_unique_pk_index` left it in the caller's transaction; `full_by_source`
+  called it after its last commit and the connection was then closed — the index
+  was rolled back and never existed (present in the session, gone after `close()`).
+  Affects every `partition_by_source` target, MSSQL included. The test that should
+  have caught it checked on the same connection; the new ones check from a fresh
+  one.
+- **Concurrent `full_by_source` runs into a new schema or a new target no longer
+  fail** with `UniqueViolation` on `pg_namespace_nspname_index` (concurrent
+  `CREATE SCHEMA IF NOT EXISTS`) or `pg_type_typname_nsp_index` (concurrent
+  `CREATE TABLE` of the parent). Different tables into one new schema, and runs
+  racing for the shared fingerprint ledger, are covered too.
+
+### Breaks
+
+- **The unique index `(pk, _source)` now really appears on partitioned
+  `full_by_source` targets** — the first run after the upgrade builds it over the
+  whole table (`ShareLock` on the parent while it builds; seconds for 0.25–2.2 M
+  rows). An index the predecessor left under another name is recognised by its
+  columns and no second one is built. From then on, **a source with a duplicate key
+  in its own slice fails** (`UniqueViolation` in the swap; its slice and the others
+  stay as they were), where it used to load. When the build itself fails on
+  existing duplicates it is only logged, as before. Check existing targets before
+  upgrading:
+
+  ```sql
+  SELECT <pk>, _source, count(*) FROM <schema>.<table>
+  GROUP BY 1, 2 HAVING count(*) > 1;
+  ```
+
+- A process killed mid-stream leaves its empty-or-partial `dbx_shadow_*` table
+  behind (it used to vanish with the rollback); `target_pg.find_stale_shadows`
+  lists them. A failure the process survives still drops it.
+- Concurrent runs that used to fail on the catalogue now wait for one another's
+  DDL, at most `DBX_TARGET_LOCK_TIMEOUT` (default 10 minutes), then fail with a
+  `TargetError` that says what they waited for.
+- Nothing else changes for an existing configuration: without `source_label`,
+  `_source`, partition names, the ledger and fingerprint skipping are identical;
+  other strategies are untouched apart from the index lookup by columns and
+  `ensure_schema`. 2.3.x logs `source_label` as an unknown key and ignores it — on
+  MySQL it then fails on `partition_by_source` anyway, so an older version cannot
+  quietly write the wrong label; pin `dbextractors>=2.4.0`.
+
 ## [2.3.0]
 
 ### Added

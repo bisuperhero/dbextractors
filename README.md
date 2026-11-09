@@ -254,6 +254,9 @@ config = {
         'surrogate_key_definition': None,   # the SQL expression that produces it
         'partition_by_source': False,       # multi-source: slices by '_source'
                                             # (shorthand for partition_by below)
+        'source_label': None,               # full_by_source only: this run's '_source' value
+                                            # instead of the database name. See "One source
+                                            # per run, under its own label".
         'partition_by': None,               # target partitioning; None = none. See "Target partitioning".
                                             # {'column': 'day', 'mode': 'range_month'}
                                             # mode: list | range_day | range_month | range_year
@@ -312,7 +315,7 @@ is the most expensive possible outcome of a typo in YAML.
 | method | for | needs from the source | what it does to the target | cost per run |
 |---|---|---|---|---|
 | `full` | small tables, or no usable key | nothing; a `primary_column` if you want dedup and an index | rebuilds it — shadow table, then `TRUNCATE` + `INSERT … SELECT` in one transaction | the whole source, every time |
-| `full_by_source` | one table fed from several databases of the same shape | `multi_source` / `DATABASES`; MSSQL only today | replaces that source's `_source` slice, leaves the other slices alone | the whole source per database, minus the ones the fingerprint skipped |
+| `full_by_source` | one table fed from several databases of the same shape | `multi_source` / `DATABASES`, or one run per source with `source_label`; MSSQL and MySQL | replaces that source's `_source` slice, leaves the other slices alone | the whole source per database, minus the ones the fingerprint skipped |
 | `incremental` | a trustworthy modification-time column | `updated_at_column`, optionally `created_at_column` | upserts the window | only the window |
 | `hash_diff` (`hash`) | no CDC log, but a stable PK | `primary_column`; source-side hashing, so not Firebird | upserts changed rows and marks keys that stopped arriving | the whole source — a hash for every row — then fetches only what changed |
 | `id_watermark` | append-only, increasing PK | an increasing `primary_column` | appends rows above `MAX(pk)` in the target | only the rows above the watermark |
@@ -368,9 +371,9 @@ zero rows plus `empty_rows_ok` would wipe a target and finish green.
 
 Several source databases of the same shape pour into one target table, partitioned
 by `_source` so that one of them can be rewritten without touching the others. 16
-tables run this way, and only MSSQL offers it today. Reach for it when you have that
-exact shape: n identical databases, one warehouse table, and a need to reload one of
-them on its own.
+tables run this way. MSSQL and, since 2.4.0, MySQL/MariaDB offer it. Reach for it
+when you have that exact shape: n identical databases, one warehouse table, and a
+need to reload one of them on its own.
 
 Rows carry `_source` regardless of how many databases a given run selected. That
 looks like a detail and is a trap: deletion is **by `_source`**, so if the column
@@ -386,6 +389,80 @@ the target still holds that slice. That second condition is not extra caution: t
 first database of a rebuilt table recreates it, so from the second one onwards the
 table exists again and the fingerprint alone would skip every remaining database. In
 the predecessor that left 3 rows of 220,972 in the target.
+
+#### One source per run, under its own label
+
+The `DATABASES` loop assumes one server. When every source is a server of its own —
+one MySQL cluster per tenant, each with a database called the same — run
+`full_by_source` **once per source** and name the slice in the configuration:
+
+```python
+config = {
+    'TABLE': {'source_name': 'contracts', 'output_schema': 'raw', 'output_name': 'contracts',
+              'empty_rows_ok': True},           # small tenants may have empty tables
+    'SOURCE_DB': {'host': '<tenant host>', 'port': 25060, 'database': 'dory',
+                  'user': '…', 'password': '…'},
+    'LOAD_SETTINGS': {
+        'load_method': 'full_by_source',
+        'primary_column': 'id',
+        'partition_by_source': True,             # always: see below
+        'source_label': 'finone',                # this run's `_source`
+    },
+    'FINGERPRINT': {'mode': 'datsave', 'primary_column': 'id',
+                    'timestamp_column': 'updating_date'},
+    'connection_mode': 'direct',
+}
+dbextractors.run(config, dialect='mysql')
+```
+
+The label goes verbatim into `_source` and into the fingerprint ledger; the partition
+is named after a slug of it (lowercase, everything else `_`), so two labels that
+differ only in case or punctuation (`A-B`, `a_b`) collide — the second fails with a
+`TargetError` naming both, and the first slice is left alone. The loop over the
+sources, their hosts and credentials is yours; a new source is a new label, and its
+partition is created on its first run. Pin `dbextractors>=2.4.0`: an older version
+logs `source_label` as an unknown key.
+
+`source_label` is a configuration error with any other strategy (they ignore it and
+would rewrite the whole table), with more than one database in `DATABASES`, with
+`multi_source: false`, and when it is empty. Always set `partition_by_source: true`:
+then each source's slice is a partition swapped with `TRUNCATE`, and a run that
+somehow arrives without a label fails in validation instead of deleting the table.
+`forced_full_load` keeps `full_by_source` (only the fingerprint is ignored).
+
+**Several runs at once.** Runs over the same target may run concurrently — from
+threads of one process (`run()` is safe to call from several threads; each thread's
+records go to the `logger` that thread passed) or from separate processes. Their data
+never meets: each swaps its own partition, side by side. Their DDL — the schema, the
+partitioned parent, a new partition, a new column, the fingerprint ledger, the unique
+index — happens in one short transaction per run under an advisory lock on the
+target, and a run that waited finds what the previous one created. Waiting is bounded
+by `DBX_TARGET_LOCK_TIMEOUT` (a PostgreSQL duration, default `10min`); creating a
+partition or adding a column waits for running slice swaps and readers of the table,
+so a new source's first run, or a new column, is the one that may wait. The swap's
+`TRUNCATE` waits for readers of its own partition: run the extraction and dbt over
+the same table at different times.
+
+**Sources whose columns differ** (a schema rollout reaches one tenant before another):
+
+- a column only this source has is added to the target; it is `NULL` in the other
+  slices;
+- a column this source lacks is `NULL` in its slice; the other slices keep theirs;
+- a column the target has with a type this source's values do not fit (text into
+  `integer`) fails **this source only**, before anything is written, with a message
+  naming the column, both types and the source. Decided by the values: text that
+  holds numbers still loads into a number column. Without `source_label` (the
+  `DATABASES` loop) this is a warning and the values are written as `NULL`, as
+  before 2.4.0.
+
+**The unique index `(pk, _source)`** is built by the first run that finds it missing
+(by its columns — an index the predecessor created under another name counts). From
+then on a source with a duplicate key fails its swap, and its slice and the others
+stay as they were. In the `DATABASES` loop it is built by the last database; when
+that one is skipped by the fingerprint or fails, the next run builds it.
+
+If a run is killed mid-stream, its staging table (`dbx_shadow_*`) stays behind;
+`target_pg.find_stale_shadows(conn, schema)` lists them.
 
 The one thing to know going in: **`row_hash` is not computed here.** The column
 exists in the target and stays `NULL`. That is deliberate — the predecessor reads
@@ -850,7 +927,7 @@ Most of the suite needs nothing but a checkout:
 
 ```bash
 make install
-make test          # ~880 tests, no database required
+make test          # ~1250 tests, no database required
 ```
 
 The rest needs databases. One command brings up the target and all four
@@ -859,7 +936,7 @@ sources, seeded:
 ```bash
 cp .env.example .env
 make db-up
-make test          # now ~1100 tests, nothing skipped
+make test          # now ~1650 tests; what still skips needs mage_ai or the predecessor sources
 make db-down
 ```
 

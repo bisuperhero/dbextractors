@@ -80,4 +80,7 @@ An unreachable source **fails the run with an exception**
 (`SourceExtractionError`), not with a row carrying `success=False` — which is why
 `error` and `success=False` exist in the shape but never reach the caller: a
 multi-source run collects them so the message can name every source that failed,
-and then raises.
+and then raises. Since 2.4.0 those rows are on the exception too:
+`err.statuses` is the list of every source's status row, in the frame's shape
+(`STATUS_COLUMNS`, in order, error text redacted) — the failed ones with
+`success=False` and `error`, the finished ones as they would have been returned.

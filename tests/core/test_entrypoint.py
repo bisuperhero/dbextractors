@@ -597,3 +597,175 @@ def test_the_configured_time_zone_reaches_the_dialect(tmp_path) -> None:
 
     assert _Dialect.seen == ["+02:00"]
     assert _user_version(engine) == 9
+
+
+# --- source_label: one run is one slice, named by the configuration -----------
+
+
+def _labelled(label: str = "finone", **load_settings: Any) -> dict:
+    return _config(
+        SOURCE_DB={"database": "dory"},
+        LOAD_SETTINGS={
+            "load_method": "full_by_source",
+            "partition_by_source": True,
+            "source_label": label,
+            **load_settings,
+        },
+    )
+
+
+def test_a_configured_label_replaces_the_database_name(no_database) -> None:
+    """Pools on different hosts all have a database called ``dory``."""
+    frame = entrypoint.run(_labelled("finone"), "mysql")
+
+    (ctx,) = no_database["contexts"]
+    assert ctx["source_label"] == "finone"
+    assert ctx["database"] == "dory", "the database is still what is read from"
+    assert frame["source"].tolist() == ["finone"]
+
+
+def test_a_label_makes_a_single_database_run_multi_source(no_database) -> None:
+    """Without the label one database means no `_source` at all."""
+    entrypoint.run(_labelled("finone", multi_source=None), "mysql")
+    assert no_database["contexts"][0]["source_label"] == "finone"
+
+
+def test_the_label_also_names_a_single_selected_database(no_database) -> None:
+    cfg = _labelled("finone")
+    cfg["DATABASES"] = ["dory"]
+    entrypoint.run(cfg, "mysql")
+
+    (ctx,) = no_database["contexts"]
+    assert (ctx["database"], ctx["source_label"]) == ("dory", "finone")
+
+
+def test_without_a_label_a_single_database_carries_no_source(no_database) -> None:
+    entrypoint.run(_config(LOAD_SETTINGS={"load_method": "full_by_source"}), "mysql")
+    assert no_database["contexts"][0]["source_label"] is None
+
+
+def test_without_a_label_the_database_names_label_the_slices(no_database) -> None:
+    """The multi-source loop of today, unchanged."""
+    entrypoint.run(
+        _config(LOAD_SETTINGS={"load_method": "full_by_source"}, DATABASES=["a", "b"]), "mysql"
+    )
+    assert [c["source_label"] for c in no_database["contexts"]] == ["a", "b"]
+
+
+def test_without_a_label_multi_source_true_labels_one_database(no_database) -> None:
+    entrypoint.run(
+        _config(LOAD_SETTINGS={"load_method": "full_by_source", "multi_source": True}), "mysql"
+    )
+    assert no_database["contexts"][0]["source_label"] == "d"
+
+
+def test_forced_full_load_keeps_the_labelled_slice(no_database) -> None:
+    """`forced_full_load` does not turn `full_by_source` into `full`, label or not."""
+    entrypoint.run(_labelled("finone"), "mysql", forced_full_load=True)
+
+    (ctx,) = no_database["contexts"]
+    assert ctx["source_label"] == "finone"
+    assert entrypoint._strategy_name("full_by_source", {"forced_full_load": True}) == (
+        "full_by_source"
+    )
+
+
+def test_a_failure_is_logged_under_the_label(no_database, monkeypatch, caplog) -> None:
+    """Otherwise every pool fails as ``[dory]`` and nobody can tell which one."""
+
+    class _AlwaysFails:
+        def run(self, ctx):
+            raise RuntimeError("source unavailable")
+
+    monkeypatch.setattr(
+        "dbextractors.core.strategies.base.resolve_strategy",
+        lambda _n, _s=None: _AlwaysFails(),
+        raising=True,
+    )
+    with (
+        caplog.at_level(logging.ERROR, logger="dbextractors.entrypoint"),
+        pytest.raises(entrypoint.SourceExtractionError) as err,
+    ):
+        entrypoint.run(_labelled("fintwo"), "mysql")
+
+    assert "[fintwo] extraction failed" in caplog.text
+    assert "[dory]" not in caplog.text
+    assert "fintwo: source unavailable" in str(err.value)
+
+
+def test_a_failure_without_a_label_is_still_logged_under_the_database(
+    no_database, monkeypatch, caplog
+) -> None:
+    class _AlwaysFails:
+        def run(self, ctx):
+            raise RuntimeError("source unavailable")
+
+    monkeypatch.setattr(
+        "dbextractors.core.strategies.base.resolve_strategy",
+        lambda _n, _s=None: _AlwaysFails(),
+        raising=True,
+    )
+    with (
+        caplog.at_level(logging.ERROR, logger="dbextractors.entrypoint"),
+        pytest.raises(entrypoint.SourceExtractionError),
+    ):
+        entrypoint.run(_config(), "mysql")
+    assert "[d] extraction failed" in caplog.text
+
+
+# --- SourceExtractionError.statuses -------------------------------------------
+
+
+def test_the_error_carries_every_status_row(no_database, monkeypatch) -> None:
+    """Which source failed and why, without parsing the message."""
+    from dbextractors.core.status import STATUS_COLUMNS
+
+    strategy = _FailsOnOne("b")
+    monkeypatch.setattr(
+        "dbextractors.core.strategies.base.resolve_strategy",
+        lambda _n, _s=None: strategy,
+        raising=True,
+    )
+    with pytest.raises(entrypoint.SourceExtractionError) as err:
+        entrypoint.run(_config(DATABASES=["a", "b", "c"]), "mysql")
+
+    statuses = err.value.statuses
+    assert [s["source"] for s in statuses] == ["a", "b", "c"]
+    assert [s["success"] for s in statuses] == [True, False, True]
+    assert all(tuple(s) == STATUS_COLUMNS for s in statuses), "the frame's columns, in order"
+    assert "source unavailable" in statuses[1]["error"]
+    assert statuses[0]["error"] is None
+
+
+def test_the_message_of_the_error_is_unchanged(no_database, monkeypatch) -> None:
+    strategy = _FailsOnOne("b")
+    monkeypatch.setattr(
+        "dbextractors.core.strategies.base.resolve_strategy",
+        lambda _n, _s=None: strategy,
+        raising=True,
+    )
+    with pytest.raises(entrypoint.SourceExtractionError) as err:
+        entrypoint.run(_config(DATABASES=["a", "b"]), "mysql")
+    assert str(err.value) == "1 of 2 sources failed extracting s.target → b: source unavailable"
+
+
+def test_the_error_can_still_be_raised_with_a_message_alone() -> None:
+    """Callers and tests that construct it themselves keep working."""
+    err = entrypoint.SourceExtractionError("boom")
+    assert str(err) == "boom"
+    assert err.statuses == []
+
+
+def test_the_statuses_have_the_password_redacted(no_database, monkeypatch) -> None:
+    class _LeaksThePassword:
+        def run(self, ctx):
+            raise RuntimeError("login failed for password p4ssw0rd-secret")
+
+    monkeypatch.setattr(
+        "dbextractors.core.strategies.base.resolve_strategy",
+        lambda _n, _s=None: _LeaksThePassword(),
+        raising=True,
+    )
+    with pytest.raises(entrypoint.SourceExtractionError) as err:
+        entrypoint.run(_config(SOURCE_DB={"password": "p4ssw0rd-secret"}), "mysql")
+    assert "p4ssw0rd-secret" not in str(err.value.statuses)

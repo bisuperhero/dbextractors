@@ -86,7 +86,18 @@ class SourceExtractionError(EntrypointError):
     predecessors arrived at it the same way — failures used to be collected into
     the status frame and the block ended green even when whole databases were
     missing from the target.
+
+    ``statuses`` holds the status row of **every** source of the run, the failed
+    ones and the ones that finished — the same rows, keys and order
+    (`status.STATUS_COLUMNS`) as the frame a successful run returns, which this
+    exception replaces. A caller that runs sources in parallel can report which
+    one failed and why without parsing the message. The message itself is
+    unchanged.
     """
+
+    def __init__(self, message: str, statuses: List[dict] | None = None) -> None:
+        super().__init__(message)
+        self.statuses: List[dict] = list(statuses or [])
 
 
 def resolve_dialect(name: str):
@@ -157,6 +168,14 @@ def _run(config: dict, dialect: str, kwargs: dict) -> pd.DataFrame:
     multi = parsed.load_settings.multi_source
     if multi is None:
         multi = len(databases) > 1
+    #: A configured label names this run's slice instead of the database —
+    #: sources on different hosts may share one database name. It makes the run
+    #: multi-source on its own; `config.validate` has refused the combinations
+    #: where it would be ambiguous (several databases, ``multi_source: false``,
+    #: a strategy that ignores it).
+    configured_label = parsed.load_settings.source_label
+    if configured_label is not None:
+        multi = True
 
     target_label = f"{parsed.table.output_schema}.{parsed.table.output_table}"
     statuses: List[dict] = []
@@ -173,7 +192,7 @@ def _run(config: dict, dialect: str, kwargs: dict) -> pd.DataFrame:
         show_debug=parsed.debug,
     ) as address:
         for index, database in enumerate(databases):
-            source_label = database if multi else None
+            source_label = configured_label or (database if multi else None)
             try:
                 statuses.append(
                     _run_one(
@@ -207,7 +226,9 @@ def _run(config: dict, dialect: str, kwargs: dict) -> pd.DataFrame:
                     # it can be — the text is the same, the chained `__cause__`
                     # frames included.
                     "🛑 [%s] extraction failed.\n%s",
-                    database,
+                    # The label, when there is one: sources sharing a database
+                    # name would otherwise all fail as the same `[dory]`.
+                    source_label or database,
                     secrets.redact(_format_traceback(err), extra=[secret]),
                 )
                 safe = secrets.redact(err, extra=[secret])
@@ -217,7 +238,8 @@ def _run(config: dict, dialect: str, kwargs: dict) -> pd.DataFrame:
     if failed:
         detail = "; ".join(f"{s.get('source') or '-'}: {s.get('error')}" for s in failed)
         raise SourceExtractionError(
-            f"{len(failed)} of {len(statuses)} sources failed extracting {target_label} → {detail}"
+            f"{len(failed)} of {len(statuses)} sources failed extracting {target_label} → {detail}",
+            statuses=status_module.normalize_statuses(statuses),
         )
 
     return status_module.build_status_df(statuses)

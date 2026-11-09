@@ -179,8 +179,8 @@ def test_firebird_cannot_do_hash_diff() -> None:
         dialect.render_hash_expr(["a", "b"], "row_hash")
 
 
-def test_mssql_is_the_only_dialect_with_partitioning() -> None:
-    """See ARCHITECTURE.md: MSSQL alone has multi-source and partitioning."""
+def test_mssql_and_mysql_are_the_dialects_with_partitioning() -> None:
+    """See ARCHITECTURE.md: MSSQL and, since 2.4.0, MySQL have multi-source and partitioning."""
     from dbextractors.dialects.base import FEATURE_PARTITION_BY_SOURCE
     from dbextractors.dialects.firebird import FirebirdDialect
     from dbextractors.dialects.mssql import MSSQLDialect
@@ -192,7 +192,7 @@ def test_mssql_is_the_only_dialect_with_partitioning() -> None:
         for d in (MySQLDialect(), MSSQLDialect(), PostgresDialect(), FirebirdDialect())
         if d.supports(FEATURE_PARTITION_BY_SOURCE)
     ]
-    assert with_partitioning == ["mssql"]
+    assert with_partitioning == ["mysql", "mssql"]
 
 
 # --- Quoting --------------------------------------------------------------

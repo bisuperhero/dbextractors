@@ -687,6 +687,11 @@ def _full_config() -> dict:
     }
 
 
+#: LOAD_SETTINGS keys that cannot be part of `_full_config` and have a roundtrip
+#: test of their own.
+_KEYS_WITH_OWN_ROUNDTRIP = {"source_label"}
+
+
 def test_the_full_config_covers_the_whole_frozen_contract() -> None:
     """The roundtrip below is only as strong as its input.
 
@@ -696,7 +701,11 @@ def test_the_full_config_covers_the_whole_frozen_contract() -> None:
     """
     cfg = _full_config()
     assert set(cfg["TABLE"]) == set(config.TABLE_KEYS)
-    assert set(cfg["LOAD_SETTINGS"]) == set(config.LOAD_SETTINGS_KEYS)
+    # `source_label` cannot sit in this config: it is valid only with
+    # `full_by_source`, and the config below is `incremental`. Its roundtrip is
+    # `test_source_label_roundtrip`; the subtraction is explicit so that the
+    # next key does not slip through the same way.
+    assert set(cfg["LOAD_SETTINGS"]) | _KEYS_WITH_OWN_ROUNDTRIP == set(config.LOAD_SETTINGS_KEYS)
     assert set(cfg["SOURCE_DB"]) == set(config.SOURCE_DB_KEYS)
 
 
@@ -1048,3 +1057,115 @@ def test_source_db_time_zone_is_a_known_key(caplog) -> None:
         config.parse(cfg)
 
     assert not [r for r in caplog.records if "time_zone" in r.getMessage()]
+
+
+# --- source_label -----------------------------------------------------------
+#
+# One run is one slice of a shared `full_by_source` target, named by the
+# configuration instead of by the database. Each error below would otherwise
+# end in quiet damage, not in a failure.
+
+
+def _labelled(load_settings: dict | None = None, **top) -> dict:
+    cfg = {
+        "TABLE": {"source_name": "t", "output_schema": "raw", "output_name": "t"},
+        "SOURCE_DB": {"user": "u", "password": "p", "host": "h", "database": "dory"},
+        "LOAD_SETTINGS": {
+            "load_method": "full_by_source",
+            "partition_by_source": True,
+            "source_label": "finone",
+            **(load_settings or {}),
+        },
+    }
+    cfg.update(top)
+    return cfg
+
+
+def test_source_label_roundtrip() -> None:
+    assert config.parse(_labelled()).load_settings.source_label == "finone"
+
+
+def test_source_label_is_written_verbatim() -> None:
+    """The label goes into `_source` as given; only the partition name is a slug."""
+    parsed = config.parse(_labelled({"source_label": "Fin-One "}))
+    assert parsed.load_settings.source_label == "Fin-One "
+
+
+def test_a_missing_source_label_is_none() -> None:
+    cfg = _labelled()
+    del cfg["LOAD_SETTINGS"]["source_label"]
+    assert config.parse(cfg).load_settings.source_label is None
+
+
+def test_source_label_is_a_known_key(caplog) -> None:
+    with caplog.at_level(logging.WARNING, logger="dbextractors.core.config"):
+        config.parse(_labelled())
+    assert "source_label" not in caplog.text
+
+
+def test_source_label_is_not_read_from_table() -> None:
+    """Unlike `partition_by_source`/`multi_source`, it has no older spelling in TABLE."""
+    cfg = _labelled()
+    del cfg["LOAD_SETTINGS"]["source_label"]
+    cfg["TABLE"]["source_label"] = "finone"
+    assert config.parse(cfg).load_settings.source_label is None
+
+
+@pytest.mark.parametrize(
+    "method", ["full", "hash", "hash_diff", "incremental", "key_sync", "id_watermark"]
+)
+def test_source_label_with_another_strategy_is_an_error(method) -> None:
+    """Those strategies ignore the label and would rewrite the whole table."""
+    with pytest.raises(config.ConfigError, match="source_label works only with load_method"):
+        config.parse(_labelled({"load_method": method}))
+
+
+def test_source_label_strategy_check_ignores_case_and_spaces() -> None:
+    parsed = config.parse(_labelled({"load_method": " Full_By_Source "}))
+    assert parsed.load_settings.source_label == "finone"
+
+
+@pytest.mark.parametrize("label", ["", "   ", "\t\n"])
+def test_an_empty_source_label_is_an_error(label) -> None:
+    with pytest.raises(config.ConfigError, match="source_label is empty"):
+        config.parse(_labelled({"source_label": label}))
+
+
+@pytest.mark.parametrize("label", [5, ["finone"], True])
+def test_a_source_label_that_is_not_a_string_is_an_error(label) -> None:
+    with pytest.raises(config.ConfigError, match="must be a string"):
+        config.parse(_labelled({"source_label": label}))
+
+
+def test_source_label_with_several_databases_is_an_error() -> None:
+    with pytest.raises(config.ConfigError, match="DATABASES lists 2"):
+        config.parse(_labelled(DATABASES=["dory_a", "dory_b"]))
+
+
+@pytest.mark.parametrize("databases", [["dory"], []])
+def test_source_label_with_one_or_no_database_is_fine(databases) -> None:
+    """One database is the label's case; an empty list is "nothing selected"."""
+    parsed = config.parse(_labelled(DATABASES=databases))
+    assert parsed.load_settings.source_label == "finone"
+
+
+def test_source_label_with_multi_source_false_is_an_error() -> None:
+    with pytest.raises(config.ConfigError, match="contradiction"):
+        config.parse(_labelled({"multi_source": False}))
+
+
+def test_source_label_with_multi_source_true_is_fine() -> None:
+    assert config.parse(_labelled({"multi_source": True})).load_settings.multi_source is True
+
+
+def test_all_source_label_errors_are_reported_at_once() -> None:
+    with pytest.raises(config.ConfigError) as info:
+        config.parse(
+            _labelled(
+                {"load_method": "full", "source_label": " ", "multi_source": False},
+                DATABASES=["a", "b"],
+            )
+        )
+    text = str(info.value)
+    for fragment in ("is empty", "works only with", "DATABASES lists 2", "contradiction"):
+        assert fragment in text

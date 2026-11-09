@@ -29,6 +29,7 @@ from .base import (
     FEATURE_ABRA_WATERMARK,
     FEATURE_HASH_DIFF,
     FEATURE_KEYSET,
+    FEATURE_PARTITION_BY_SOURCE,
     ColumnDef,
     DictTypeMapDialect,
     SizeEstimate,
@@ -56,7 +57,13 @@ class MySQLDialect(DictTypeMapDialect):
     #: Exactly as the predecessors spell it (mysql-connector-python).
     sqlalchemy_driver: str = "mysql+mysqlconnector"
     quote_char: str = "`"
-    FEATURES: frozenset = frozenset({FEATURE_KEYSET, FEATURE_HASH_DIFF, FEATURE_ABRA_WATERMARK})
+    #: ``FEATURE_PARTITION_BY_SOURCE`` since 2.4.0: one target assembled from
+    #: several MySQL sources (`full_by_source`, usually with
+    #: ``LOAD_SETTINGS.source_label``). Nothing dialect-specific is needed for
+    #: it — the fingerprint is the generic `SourceDialect.render_fingerprint`.
+    FEATURES: frozenset = frozenset(
+        {FEATURE_KEYSET, FEATURE_HASH_DIFF, FEATURE_ABRA_WATERMARK, FEATURE_PARTITION_BY_SOURCE}
+    )
 
     #: MySQL returns text as UTF-8; the cascade ``cp1250 -> utf-8`` must **not**
     #: be generalised to here (see the decision at `coerce.decode_bytes_columns`).

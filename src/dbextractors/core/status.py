@@ -61,6 +61,16 @@ def build_status_df(statuses: Sequence[dict]) -> pd.DataFrame:
     )
 
 
+def normalize_statuses(statuses: Sequence[dict]) -> list:
+    """The per-source statuses as dicts with exactly `STATUS_COLUMNS`, in that order.
+
+    The shape of one row of `build_status_df`, for a caller that gets the rows
+    without the frame — `entrypoint.SourceExtractionError.statuses`. A missing
+    key is ``None`` and an extra one is dropped, as in the frame.
+    """
+    return [{column: state.get(column) for column in STATUS_COLUMNS} for state in statuses]
+
+
 def fmt_duration(seconds: float) -> str:
     """A duration in readable form for the log. Literally the old ``_fmt_duration``.
 
@@ -175,4 +185,5 @@ __all__ = [
     "build_status_df",
     "error_status",
     "fmt_duration",
+    "normalize_statuses",
 ]

@@ -92,6 +92,16 @@ a large dbt layer is built on them.
 Superseded by `partition_by`, kept working. `partition_by_source: true` means
 exactly `partition_by: {column: _source, mode: list}`.
 
+### `source_label` (new in 2.4.0)
+
+A new key with a default that keeps today's behaviour: absent, `_source` is the
+database name, exactly as before. It is read from `LOAD_SETTINGS` only — unlike
+`partition_by_source` and `multi_source`, which are also read from `TABLE` because
+a predecessor read them there, it has no older spelling. 2.3.x and earlier log it
+as an unknown key and ignore it; on MySQL such a run fails on `partition_by_source`
+anyway, so an older version cannot quietly write a wrong label. Valid only with
+`full_by_source`; see the README.
+
 ### `primary_key_column`
 
 An alias for `primary_column`. Parsing merges the two; `primary_column` wins

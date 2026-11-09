@@ -249,3 +249,237 @@ def test_id_watermark_streams_a_mysql_delta_in_checkpoints(target_schema, caplog
             (target_schema,),
         )
         assert cur.fetchone()[0] == 0
+
+
+# --- full_by_source over MySQL: one target, several labelled sources ----------
+#
+# Dory 2 in miniature: every pool is a cluster of its own with a database of the
+# same name and the same tables. Here the pools are one table in one database,
+# reached under two host names (`127.0.0.1` and `localhost`) and split by
+# `where_clause` — the same database name, the same table name, different data;
+# only `source_label` tells the slices apart.
+
+
+@pytest.fixture
+def mysql_pools() -> Iterator[dict]:
+    """A source table with two pools' rows; dropped afterwards."""
+    import mysql.connector
+
+    params = require_source_params("mysql")
+    table = f"fbs_{uuid.uuid4().hex[:8]}"
+    conn = mysql.connector.connect(
+        host=params.get("host", "127.0.0.1"),
+        port=params.get("port", 3306),
+        user=params["user"],
+        password=params["password"],
+        database=params["database"],
+    )
+    cur = conn.cursor()
+    cur.execute(
+        f"CREATE TABLE {table} (id INT PRIMARY KEY, pool VARCHAR(8) NOT NULL, "
+        "amount DECIMAL(10,2), updating_date DATETIME NOT NULL)"
+    )
+    rows = [(1, "a", 10.5), (2, "a", 20), (3, "a", None), (4, "b", 1), (5, "b", 2)]
+    cur.executemany(
+        f"INSERT INTO {table} VALUES (%s, %s, %s, '2026-11-01 08:00:00')",
+        rows,
+    )
+    conn.commit()
+
+    def execute(sql: str) -> None:
+        cur.execute(sql.format(table=table))
+        conn.commit()
+
+    try:
+        yield {"params": params, "table": table, "execute": execute}
+    finally:
+        cur.execute(f"DROP TABLE IF EXISTS {table}")
+        conn.commit()
+        conn.close()
+
+
+def _pool_config(pools: dict, schema: str, label: str, host: str, pool: str) -> dict:
+    return {
+        "TABLE": {
+            "source_name": pools["table"],
+            "output_schema": schema,
+            "output_name": "events",
+            "where_clause": f"pool = '{pool}'",
+        },
+        "SOURCE_DB": {**pools["params"], "host": host},
+        "LOAD_SETTINGS": {
+            "load_method": "full_by_source",
+            "primary_column": "id",
+            "partition_by_source": True,
+            "source_label": label,
+        },
+        "FINGERPRINT": {
+            "mode": "datsave",
+            "primary_column": "id",
+            "timestamp_column": "updating_date",
+        },
+        "connection_mode": "direct",
+    }
+
+
+def _target_rows(schema: str, table: str = "events") -> list:
+    with psycopg2.connect(_target_dsn()) as conn, conn.cursor() as cur:
+        cur.execute(f'SELECT "_source", id, amount FROM "{schema}"."{table}" ORDER BY 1, 2')
+        return cur.fetchall()
+
+
+@pytest.mark.needs_mysql
+def test_mysql_pools_with_labels_assemble_one_target(mysql_pools, target_schema, monkeypatch):
+    """Counts, `_source`, one slice rewritten, an unchanged pool skipped, the fingerprint drained."""
+    from decimal import Decimal
+
+    from dbextractors import run
+    from dbextractors.dialects import mysql as mysql_dialect
+
+    releases: list = []
+    original_release = mysql_dialect._release
+
+    def recording_release(*args, **kwargs):
+        releases.append(kwargs["drained"])
+        return original_release(*args, **kwargs)
+
+    monkeypatch.setattr(mysql_dialect, "_release", recording_release)
+
+    finone = _pool_config(mysql_pools, target_schema, "finone", "127.0.0.1", "a")
+    fintwo = _pool_config(mysql_pools, target_schema, "fintwo", "localhost", "b")
+
+    first_a = run(finone, dialect="mysql")
+    first_b = run(fintwo, dialect="mysql")
+
+    assert first_a["source"].tolist() == ["finone"] and int(first_a["rows_written"][0]) == 3
+    assert first_b["source"].tolist() == ["fintwo"] and int(first_b["rows_written"][0]) == 2
+    assert _target_rows(target_schema) == [
+        ("finone", 1, Decimal("10.50")),
+        ("finone", 2, Decimal("20.00")),
+        ("finone", 3, None),
+        ("fintwo", 4, Decimal("1.00")),
+        ("fintwo", 5, Decimal("2.00")),
+    ]
+
+    # One pool changes upstream: only its slice is rewritten, the other is skipped.
+    mysql_pools["execute"](
+        "UPDATE {table} SET amount = 99, updating_date = '2026-11-02 08:00:00' WHERE id = 4"
+    )
+    second_a = run(finone, dialect="mysql")
+    second_b = run(fintwo, dialect="mysql")
+
+    assert second_a["load_method"].tolist() == ["unchanged"]
+    assert second_b["load_method"].tolist() == ["full_by_source"]
+    assert _target_rows(target_schema)[3] == ("fintwo", 4, Decimal("99.00"))
+    assert len(_target_rows(target_schema)) == 5
+
+    # Every stream — the fingerprint's single row included — was read to the
+    # end and closed normally, never cancelled with `KILL QUERY`.
+    assert releases and all(releases), releases
+
+    with psycopg2.connect(_target_dsn()) as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT indexname FROM pg_indexes WHERE schemaname = %s AND tablename = 'events'",
+            (target_schema,),
+        )
+        assert [r[0] for r in cur.fetchall()] == ["idx_events_id__source_unique"]
+        cur.execute(
+            f'SELECT source_label FROM "{target_schema}".dbx_source_fingerprints ORDER BY 1'
+        )
+        assert [r[0] for r in cur.fetchall()] == ["finone", "fintwo"]
+
+
+@pytest.mark.needs_mysql
+def test_mysql_pools_run_from_two_threads_at_once(mysql_pools, target_schema) -> None:
+    """`run()` called concurrently from threads of one process, each with its own logger.
+
+    The caller runs three pools side by side; this is the guarantee it relies on:
+    both runs finish, the target holds both slices, and each host logger gets
+    only its own run's records (forwarding is keyed by thread).
+    """
+    import threading
+
+    from dbextractors import run
+
+    class Captured:
+        def __init__(self) -> None:
+            self.lines: list = []
+
+        def debug(self, msg):
+            self.lines.append(msg)
+
+        info = warning = error = critical = debug
+
+    jobs = {
+        "finone": _pool_config(mysql_pools, target_schema, "finone", "127.0.0.1", "a"),
+        "fintwo": _pool_config(mysql_pools, target_schema, "fintwo", "localhost", "b"),
+    }
+    loggers = {label: Captured() for label in jobs}
+    results: dict = {}
+    barrier = threading.Barrier(len(jobs))
+
+    def worker(label: str) -> None:
+        try:
+            barrier.wait()
+            results[label] = run(jobs[label], dialect="mysql", logger=loggers[label])
+        except Exception as err:  # reported below
+            results[label] = err
+
+    threads = [threading.Thread(target=worker, args=(label,)) for label in jobs]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(120)
+
+    errors = {k: repr(v) for k, v in results.items() if isinstance(v, Exception)}
+    assert errors == {}
+    assert [r[0] for r in _target_rows(target_schema)] == ["finone"] * 3 + ["fintwo"] * 2
+    for label, other in (("finone", "fintwo"), ("fintwo", "finone")):
+        text = "\n".join(loggers[label].lines)
+        assert f"source={label}" in text, text
+        assert f"source={other}" not in text, f"{other}'s records reached {label}'s logger"
+
+
+@pytest.mark.needs_mssql
+def test_mssql_multi_source_loop_still_labels_slices_by_database(target_schema) -> None:
+    """The pre-2.4.0 shape, unchanged: no `source_label`, `_source` is the database name.
+
+    Plus the one intended difference: the unique index over ``(id, _source)`` is
+    now committed, so it is there from a fresh connection.
+    """
+    from dbextractors import run
+
+    params = require_source_params("mssql")
+    config = {
+        "TABLE": {
+            "source_name": "paged",
+            "source_schema": "dbo",
+            "output_schema": target_schema,
+            "output_name": "paged",
+        },
+        "SOURCE_DB": {k: v for k, v in params.items() if k != "database"},
+        "DATABASES": [params["database"]],
+        "LOAD_SETTINGS": {
+            "load_method": "full_by_source",
+            "primary_column": "id",
+            "partition_by_source": True,
+            "multi_source": True,
+        },
+        "FINGERPRINT": {"mode": "count", "primary_column": "id"},
+        "connection_mode": "direct",
+    }
+
+    first = run(config, dialect="mssql")
+    second = run(config, dialect="mssql")
+
+    assert first["source"].tolist() == [params["database"]]
+    assert int(first["rows_written"][0]) == 5
+    assert second["load_method"].tolist() == ["unchanged"]
+    with psycopg2.connect(_target_dsn()) as conn, conn.cursor() as cur:
+        cur.execute(f'SELECT DISTINCT "_source" FROM "{target_schema}".paged')
+        assert cur.fetchall() == [(params["database"],)]
+        cur.execute(
+            "SELECT indexname FROM pg_indexes WHERE schemaname = %s AND tablename = 'paged'",
+            (target_schema,),
+        )
+        assert [r[0] for r in cur.fetchall()] == ["idx_paged_id__source_unique"]

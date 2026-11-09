@@ -66,6 +66,10 @@ LOAD_SETTINGS_KEYS: frozenset[str] = frozenset(
         "partition_by_source",
         "partition_by",
         "multi_source",
+        # The `_source` value of a single-source run that is one slice of a
+        # shared `full_by_source` target. LOAD_SETTINGS only; see
+        # `LoadSettingsConfig.source_label`.
+        "source_label",
         "keyset_pagination",
         "resume_full_load",
         "skip_size_estimate",
@@ -304,6 +308,24 @@ class LoadSettingsConfig:
     #: strategies are meant to stay driven by a dict.
     partition_by: dict | None = None
     multi_source: bool | None = None
+    #: The value this run writes into ``_source`` — and so the name of its
+    #: partition and its row in the fingerprint ledger — instead of the database
+    #: name. ``None`` (the default) keeps the behaviour from before it existed:
+    #: ``_source`` is the database name, and only in a multi-source run.
+    #:
+    #: It exists for sources that share one database name on different hosts
+    #: (one cluster per tenant, each with a database of the same name): without
+    #: it, every one of them would be called the same and they would overwrite
+    #: one another's slice. One run is one source; looping over the sources and
+    #: their addresses is the caller's.
+    #:
+    #: Given, it makes the run multi-source regardless of how many databases it
+    #: selected. Only ``full_by_source`` reads it — every other strategy would
+    #: ignore it and rewrite the whole table, so `validate` refuses the
+    #: combination. Read from ``LOAD_SETTINGS`` only: unlike
+    #: ``partition_by_source``/``multi_source`` it has no older spelling in
+    #: ``TABLE``. Written into ``_source`` verbatim.
+    source_label: str | None = None
     #: **Accepted and currently inert**, for the same reason as
     #: `pagination_mode`. Whether a read can be resumed by keyset is decided by
     #: `full._keyset_usable` from the primary key and the dialect's
@@ -660,6 +682,7 @@ def parse(config: dict) -> ParsedConfig:
         ),
         partition_by=_partition_by(load_cfg, table_cfg),
         multi_source=_as_optional_bool(load_cfg.get("multi_source", table_cfg.get("multi_source"))),
+        source_label=load_cfg.get("source_label"),
         keyset_pagination=is_truthy(load_cfg.get("keyset_pagination", False)),
         resume_full_load=is_truthy(load_cfg.get("resume_full_load", False)),
         skip_size_estimate=is_truthy(load_cfg.get("skip_size_estimate", False)),
@@ -752,6 +775,62 @@ def parse(config: dict) -> ParsedConfig:
     return parsed
 
 
+#: The only strategy that reads ``source_label``.
+SOURCE_LABEL_STRATEGY = "full_by_source"
+
+
+def _source_label_errors(parsed: ParsedConfig) -> list[str]:
+    """What is wrong with ``LOAD_SETTINGS.source_label``; empty when it is absent or fine.
+
+    Each of these would otherwise end in quiet damage rather than a failure:
+
+    - **another strategy** — `full`, `hash`, `incremental`, `key_sync`, … never
+      read the label, so a run meant as one slice would rewrite the whole table
+      and delete every other source's rows. ``forced_full_load`` does not
+      change `full_by_source` (see `entrypoint._FORCE_KEEPS_STRATEGY`), so the
+      runtime variable cannot get around this check;
+    - **empty or blank** — there is no slice to name;
+    - **more than one database** — one label cannot name several databases;
+      they would all write the same slice and overwrite one another;
+    - ``multi_source: false`` — a contradiction: the label exists to make the
+      rows carry ``_source``.
+    """
+    label = parsed.load_settings.source_label
+    if label is None:
+        return []
+
+    errors: list[str] = []
+    if not isinstance(label, str):
+        errors.append(
+            f"LOAD_SETTINGS.source_label must be a string, got {type(label).__name__} {label!r}."
+        )
+    elif not label.strip():
+        errors.append(
+            "LOAD_SETTINGS.source_label is empty — give the slice a name or drop the key."
+        )
+
+    method = str(parsed.load_settings.load_method or "").strip().lower()
+    if method != SOURCE_LABEL_STRATEGY:
+        errors.append(
+            f"LOAD_SETTINGS.source_label works only with load_method "
+            f"{SOURCE_LABEL_STRATEGY!r}, got {parsed.load_settings.load_method!r}. "
+            "Any other strategy ignores the label and rewrites the whole target, "
+            "deleting the other sources' rows."
+        )
+    if parsed.databases is not None and len(parsed.databases) > 1:
+        errors.append(
+            f"LOAD_SETTINGS.source_label names one source, but DATABASES lists "
+            f"{len(parsed.databases)}. Run each database separately with its own label, "
+            "or drop source_label and let the database names label the slices."
+        )
+    if parsed.load_settings.multi_source is False:
+        errors.append(
+            "LOAD_SETTINGS.source_label together with multi_source: false is a "
+            "contradiction — the label is what the rows carry in _source."
+        )
+    return errors
+
+
 def validate(parsed: ParsedConfig) -> None:
     """Validate the configuration before anything touches the source.
 
@@ -785,6 +864,8 @@ def validate(parsed: ParsedConfig) -> None:
             "SOURCE_DB.database (or CONNECTION_PARAMS.database) is missing "
             "and there is no DATABASES list either."
         )
+
+    errors.extend(_source_label_errors(parsed))
 
     if parsed.source_db.ssh_host_key_checking not in VALID_SSH_HOST_KEY_CHECKING:
         errors.append(
