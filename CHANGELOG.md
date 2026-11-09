@@ -168,9 +168,10 @@ staging table was left behind.
   ```
 
   Checked before the release on one deployment's four multi-source targets
-  (0.22–2.05 M rows, 5–8 sources each, a development copy): no duplicates, and
-  each already has the predecessor's unique index `idx_<t>_id_source_unique`,
-  which `find_index_on_columns` recognises — no index is built there.
+  (0.22–2.05 M rows, 5–8 sources each), in production and on a development
+  copy: no duplicates, and each already has the predecessor's unique index
+  `idx_<t>_id_source_unique`, which `find_index_on_columns` recognises (verified
+  on the copy) — no index is built there.
 
 - A process killed mid-stream leaves its empty-or-partial `dbx_shadow_*` table
   behind (it used to vanish with the rollback); `target_pg.find_stale_shadows`
