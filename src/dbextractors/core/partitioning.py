@@ -112,18 +112,24 @@ class PartitionSpec:
         }
 
 
-def parse_spec(value: Any, *, legacy_by_source: bool = False) -> PartitionSpec | None:
+def parse_spec(
+    value: Any, *, legacy_by_source: bool = False, source_column: str | None = None
+) -> PartitionSpec | None:
     """``partition_by`` from the configuration -> `PartitionSpec`, or ``None``.
 
     ``legacy_by_source`` is the existing ``partition_by_source: true``. It applies
     only when ``partition_by`` says nothing — whoever writes both meant the more
-    specific one.
+    specific one. It partitions by the multi-source target's source column —
+    ``source_column`` when configured (``LOAD_SETTINGS.source_column``), else
+    ``_source``.
 
     Errors are ``ValueError``; `core.config` converts them into ``ConfigError``, so
     that this module need not depend on the configuration layer.
     """
     if value is None or value is False or value == "":
-        return PartitionSpec(column=SOURCE_COLUMN, mode=MODE_LIST) if legacy_by_source else None
+        if not legacy_by_source:
+            return None
+        return PartitionSpec(column=source_column or SOURCE_COLUMN, mode=MODE_LIST)
 
     if isinstance(value, str):
         name = value.strip()
@@ -164,7 +170,9 @@ def from_settings(settings: dict) -> PartitionSpec | None:
     """
     value = (settings or {}).get("partition_by")
     legacy = bool((settings or {}).get("partition_by_source"))
-    return parse_spec(value, legacy_by_source=legacy)
+    return parse_spec(
+        value, legacy_by_source=legacy, source_column=(settings or {}).get("source_column")
+    )
 
 
 # --- Names ------------------------------------------------------------------

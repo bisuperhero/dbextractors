@@ -102,6 +102,11 @@ as an unknown key and ignore it; on MySQL such a run fails on `partition_by_sour
 anyway, so an older version cannot quietly write a wrong label. Valid only with
 `full_by_source`; see the README.
 
+### `source_column` (new in 2.4.0)
+
+Also new, also with a default that keeps today's behaviour: absent, the column
+carrying the source of a multi-source target is `_source`, as it always was.
+
 ### `primary_key_column`
 
 An alias for `primary_column`. Parsing merges the two; `primary_column` wins

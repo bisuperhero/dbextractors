@@ -276,13 +276,15 @@ def mysql_pools() -> Iterator[dict]:
     )
     cur = conn.cursor()
     cur.execute(
+        # `source`, like the tenant tables it stands in for: a reserved word that
+        # lands in the target as `_source`, the default name of the source column.
         f"CREATE TABLE {table} (id INT PRIMARY KEY, pool VARCHAR(8) NOT NULL, "
-        "amount DECIMAL(10,2), updating_date DATETIME NOT NULL)"
+        "amount DECIMAL(10,2), source VARCHAR(32), updating_date DATETIME NOT NULL)"
     )
     rows = [(1, "a", 10.5), (2, "a", 20), (3, "a", None), (4, "b", 1), (5, "b", 2)]
     cur.executemany(
-        f"INSERT INTO {table} VALUES (%s, %s, %s, '2026-11-01 08:00:00')",
-        rows,
+        f"INSERT INTO {table} VALUES (%s, %s, %s, CONCAT('source.', %s), '2026-11-01 08:00:00')",
+        [(*row, row[0]) for row in rows],
     )
     conn.commit()
 
@@ -298,7 +300,9 @@ def mysql_pools() -> Iterator[dict]:
         conn.close()
 
 
-def _pool_config(pools: dict, schema: str, label: str, host: str, pool: str) -> dict:
+def _pool_config(
+    pools: dict, schema: str, label: str, host: str, pool: str, source_column: str = "_system"
+) -> dict:
     return {
         "TABLE": {
             "source_name": pools["table"],
@@ -312,6 +316,7 @@ def _pool_config(pools: dict, schema: str, label: str, host: str, pool: str) -> 
             "primary_column": "id",
             "partition_by_source": True,
             "source_label": label,
+            "source_column": source_column,
         },
         "FINGERPRINT": {
             "mode": "datsave",
@@ -324,7 +329,7 @@ def _pool_config(pools: dict, schema: str, label: str, host: str, pool: str) -> 
 
 def _target_rows(schema: str, table: str = "events") -> list:
     with psycopg2.connect(_target_dsn()) as conn, conn.cursor() as cur:
-        cur.execute(f'SELECT "_source", id, amount FROM "{schema}"."{table}" ORDER BY 1, 2')
+        cur.execute(f'SELECT "_system", id, amount FROM "{schema}"."{table}" ORDER BY 1, 2')
         return cur.fetchall()
 
 
@@ -382,7 +387,10 @@ def test_mysql_pools_with_labels_assemble_one_target(mysql_pools, target_schema,
             "SELECT indexname FROM pg_indexes WHERE schemaname = %s AND tablename = 'events'",
             (target_schema,),
         )
-        assert [r[0] for r in cur.fetchall()] == ["idx_events_id__source_unique"]
+        assert [r[0] for r in cur.fetchall()] == ["idx_events_id__system_unique"]
+        # The source's own `source` column survives as `_source`.
+        cur.execute(f'SELECT id, "_source" FROM "{target_schema}".events ORDER BY id')
+        assert cur.fetchall() == [(i, f"source.{i}") for i in range(1, 6)]
         cur.execute(
             f'SELECT source_label FROM "{target_schema}".dbx_source_fingerprints ORDER BY 1'
         )
@@ -483,3 +491,21 @@ def test_mssql_multi_source_loop_still_labels_slices_by_database(target_schema) 
             (target_schema,),
         )
         assert [r[0] for r in cur.fetchall()] == ["idx_paged_id__source_unique"]
+
+
+@pytest.mark.needs_mysql
+def test_mysql_source_column_collision_fails_before_anything_is_written(
+    mysql_pools, target_schema
+) -> None:
+    """Without `source_column`, the source's `source` would be overwritten by the label."""
+    from dbextractors import run
+    from dbextractors.entrypoint import SourceExtractionError
+
+    config = _pool_config(mysql_pools, target_schema, "finone", "127.0.0.1", "a", "_source")
+    with pytest.raises(SourceExtractionError, match="lands in the target as '_source'") as err:
+        run(config, dialect="mysql")
+
+    assert err.value.statuses[0]["source"] == "finone"
+    with psycopg2.connect(_target_dsn()) as conn, conn.cursor() as cur:
+        cur.execute("SELECT to_regclass(%s)", (f'"{target_schema}".events',))
+        assert cur.fetchone()[0] is None

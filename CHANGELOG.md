@@ -14,6 +14,12 @@ One target table assembled from several MySQL sources on different hosts, one
 each with a database of the same name, reported on as one table with a source
 column — without a proxy database of union views.
 
+Verified on a development copy of that setup before the release: 15 tenant
+databases × 17 tables (255 runs, three tenants at a time) into a new schema —
+all 255 succeeded in 1 098 s wall time, row counts per tenant and table equal the
+source in all 255 cases, a second run skipped all 255 by fingerprint (96 s), no
+staging table was left behind.
+
 ### Added
 
 - **`LOAD_SETTINGS.source_label` — the `_source` value of a run.** One run is one
@@ -28,6 +34,15 @@ column — without a proxy database of union views.
   `forced_full_load` keeps `full_by_source`, so it passes), an empty or blank or
   non-string label, `DATABASES` with more than one entry, `multi_source: false`.
   Read from `LOAD_SETTINGS` only. A failure is logged as `🛑 [<label>]`.
+- **`LOAD_SETTINGS.source_column` — the name of the column that carries the
+  source** of a multi-source target (partition key, second column of the unique
+  index, what a slice is deleted by). Default `_source`, as before. Found on real
+  data: a source column named `source` (a reserved word) lands in the target as
+  `_source` too, and the label overwrote its values in every row; with
+  `source_column: '_system'` the source keeps its own `_source`. A plain lowercase
+  identifier, not a managed column, `full_by_source` only (`ConfigError`
+  otherwise). An existing partitioned target whose partition key is another column
+  is refused with a `TargetError` — renaming it is a manual migration.
 - **`full_by_source` for MySQL/MariaDB.** `MySQLDialect` now offers
   `FEATURE_PARTITION_BY_SOURCE`; the fingerprint is the generic one
   (`COUNT(*)`, `MAX(pk)`, `MAX(ts)`, `SUM(CAST(… AS DECIMAL(38,6)))`), verified
@@ -107,6 +122,15 @@ column — without a proxy database of union views.
   configured `source_label`**; the `DATABASES` loop logs the same finding as a
   warning and writes NULL as before. A `COPY` that rejects a value
   (SQLSTATE class 22) is re-raised the same way.
+- **A source column that collides with the source column fails a labelled run**
+  in validation, before anything is touched, naming the column and pointing at
+  `source_column`. The `DATABASES` loop logs it as a warning and overwrites the
+  values as before.
+- **An unchanged empty source is skipped by its fingerprint.** Its slice can never
+  be "held" by the target, so the check "does the target still hold the slice"
+  failed for it on every run and the empty source went through the DDL phase and a
+  `TRUNCATE` each night. A matching fingerprint with a count of zero and an
+  existing target is now enough. Applies to the `DATABASES` loop too.
 - `full_by_source` reads the fingerprint stream to the end instead of taking
   `next()`: on MySQL a suspended unbuffered stream counts as abandoned and was
   cancelled with `KILL QUERY` from a second connection, the first one discarded.
@@ -143,14 +167,22 @@ column — without a proxy database of union views.
   GROUP BY 1, 2 HAVING count(*) > 1;
   ```
 
+  Checked before the release on one deployment's four multi-source targets
+  (0.22–2.05 M rows, 5–8 sources each, a development copy): no duplicates, and
+  each already has the predecessor's unique index `idx_<t>_id_source_unique`,
+  which `find_index_on_columns` recognises — no index is built there.
+
 - A process killed mid-stream leaves its empty-or-partial `dbx_shadow_*` table
   behind (it used to vanish with the rollback); `target_pg.find_stale_shadows`
   lists them. A failure the process survives still drops it.
 - Concurrent runs that used to fail on the catalogue now wait for one another's
   DDL, at most `DBX_TARGET_LOCK_TIMEOUT` (default 10 minutes), then fail with a
   `TargetError` that says what they waited for.
-- Nothing else changes for an existing configuration: without `source_label`,
-  `_source`, partition names, the ledger and fingerprint skipping are identical;
+- An unchanged empty source of the `DATABASES` loop is now skipped instead of
+  having its (already empty) slice truncated again — same target content, no DDL.
+- Nothing else changes for an existing configuration: without `source_label` and
+  `source_column`, `_source`, partition names, the ledger and fingerprint skipping
+  of non-empty sources are identical;
   other strategies are untouched apart from the index lookup by columns and
   `ensure_schema`. 2.3.x logs `source_label` as an unknown key and ignores it — on
   MySQL it then fails on `partition_by_source` anyway, so an older version cannot

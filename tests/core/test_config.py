@@ -689,7 +689,7 @@ def _full_config() -> dict:
 
 #: LOAD_SETTINGS keys that cannot be part of `_full_config` and have a roundtrip
 #: test of their own.
-_KEYS_WITH_OWN_ROUNDTRIP = {"source_label"}
+_KEYS_WITH_OWN_ROUNDTRIP = {"source_label", "source_column"}
 
 
 def test_the_full_config_covers_the_whole_frozen_contract() -> None:
@@ -1169,3 +1169,63 @@ def test_all_source_label_errors_are_reported_at_once() -> None:
     text = str(info.value)
     for fragment in ("is empty", "works only with", "DATABASES lists 2", "contradiction"):
         assert fragment in text
+
+
+# --- source_column ------------------------------------------------------------
+
+
+def test_source_column_roundtrip() -> None:
+    parsed = config.parse(_labelled({"source_column": "_system"}))
+    assert parsed.load_settings.source_column == "_system"
+
+
+def test_a_missing_source_column_is_none() -> None:
+    assert config.parse(_labelled()).load_settings.source_column is None
+
+
+def test_source_column_is_a_known_key(caplog) -> None:
+    with caplog.at_level(logging.WARNING, logger="dbextractors.core.config"):
+        config.parse(_labelled({"source_column": "_system"}))
+    assert "source_column" not in caplog.text
+
+
+@pytest.mark.parametrize("name", ["", "System", "_sys tem", "1abc", "a" * 64, 5, "_sys-tem"])
+def test_a_source_column_that_is_not_a_plain_name_is_an_error(name) -> None:
+    with pytest.raises(config.ConfigError, match="source_column must be a target column name"):
+        config.parse(_labelled({"source_column": name}))
+
+
+@pytest.mark.parametrize("name", ["_timestamp", "_deleted_in_source", "row_hash"])
+def test_source_column_cannot_be_a_managed_column(name) -> None:
+    with pytest.raises(config.ConfigError, match="manages itself"):
+        config.parse(_labelled({"source_column": name}))
+
+
+def test_source_column_with_another_strategy_is_an_error() -> None:
+    cfg = _labelled({"load_method": "full", "source_column": "_system"})
+    del cfg["LOAD_SETTINGS"]["source_label"]
+    with pytest.raises(config.ConfigError, match="source_column works only with"):
+        config.parse(cfg)
+
+
+def test_source_column_without_a_label_is_fine() -> None:
+    """The `DATABASES` loop may rename its column too."""
+    cfg = _labelled({"source_column": "_system"})
+    del cfg["LOAD_SETTINGS"]["source_label"]
+    cfg["DATABASES"] = ["a", "b"]
+    assert config.parse(cfg).load_settings.source_column == "_system"
+
+
+def test_the_partition_by_source_shorthand_follows_source_column() -> None:
+    """The shorthand means "by the source column"; it must not stay on `_source`."""
+    parsed = config.parse(_labelled({"source_column": "_system"}))
+    assert parsed.load_settings.partition_by["column"] == "_system"
+
+
+def test_the_shorthand_without_source_column_is_unchanged() -> None:
+    assert config.parse(_labelled()).load_settings.partition_by["column"] == "_source"
+
+
+def test_an_explicit_partition_by_wins_over_the_shorthand() -> None:
+    parsed = config.parse(_labelled({"source_column": "_system", "partition_by": "_system"}))
+    assert parsed.load_settings.partition_by["column"] == "_system"

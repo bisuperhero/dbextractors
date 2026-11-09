@@ -24,6 +24,7 @@ field says so.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -70,6 +71,9 @@ LOAD_SETTINGS_KEYS: frozenset[str] = frozenset(
         # shared `full_by_source` target. LOAD_SETTINGS only; see
         # `LoadSettingsConfig.source_label`.
         "source_label",
+        # The name of the target column that carries the source of a
+        # multi-source target; see `LoadSettingsConfig.source_column`.
+        "source_column",
         "keyset_pagination",
         "resume_full_load",
         "skip_size_estimate",
@@ -326,6 +330,17 @@ class LoadSettingsConfig:
     #: ``partition_by_source``/``multi_source`` it has no older spelling in
     #: ``TABLE``. Written into ``_source`` verbatim.
     source_label: str | None = None
+    #: The name of the target column that holds the source of a multi-source
+    #: (`full_by_source`) target: the partition key, the second column of the
+    #: unique index, what the slice is deleted by. ``None`` (the default) means
+    #: ``_source``, as before it existed.
+    #:
+    #: It exists because ``_source`` can be taken: a source column named
+    #: ``source`` (a reserved word) lands in the target as ``_source`` too, and
+    #: the label would overwrite its values. With ``source_column: '_system'``
+    #: the source's own ``_source`` survives. Given verbatim as a target column
+    #: name: lowercase letters, digits and underscores. ``full_by_source`` only.
+    source_column: str | None = None
     #: **Accepted and currently inert**, for the same reason as
     #: `pagination_mode`. Whether a read can be resumed by keyset is decided by
     #: `full._keyset_usable` from the primary key and the dialect's
@@ -554,8 +569,15 @@ def _partition_by(load_cfg: dict, table_cfg: dict) -> dict | None:
 
     raw = load_cfg.get("partition_by", table_cfg.get("partition_by"))
     legacy = is_truthy(load_cfg.get("partition_by_source", table_cfg.get("partition_by_source")))
+    # The shorthand means "by the source column", and that column may be renamed.
+    # A non-string value is reported by `_source_column_errors`, not here.
+    source_column = load_cfg.get("source_column")
     try:
-        spec = partitioning.parse_spec(raw, legacy_by_source=legacy)
+        spec = partitioning.parse_spec(
+            raw,
+            legacy_by_source=legacy,
+            source_column=source_column if isinstance(source_column, str) else None,
+        )
     except ValueError as err:
         raise ConfigError(str(err)) from err
     return spec.as_dict() if spec else None
@@ -683,6 +705,7 @@ def parse(config: dict) -> ParsedConfig:
         partition_by=_partition_by(load_cfg, table_cfg),
         multi_source=_as_optional_bool(load_cfg.get("multi_source", table_cfg.get("multi_source"))),
         source_label=load_cfg.get("source_label"),
+        source_column=load_cfg.get("source_column"),
         keyset_pagination=is_truthy(load_cfg.get("keyset_pagination", False)),
         resume_full_load=is_truthy(load_cfg.get("resume_full_load", False)),
         skip_size_estimate=is_truthy(load_cfg.get("skip_size_estimate", False)),
@@ -831,6 +854,40 @@ def _source_label_errors(parsed: ParsedConfig) -> list[str]:
     return errors
 
 
+#: A target column name `source_column` may take: what PostgreSQL accepts unquoted
+#: and `core.naming` would produce, within the identifier limit.
+_SOURCE_COLUMN_RE = re.compile(r"[a-z_][a-z0-9_]{0,62}")
+
+#: Columns the package manages itself; the source column cannot be one of them.
+#: Spelled out rather than imported, so the configuration layer stays free of the
+#: target's dependencies (`target_pg.MANAGED_COLUMNS`, `naming.DEFAULT_HASH_COLUMN`).
+_MANAGED_TARGET_COLUMNS = frozenset({"_timestamp", "_deleted_in_source", "row_hash"})
+
+
+def _source_column_errors(parsed: ParsedConfig) -> list[str]:
+    """What is wrong with ``LOAD_SETTINGS.source_column``; empty when absent or fine."""
+    column = parsed.load_settings.source_column
+    if column is None:
+        return []
+    errors: list[str] = []
+    if not isinstance(column, str) or not _SOURCE_COLUMN_RE.fullmatch(column):
+        errors.append(
+            f"LOAD_SETTINGS.source_column must be a target column name of lowercase "
+            f"letters, digits and underscores (at most 63), got {column!r}."
+        )
+    elif column in _MANAGED_TARGET_COLUMNS or column == parsed.load_settings.hash_column:
+        errors.append(
+            f"LOAD_SETTINGS.source_column {column!r} is a column the package manages itself."
+        )
+    method = str(parsed.load_settings.load_method or "").strip().lower()
+    if method != SOURCE_LABEL_STRATEGY:
+        errors.append(
+            f"LOAD_SETTINGS.source_column works only with load_method "
+            f"{SOURCE_LABEL_STRATEGY!r}, got {parsed.load_settings.load_method!r}."
+        )
+    return errors
+
+
 def validate(parsed: ParsedConfig) -> None:
     """Validate the configuration before anything touches the source.
 
@@ -866,6 +923,7 @@ def validate(parsed: ParsedConfig) -> None:
         )
 
     errors.extend(_source_label_errors(parsed))
+    errors.extend(_source_column_errors(parsed))
 
     if parsed.source_db.ssh_host_key_checking not in VALID_SSH_HOST_KEY_CHECKING:
         errors.append(

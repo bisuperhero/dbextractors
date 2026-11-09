@@ -2191,15 +2191,15 @@ def is_partitioned(conn: Any, target: TargetRef) -> bool:
     return bool(row and row[0])
 
 
-def _source_spec():
-    """Partitioning by ``_source`` expressed as a `PartitionSpec`.
+def _source_spec(column: str = SOURCE_COLUMN):
+    """Partitioning by the source column (``_source`` unless configured) as a `PartitionSpec`.
 
     The import is lazy on purpose: `core.partitioning` builds on this module, so
     the opposite direction may only be reached at run time.
     """
     from dbextractors.core.partitioning import MODE_LIST, PartitionSpec
 
-    return PartitionSpec(column=SOURCE_COLUMN, mode=MODE_LIST, default_partition=False)
+    return PartitionSpec(column=column, mode=MODE_LIST, default_partition=False)
 
 
 def partition_name(target: TargetRef, source_label: str) -> str:
@@ -2216,13 +2216,18 @@ def partition_name(target: TargetRef, source_label: str) -> str:
 
 
 def partition_ref_for(target: TargetRef, source_label: str) -> TargetRef:
-    """The address of one source's partition, without creating or checking it."""
+    """The address of one source's partition, without creating or checking it.
+
+    The name does not depend on the source column, only on the label.
+    """
     from dbextractors.core import partitioning
 
     return partitioning.partition_ref(target, _source_spec(), source_label)
 
 
-def create_partitioned_table(conn: Any, target: TargetRef, like: TargetRef) -> None:
+def create_partitioned_table(
+    conn: Any, target: TargetRef, like: TargetRef, column: str = SOURCE_COLUMN
+) -> None:
     """Create the target as ``PARTITION BY LIST (_source)`` from another table's shape.
 
     A narrowing of `partitioning.create_parent` down to the per-source split that
@@ -2231,10 +2236,12 @@ def create_partitioned_table(conn: Any, target: TargetRef, like: TargetRef) -> N
     """
     from dbextractors.core import partitioning
 
-    partitioning.create_parent(conn, target, like, _source_spec())
+    partitioning.create_parent(conn, target, like, _source_spec(column))
 
 
-def ensure_partition(conn: Any, target: TargetRef, source_label: str) -> TargetRef:
+def ensure_partition(
+    conn: Any, target: TargetRef, source_label: str, column: str = SOURCE_COLUMN
+) -> TargetRef:
     """Make sure a partition for one source exists and return its address.
 
     This is what makes a new source database self-service: it shows up in the
@@ -2250,7 +2257,7 @@ def ensure_partition(conn: Any, target: TargetRef, source_label: str) -> TargetR
     """
     from dbextractors.core import partitioning
 
-    part = partitioning.ensure_partition_for(conn, target, _source_spec(), source_label)
+    part = partitioning.ensure_partition_for(conn, target, _source_spec(column), source_label)
     holds = partition_source_value(conn, part)
     if holds is not None and holds != source_label:
         raise TargetError(
@@ -2283,7 +2290,7 @@ def partition_source_value(conn: Any, part: TargetRef) -> str | None:
     return match.group(1).replace("''", "'") if match else None
 
 
-def ensure_source_index(conn: Any, target: TargetRef) -> None:
+def ensure_source_index(conn: Any, target: TargetRef, column: str = SOURCE_COLUMN) -> None:
     """An index over ``_source`` for deleting a whole slice.
 
     ``DELETE … WHERE _source = %s`` cannot use a unique index whose first column
@@ -2296,13 +2303,14 @@ def ensure_source_index(conn: Any, target: TargetRef) -> None:
     # By columns, like the unique index: a predecessor's index over `_source`
     # under another name does the same job, and over an existing name the
     # catalogue question saves the ``ShareLock`` that ``CREATE INDEX`` takes.
-    if find_index_on_columns(conn, target, [SOURCE_COLUMN], unique=False) is not None:
+    if find_index_on_columns(conn, target, [column], unique=False) is not None:
         return
-    name = f"idx_{target.table}__source"[:MAX_IDENTIFIER_LENGTH]
+    # `idx_<t>__source` for the default column, as before.
+    name = f"idx_{target.table}_{column}"[:MAX_IDENTIFIER_LENGTH]
     with conn.cursor() as cur:
         cur.execute(
             f"CREATE INDEX IF NOT EXISTS {quote_ident(name)} "
-            f"ON {qualify(target)} ({quote_ident(SOURCE_COLUMN)})"
+            f"ON {qualify(target)} ({quote_ident(column)})"
         )
 
 
@@ -2312,6 +2320,7 @@ def replace_source_slice(
     staging: TargetRef,
     columns: Sequence[str],
     source_label: str | None,
+    column: str = SOURCE_COLUMN,
 ) -> Tuple[int, int]:
     """Replace one source's slice with the staging contents. **In one transaction.**
 
@@ -2329,14 +2338,14 @@ def replace_source_slice(
         # catalogue lookup and the label check, not DDL inside the swap. (The
         # partition used to be created right here, holding the parent's lock
         # through the whole `TRUNCATE` + `INSERT`.)
-        part = ensure_partition(conn, target, source_label)
+        part = ensure_partition(conn, target, source_label, column)
         with conn.cursor() as cur:
             cur.execute(f"TRUNCATE TABLE {qualify(part)}")
     else:
         with conn.cursor() as cur:
             if source_label:
                 cur.execute(
-                    f"DELETE FROM {qualify(target)} WHERE {quote_ident(SOURCE_COLUMN)} = %s",
+                    f"DELETE FROM {qualify(target)} WHERE {quote_ident(column)} = %s",
                     (source_label,),
                 )
             else:
@@ -2357,7 +2366,9 @@ def replace_source_slice(
     return deleted, written
 
 
-def target_holds_source(conn: Any, target: TargetRef, source_label: str) -> bool:
+def target_holds_source(
+    conn: Any, target: TargetRef, source_label: str, column: str = SOURCE_COLUMN
+) -> bool:
     """Does the target still hold this source's slice?
 
     The fingerprint alone is not enough: the first database of a rebuilt table
@@ -2369,8 +2380,7 @@ def target_holds_source(conn: Any, target: TargetRef, source_label: str) -> bool
         return False
     with conn.cursor() as cur:
         cur.execute(
-            f"SELECT EXISTS (SELECT 1 FROM {qualify(target)} "
-            f"WHERE {quote_ident(SOURCE_COLUMN)} = %s)",
+            f"SELECT EXISTS (SELECT 1 FROM {qualify(target)} WHERE {quote_ident(column)} = %s)",
             (source_label,),
         )
         return bool(cur.fetchone()[0])

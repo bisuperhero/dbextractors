@@ -74,7 +74,7 @@ from typing import Any, List, Tuple
 
 import pandas as pd
 
-from dbextractors.core import status, target_pg
+from dbextractors.core import partitioning, status, target_pg
 from dbextractors.core.strategies.base import (
     LoadContext,
     LoadResult,
@@ -118,13 +118,32 @@ class FullBySourceStrategy(LoadStrategy):
 
         # This strategy partitions the target by source and can do nothing else.
         # A general `partition_by` over another column would quietly do nothing,
-        # so it raises.
+        # so it raises. (`partition_by_source: true` is the shorthand for "by the
+        # source column", and `partitioning.parse_spec` resolves it to the
+        # configured `source_column` — in the parser and from `ctx.settings` alike.)
+        column = _source_column(ctx)
         spec = ctx.partition_spec()
-        if spec is not None and spec.column != target_pg.SOURCE_COLUMN:
+        if spec is not None and spec.column != column:
             raise StrategyError(
-                f"full_by_source partitions the target by {target_pg.SOURCE_COLUMN!r}, but "
+                f"full_by_source partitions the target by {column!r}, but "
                 f"partition_by says {spec.column!r}. This strategy knows no other layout."
             )
+
+        # A source column that lands in the target under the name of the source
+        # column — `source` is a reserved word and becomes `_source` — would have
+        # its values overwritten by the label in every row.
+        clash = [c.name for c in ctx.columns if (c.target_name or c.name) == column]
+        if ctx.source_label and clash:
+            message = (
+                f"full_by_source: source column {clash[0]!r} lands in the target as "
+                f"{column!r}, which is the column that carries the source label — its "
+                "values would be overwritten by the label. Set LOAD_SETTINGS.source_column "
+                "to another name (for example '_system'), or exclude the column."
+            )
+            if ctx.settings.get("source_label"):
+                raise StrategyError(message)
+            # The `DATABASES` loop from before 2.4.0 keeps its behaviour.
+            _log.warning("⚠️ %s The values are overwritten, as before 2.4.0.", message)
 
     def run(self, ctx: LoadContext) -> LoadResult:
         self.validate(ctx)
@@ -134,7 +153,7 @@ class FullBySourceStrategy(LoadStrategy):
         _log.info("🚀 Full load by source, source=%s", source_label or "-")
 
         fingerprint, parts = self._fingerprint(ctx)
-        skip = self._can_skip(ctx, fingerprint)
+        skip = self._can_skip(ctx, fingerprint, parts)
         # The read phase ends here. Reading the ledger and asking whether the
         # target still holds the slice opened a transaction with an
         # `AccessShareLock` on the target; left open, it would last through the
@@ -234,11 +253,18 @@ class FullBySourceStrategy(LoadStrategy):
         }
         return _fingerprint_key(parts), parts
 
-    def _can_skip(self, ctx: LoadContext, fingerprint: str | None) -> bool:
+    def _can_skip(
+        self, ctx: LoadContext, fingerprint: str | None, parts: dict | None = None
+    ) -> bool:
         """May this source be skipped?
 
         Three conditions, and all three must hold: a fingerprint exists, it
         matches the stored one, and **the target still holds that slice**.
+
+        An **empty** source has no slice to hold: its matching fingerprint (a
+        count of zero) is enough, as long as the target exists. Without that
+        exception an empty source was fetched again on every run — the
+        "slice is missing" check can never pass for it.
         """
         if not fingerprint or not ctx.source_label:
             return False
@@ -268,7 +294,11 @@ class FullBySourceStrategy(LoadStrategy):
                 )
             return False
 
-        if not target_pg.target_holds_source(ctx.target_conn, ctx.target, ctx.source_label):
+        if (parts or {}).get("count") == 0 and target_pg.table_exists(ctx.target_conn, ctx.target):
+            return True
+        if not target_pg.target_holds_source(
+            ctx.target_conn, ctx.target, ctx.source_label, _source_column(ctx)
+        ):
             _log.warning(
                 "🔄 [%s] the fingerprint matches, but the slice is missing from the target — "
                 "fetching again.",
@@ -336,7 +366,7 @@ class FullBySourceStrategy(LoadStrategy):
                         with conn.cursor() as cur:
                             cur.execute(
                                 f"DELETE FROM {target_pg.qualify(ctx.target)} "
-                                f"WHERE {target_pg.quote_ident(target_pg.SOURCE_COLUMN)} = %s",
+                                f"WHERE {target_pg.quote_ident(_source_column(ctx))} = %s",
                                 (ctx.source_label,),
                             )
                             _log.info("🗑️ The source is empty — %s rows deleted.", cur.rowcount)
@@ -389,10 +419,12 @@ class FullBySourceStrategy(LoadStrategy):
         conn = ctx.target_conn
         full = FullLoadStrategy()
         hash_column, _ = _hash_plan(ctx)
+        column = _source_column(ctx)
         with target_pg.ddl_lock(conn, ctx.target):
             target_pg.ensure_schema(conn, ctx.target.schema)
             types = column_types(ctx, hash_column)
-            types.setdefault(target_pg.SOURCE_COLUMN, target_pg.SOURCE_COLUMN_TYPE)
+            if ctx.source_label:
+                types.setdefault(column, target_pg.SOURCE_COLUMN_TYPE)
             # Under the lock: the column order is read off the target as it is
             # now, not as it was before another run created or widened it.
             columns = _all_columns(ctx, hash_column)
@@ -414,6 +446,14 @@ class FullBySourceStrategy(LoadStrategy):
                 # is adopted rather than dropped; in the other slices it is NULL.
                 full._adopt_new_columns(ctx, columns, types)
             partitioned = self._resolve_partitioning(ctx, exists)
+            if exists and partitioned and ctx.source_label:
+                key = partitioning.partition_key(conn, ctx.target)
+                if key != column:
+                    raise target_pg.TargetError(
+                        f"{ctx.target.qualified()} is partitioned by {key!r}, but the source "
+                        f"column of this run is {column!r} (LOAD_SETTINGS.source_column). "
+                        "Changing it for an existing target is a manual migration."
+                    )
 
             staging = target_pg.create_shadow_table(
                 conn, ctx.target, columns=columns, overwrite_types=types
@@ -422,9 +462,9 @@ class FullBySourceStrategy(LoadStrategy):
                 self._create_target(ctx, staging, partitioned)
             if ctx.source_label:
                 if partitioned:
-                    target_pg.ensure_partition(conn, ctx.target, ctx.source_label)
+                    target_pg.ensure_partition(conn, ctx.target, ctx.source_label, column)
                 else:
-                    target_pg.ensure_source_index(conn, ctx.target)
+                    target_pg.ensure_source_index(conn, ctx.target, column)
                 if _fingerprint_on(ctx):
                     target_pg.ensure_fingerprint_store(conn, ctx.target.schema)
         return _DdlPlan(
@@ -446,7 +486,7 @@ class FullBySourceStrategy(LoadStrategy):
         """
         conn = ctx.target_conn
         if partitioned:
-            target_pg.create_partitioned_table(conn, ctx.target, staging)
+            target_pg.create_partitioned_table(conn, ctx.target, staging, _source_column(ctx))
         else:
             with conn.cursor() as cur:
                 cur.execute(
@@ -502,7 +542,7 @@ class FullBySourceStrategy(LoadStrategy):
                     )
                     _check_nothing_was_lost(ctx, plan, lossy, batch, export_df)
                     if ctx.source_label:
-                        export_df[target_pg.SOURCE_COLUMN] = ctx.source_label
+                        export_df[_source_column(ctx)] = ctx.source_label
                     if export_df.empty:
                         continue
                     target_pg.copy_from_stdin(conn, staging, export_df, columns)
@@ -522,7 +562,7 @@ class FullBySourceStrategy(LoadStrategy):
                 )
 
             deleted, rows_written = target_pg.replace_source_slice(
-                conn, ctx.target, staging, columns, ctx.source_label
+                conn, ctx.target, staging, columns, ctx.source_label, _source_column(ctx)
             )
             target_pg.drop_shadow_table(conn, staging)
             conn.commit()
@@ -588,7 +628,7 @@ class FullBySourceStrategy(LoadStrategy):
             return
         # The index spans the pair (pk, _source): the same key recurs across
         # different databases, so on its own it is not unique.
-        index_columns = [pk, target_pg.SOURCE_COLUMN] if ctx.source_label else [pk]
+        index_columns = [pk, _source_column(ctx)] if ctx.source_label else [pk]
         if target_pg.is_partitioned(conn, ctx.target):
             # Under the DDL lock: concurrent sources must not race to create the
             # same index. `create_unique_pk_index` asks the catalogue first (by
@@ -625,6 +665,12 @@ class _DdlPlan:
 
 
 # --- Helper functions -------------------------------------------------------
+
+
+def _source_column(ctx: LoadContext) -> str:
+    """The target column that carries the source label: ``LOAD_SETTINGS.source_column``
+    or ``_source``."""
+    return str(ctx.settings.get("source_column") or target_pg.SOURCE_COLUMN)
 
 
 def _fingerprint_on(ctx: LoadContext) -> bool:
@@ -827,7 +873,7 @@ def _all_columns(ctx: LoadContext, hash_column: str | None) -> List[str]:
 
     metadata: tuple[str, ...] = naming.METADATA_COLUMNS
     if ctx.source_label:
-        metadata = (*metadata, target_pg.SOURCE_COLUMN)
+        metadata = (*metadata, _source_column(ctx))
     wanted = naming.target_column_names(ctx.source_names, hash_column, metadata=metadata)
     # The existing targets on this path were created by the MSSQL
     # `full_by_source` with the order

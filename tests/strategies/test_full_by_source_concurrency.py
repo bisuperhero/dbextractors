@@ -672,3 +672,171 @@ def test_concurrent_runs_build_one_index(dsn, fresh_schema) -> None:
     )
     assert _errors(results) == {}
     assert _indexes(dsn, fresh_schema) == ["idx_cil_id__source_unique"]
+
+
+# --- source_column: when `_source` is taken by the source -----------------------
+#
+# Found on real data: a tenant table has a column `source` (values such as
+# `source.dory`). `source` is a reserved word and lands as `_source` — the very
+# column the label goes into, so every value would be overwritten.
+
+WITH_SOURCE = [*COLUMNS, ("source", "varchar", "TEXT")]
+
+
+def _with_source(ids, prefix):
+    return _data(ids, prefix, source=[f"source.{prefix}{i}" for i in ids])
+
+
+def test_a_source_column_that_collides_with_the_label_column_fails(dsn, fresh_schema) -> None:
+    with pytest.raises(StrategyError, match="lands in the target as '_source'"):
+        _run(dsn, fresh_schema, "finone", _with_source((1,), "a"), columns=WITH_SOURCE)
+    # Raised in validation: nothing was created.
+    assert _query(dsn, "SELECT 1 FROM pg_namespace WHERE nspname = %s", (fresh_schema,)) == []
+
+
+def test_the_collision_in_the_databases_loop_only_warns(dsn, schema, caplog) -> None:
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="dbextractors.core.strategies.full_by_source"):
+        _run(dsn, schema, "db_a", _with_source((1,), "a"), columns=WITH_SOURCE, configured=False)
+    assert "lands in the target as '_source'" in caplog.text
+    assert _slices(dsn, schema) == [("db_a", 1)], "overwritten by the label, as before"
+
+
+def test_source_column_keeps_the_sources_own_source(dsn, fresh_schema) -> None:
+    """`_system` carries the pool, `_source` keeps the source's values."""
+    settings = {"source_column": "_system"}
+    for label, ids in (("finone", (1, 2)), ("fintwo", (1,))):
+        _run(
+            dsn,
+            fresh_schema,
+            label,
+            _with_source(ids, label[3:]),
+            columns=WITH_SOURCE,
+            settings=settings,
+            fingerprint=FINGERPRINT,
+        )
+
+    rows = _query(dsn, f'SELECT "_system", id, "_source" FROM "{fresh_schema}".cil ORDER BY 1, 2')
+    assert rows == [
+        ("finone", 1, "source.one1"),
+        ("finone", 2, "source.one2"),
+        ("fintwo", 1, "source.two1"),
+    ]
+    conn = _connect(dsn)
+    try:
+        from dbextractors.core import partitioning
+
+        assert (
+            partitioning.partition_key(conn, TargetRef(schema=fresh_schema, table="cil"))
+            == "_system"
+        )
+    finally:
+        conn.close()
+    assert _partitions(dsn, fresh_schema) == ["cil__finone", "cil__fintwo"]
+    assert _indexes(dsn, fresh_schema) == ["idx_cil_id__system_unique"]
+
+    # Unchanged sources are skipped, and the slice check asks `_system`.
+    result = _run(
+        dsn,
+        fresh_schema,
+        "fintwo",
+        _with_source((1,), "two"),
+        columns=WITH_SOURCE,
+        settings=settings,
+        fingerprint=FINGERPRINT,
+    )
+    assert result.load_method == "unchanged"
+
+
+def test_source_column_concurrently(dsn, fresh_schema) -> None:
+    settings = {"source_column": "_system"}
+    labels = ("finone", "fintwo", "finthree")
+    results = _concurrently(
+        {
+            lbl: (
+                lambda lbl=lbl: _run(
+                    dsn,
+                    fresh_schema,
+                    lbl,
+                    _with_source((1, 2), lbl),
+                    columns=WITH_SOURCE,
+                    settings=settings,
+                )
+            )
+            for lbl in labels
+        }
+    )
+    assert _errors(results) == {}
+    rows = _query(
+        dsn,
+        f'SELECT "_system", count(*), count(DISTINCT "_source") FROM "{fresh_schema}".cil GROUP BY 1 ORDER BY 1',
+    )
+    assert rows == [(lbl, 2, 2) for lbl in sorted(labels)]
+
+
+def test_source_column_on_a_plain_target(dsn, schema) -> None:
+    settings = {"source_column": "_system", "partition_by_source": False}
+    _run(dsn, schema, "finone", _with_source((1, 2), "a"), columns=WITH_SOURCE, settings=settings)
+    _run(dsn, schema, "fintwo", _with_source((1,), "b"), columns=WITH_SOURCE, settings=settings)
+    _run(dsn, schema, "finone", _with_source((5,), "a"), columns=WITH_SOURCE, settings=settings)
+
+    rows = _query(dsn, f'SELECT "_system", id, "_source" FROM "{schema}".cil ORDER BY 1, 2')
+    assert rows == [("finone", 5, "source.a5"), ("fintwo", 1, "source.b1")]
+    assert "idx_cil__system" in _indexes(dsn, schema)
+
+
+def test_a_target_partitioned_by_another_column_is_refused(dsn, schema) -> None:
+    """Switching the source column of an existing target is a migration, not a run."""
+    _run(dsn, schema, "finone", _data((1,), "a"))
+
+    with pytest.raises(target_pg.TargetError, match="partitioned by '_source'"):
+        _run(dsn, schema, "fintwo", _data((1,), "b"), settings={"source_column": "_system"})
+    assert _slices(dsn, schema) == [("finone", 1)]
+    assert _stale_shadows(dsn, schema) == []
+
+
+def test_partition_by_must_name_the_source_column(dsn, schema) -> None:
+    with pytest.raises(StrategyError, match="partition_by says '_source'"):
+        _run(
+            dsn,
+            schema,
+            "finone",
+            _data((1,), "a"),
+            settings={"source_column": "_system", "partition_by": "_source"},
+        )
+    _run(
+        dsn,
+        schema,
+        "finone",
+        _data((1,), "a"),
+        settings={"source_column": "_system", "partition_by": "_system"},
+    )
+    assert _partitions(dsn, schema) == ["cil__finone"]
+
+
+# --- An empty source is skipped like any other ----------------------------------
+
+
+def test_an_unchanged_empty_source_is_skipped(dsn, schema) -> None:
+    """Its slice can never be "held" by the target; the zero count is what matches."""
+    empty = _data((), "a")
+    _run(dsn, schema, "finone", _data((1,), "a"), fingerprint=FINGERPRINT)
+    _run(dsn, schema, "fintwo", empty, fingerprint=FINGERPRINT, settings={})
+
+    result = _run(dsn, schema, "fintwo", empty, fingerprint=FINGERPRINT)
+
+    assert result.load_method == "unchanged"
+    assert _slices(dsn, schema) == [("finone", 1)]
+
+
+def test_an_empty_source_that_had_rows_is_not_skipped(dsn, schema) -> None:
+    source = FakeHashSource(_data((1, 2), "a"), pk="id")
+    _run(dsn, schema, "finone", None, source=source, fingerprint=FINGERPRINT)
+    source.delete(1)
+    source.delete(2)
+
+    result = _run(dsn, schema, "finone", None, source=source, fingerprint=FINGERPRINT)
+
+    assert result.load_method == "full_by_source"
+    assert _query(dsn, f'SELECT count(*) FROM "{schema}".cil') == [(0,)]

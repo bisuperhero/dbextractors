@@ -257,6 +257,8 @@ config = {
         'source_label': None,               # full_by_source only: this run's '_source' value
                                             # instead of the database name. See "One source
                                             # per run, under its own label".
+        'source_column': None,              # full_by_source only: the column carrying the
+                                            # source; None = '_source'
         'partition_by': None,               # target partitioning; None = none. See "Target partitioning".
                                             # {'column': 'day', 'mode': 'range_month'}
                                             # mode: list | range_day | range_month | range_year
@@ -429,6 +431,18 @@ would rewrite the whole table), with more than one database in `DATABASES`, with
 then each source's slice is a partition swapped with `TRUNCATE`, and a run that
 somehow arrives without a label fails in validation instead of deleting the table.
 `forced_full_load` keeps `full_by_source` (only the fingerprint is ignored).
+
+**When the source has a `source` column.** `source` is a reserved word and lands in
+the target as `_source` — the column the label goes into. A labelled run refuses to
+overwrite it; name the source column something else:
+
+```python
+'LOAD_SETTINGS': {..., 'source_label': 'finone', 'source_column': '_system'},
+```
+
+The target then has `_system` with the label (partition key, unique index
+`(pk, _system)`) and keeps the source's own `_source`. Decide before the first run:
+an existing target partitioned by another column is refused.
 
 **Several runs at once.** Runs over the same target may run concurrently — from
 threads of one process (`run()` is safe to call from several threads; each thread's
