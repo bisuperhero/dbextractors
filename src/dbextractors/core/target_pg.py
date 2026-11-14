@@ -297,15 +297,49 @@ class _DeadlineReader:
         return self._reader.readline(size)
 
 
+#: Savepoint around a bounded COPY. After a timeout it lets the transaction run one
+#: more statement — the one that discards the server connection (`_discard_server`).
+_COPY_SAVEPOINT = "dbx_copy"
+
+
+def _discard_server(cur: Any) -> bool:
+    """End the server backend this COPY ran on; ``True`` once the connection is closed.
+
+    **Why.** The target is reached through pgbouncer in transaction mode, which hands
+    the most recently released server connection to the next client (LIFO). A retry
+    after a stuck COPY therefore landed on **the same backend**: on 14 Nov 2026 all
+    three attempts of one table stalled on backend 3864703 at the same depth of the
+    batch, while every other backend worked normally. Ending the backend makes
+    pgbouncer drop it, so the retry gets another one.
+
+    **Which backend.** Our own: the transaction is still open (rolled back to the
+    savepoint, not ended), so pgbouncer keeps the server linked to this client and it
+    cannot be serving anybody else. With autocommit there is no such guarantee — the
+    caller does not get here.
+
+    The connection is closed afterwards; `TargetConnection.rollback` lets the caller's
+    rollback pass so the `CopyTimeoutError` is what gets reported.
+    """
+    try:
+        cur.execute(f"ROLLBACK TO SAVEPOINT {_COPY_SAVEPOINT}")
+        cur.execute("SELECT pg_terminate_backend(pg_backend_pid())")
+        cur.execute("SELECT 1")  # the termination surfaces at the latest here
+    except Exception as err:  # expected: the server closes the connection
+        _log.debug("Server connection discarded after the COPY timeout: %s", err)
+    return bool(getattr(cur.connection, "closed", 0))
+
+
 def copy_in(cur: Any, sql: str, reader: Any) -> None:
     """``cur.copy_expert`` with the optional bound from `COPY_TIMEOUT_ENV`.
 
     The server half is set with ``SET LOCAL`` right before the COPY and put back to
     the default right after it, so the rest of the transaction (the swap above all)
     runs unbounded as before. On autocommit ``SET LOCAL`` would have no effect, so only
-    the client half applies there. Either half leaves the transaction aborted and
-    raises `CopyTimeoutError`; the caller rolls back and the step fails, so a retry
-    starts on a new connection.
+    the client half applies there. Either half raises `CopyTimeoutError`.
+
+    In a transaction the COPY runs under a savepoint and a timeout also ends the server
+    backend (`_discard_server`): the connection is closed, the transaction with it, and
+    the step's retry starts on another backend instead of the stuck one.
     """
     timeout = copy_timeout()
     if timeout is None:
@@ -314,16 +348,20 @@ def copy_in(cur: Any, sql: str, reader: Any) -> None:
     guarded = _DeadlineReader(reader, _duration_seconds(timeout))
     in_transaction = not getattr(cur.connection, "autocommit", False)
     if in_transaction:
+        cur.execute(f"SAVEPOINT {_COPY_SAVEPOINT}")
         cur.execute("SET LOCAL statement_timeout = %s", (timeout,))
     try:
         cur.copy_expert(sql, guarded)
     except Exception as err:
         if guarded.expired or getattr(err, "pgcode", None) == _QUERY_CANCELED:
+            discarded = in_transaction and _discard_server(cur)
             _log.error(
-                "⏱️ COPY cancelled after %s (%s); the step fails so a retry can start "
-                "on a new connection.",
+                "⏱️ COPY cancelled after %s (%s); %s",
                 timeout,
                 COPY_TIMEOUT_ENV,
+                "the server connection was discarded, a retry gets another one."
+                if discarded
+                else "the step fails so a retry can start on a new connection.",
             )
             raise CopyTimeoutError(
                 f"COPY cancelled after {timeout} ({COPY_TIMEOUT_ENV}): {err}"
@@ -331,6 +369,35 @@ def copy_in(cur: Any, sql: str, reader: Any) -> None:
         raise
     if in_transaction:
         cur.execute("SET LOCAL statement_timeout TO DEFAULT")
+        cur.execute(f"RELEASE SAVEPOINT {_COPY_SAVEPOINT}")
+
+
+def connection_class() -> type:
+    """`TargetConnection` — built on first use, psycopg2 is an optional extra."""
+    global _CONNECTION_CLASS
+    if _CONNECTION_CLASS is None:
+        import psycopg2.extensions
+
+        class TargetConnection(psycopg2.extensions.connection):
+            """A psycopg2 connection whose ``rollback`` is a no-op once it is closed.
+
+            Every strategy answers a failure with ``conn.rollback()`` and ``raise``. When
+            `copy_in` has discarded the server connection, a plain rollback raises
+            ``InterfaceError: connection already closed`` and that, not the COPY
+            timeout, would become the reported error. A closed connection has no
+            transaction left to roll back.
+            """
+
+            def rollback(self) -> None:
+                if self.closed:
+                    return
+                super().rollback()
+
+        _CONNECTION_CLASS = TargetConnection
+    return _CONNECTION_CLASS
+
+
+_CONNECTION_CLASS: type | None = None
 
 
 #: Prefix of shadow tables. It has to be recognisable — leftovers from crashed runs

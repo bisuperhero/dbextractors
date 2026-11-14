@@ -141,20 +141,68 @@ class _TrickleReader:
         return f'"{self._next_id}","x"\n'
 
 
-def test_copy_timeout_cancels_a_trickling_copy(conn, target, monkeypatch) -> None:
+def test_copy_timeout_cancels_a_trickling_copy(dsn, monkeypatch) -> None:
+    """The bound stops the COPY early, ends the backend it ran on (pgbouncer would hand
+    the same one to the retry) and the reported error stays `CopyTimeoutError`.
+
+    Its own connection: the timeout closes it, and the shared fixture still has to
+    drop its scratch schema afterwards."""
     import time
 
+    import psycopg2
+
     monkeypatch.setenv(target_pg.COPY_TIMEOUT_ENV, "1s")
+    conn = psycopg2.connect(dsn, connection_factory=target_pg.connection_class())
+    conn.autocommit = False
+    with conn.cursor() as cur:
+        cur.execute("CREATE TEMP TABLE dbx_trickle (id INTEGER, text TEXT)")
+        cur.execute("SELECT pg_backend_pid()")
+        pid = cur.fetchone()[0]
     started = time.monotonic()
     with pytest.raises(target_pg.CopyTimeoutError), conn.cursor() as cur:
         target_pg.copy_in(
             cur,
-            target_pg.build_copy_sql(target, ["id", "text"]),
+            'COPY dbx_trickle ("id", "text") FROM STDIN (FORMAT csv)',
             _TrickleReader(rows=40, pause_s=0.2),  # ~8 s unbounded
         )
-    conn.rollback()
     # Measured without the client half: the cancel surfaced only after all ~8 s.
     assert time.monotonic() - started < 3
+    assert conn.closed
+    conn.rollback()  # what every strategy does on a failure: must not raise now
+    conn.close()
+
+    other = psycopg2.connect(dsn)
+    try:
+        for _ in range(50):
+            alive = _fetch(other, "SELECT count(*) FROM pg_stat_activity WHERE pid = %s", (pid,))
+            other.rollback()
+            if alive == [(0,)]:
+                break
+            time.sleep(0.1)
+        assert alive == [(0,)], f"backend {pid} still runs"
+    finally:
+        other.close()
+
+
+def test_a_plain_connection_reports_the_closed_connection(dsn, monkeypatch) -> None:
+    """Why `connection_class` exists: without it the caller's rollback replaces the
+    timeout with ``InterfaceError: connection already closed``."""
+    import psycopg2
+
+    monkeypatch.setenv(target_pg.COPY_TIMEOUT_ENV, "1s")
+    conn = psycopg2.connect(dsn)
+    conn.autocommit = False
+    with conn.cursor() as cur:
+        cur.execute("CREATE TEMP TABLE dbx_trickle (id INTEGER, text TEXT)")
+        with pytest.raises(target_pg.CopyTimeoutError):
+            target_pg.copy_in(
+                cur,
+                'COPY dbx_trickle ("id", "text") FROM STDIN (FORMAT csv)',
+                _TrickleReader(rows=40, pause_s=0.2),
+            )
+    with pytest.raises(psycopg2.InterfaceError):
+        conn.rollback()
+    conn.close()
 
 
 def test_copy_timeout_does_not_outlive_the_copy(conn, target, monkeypatch) -> None:

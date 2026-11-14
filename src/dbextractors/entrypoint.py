@@ -720,8 +720,10 @@ def _target_connection(profile: str | None = None):
 
     dsn = resolve_target_dsn(profile=profile)
     _log.info("🎯 Target: %s", describe_dsn(dsn))
+    from dbextractors.core.target_pg import connection_class
+
     try:
-        conn = psycopg2.connect(dsn)
+        conn = psycopg2.connect(dsn, connection_factory=connection_class())
     except Exception as err:
         # psycopg2 answers a DSN it cannot parse by quoting the offending token
         # back: `invalid dsn: missing "=" after "CANARY"`. When the target password

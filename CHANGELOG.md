@@ -7,6 +7,39 @@ Every release is tagged, and the tag is what a deployment pins in `requirements.
 **Every change carries a note on what it breaks** — roughly 670 tables depend on
 this package.
 
+## [Unreleased]
+
+### Fixed
+
+- **A COPY that ran past `DBX_TARGET_COPY_TIMEOUT` now ends its server backend,
+  so the retry does not land on the same one.** Through pgbouncer in transaction
+  mode the next client gets the most recently released server connection (LIFO):
+  in production three attempts of one table, each on a new client connection,
+  stalled on the same backend at the same depth of the batch while every other
+  backend worked normally — the retry could not help. In a transaction the COPY now
+  runs under a savepoint (`dbx_copy`); on a timeout `copy_in` rolls back to it and
+  runs `pg_terminate_backend(pg_backend_pid())`. The transaction is still open, so
+  the backend is provably this client's and nobody else's. Reproduced and verified
+  against PostgreSQL 17 + PgBouncer 1.25 (transaction mode): before, both attempts
+  ran on one backend; after, the second got a new one and the pool kept working.
+- **The reported error after such a timeout stays `CopyTimeoutError`.** The target
+  connection is now a `TargetConnection` (`target_pg.connection_class()`, passed as
+  `connection_factory`), whose `rollback()` does nothing once the connection is
+  closed. A plain psycopg2 connection would answer the strategies' `rollback()`
+  with `InterfaceError: connection already closed`, which replaced the timeout in
+  the status row and the log.
+
+### Breaks
+
+- After a COPY timeout the target connection is **closed**, not just rolled back:
+  the shadow and temporary tables go with the backend (the cleanup that follows logs
+  a warning instead of dropping them). A caller that hands `copy_in` its own plain
+  psycopg2 connection and keeps using it after a `CopyTimeoutError` now gets
+  `InterfaceError`; use `connection_class()` or reconnect. Without
+  `DBX_TARGET_COPY_TIMEOUT`, and on autocommit, nothing changes.
+- Two more statements per bounded COPY (`SAVEPOINT`, `RELEASE SAVEPOINT`). The
+  role needs no extra privilege: ending its own backend is always allowed.
+
 ## [2.4.0]
 
 One target table assembled from several MySQL sources on different hosts, one

@@ -344,9 +344,11 @@ def test_copy_in_bounds_only_the_copy(monkeypatch) -> None:
     cur = _Cursor()
     target_pg.copy_in(cur, "COPY t FROM STDIN", None)
     assert cur.calls == [
+        ("execute", "SAVEPOINT dbx_copy", None),
         ("execute", "SET LOCAL statement_timeout = %s", ("5min",)),
         ("copy", "COPY t FROM STDIN"),
         ("execute", "SET LOCAL statement_timeout TO DEFAULT", None),
+        ("execute", "RELEASE SAVEPOINT dbx_copy", None),
     ]
 
 
@@ -408,9 +410,25 @@ def test_a_cancelled_copy_is_reported_and_raised(monkeypatch, caplog) -> None:
     cur = _Cursor(copy_error=_Canceled("canceling statement due to statement timeout"))
     with pytest.raises(target_pg.CopyTimeoutError):
         target_pg.copy_in(cur, "COPY t FROM STDIN", None)
-    # The transaction is aborted: no reset is sent into it.
-    assert [c[0] for c in cur.calls] == ["execute", "copy"]
+    # No reset into the aborted transaction: back to the savepoint, end the backend.
+    assert [c[1] for c in cur.calls if c[0] == "execute"] == [
+        "SAVEPOINT dbx_copy",
+        "SET LOCAL statement_timeout = %s",
+        "ROLLBACK TO SAVEPOINT dbx_copy",
+        "SELECT pg_terminate_backend(pg_backend_pid())",
+        "SELECT 1",
+    ]
     assert "COPY cancelled after 5min" in caplog.text
+
+
+def test_a_cancelled_copy_on_autocommit_keeps_the_backend(monkeypatch) -> None:
+    """Without an open transaction the backend is not reliably ours (pgbouncer may
+    have handed it on), so nothing is terminated."""
+    monkeypatch.setenv(target_pg.COPY_TIMEOUT_ENV, "5min")
+    cur = _Cursor(autocommit=True, copy_error=_Canceled("canceling statement"))
+    with pytest.raises(target_pg.CopyTimeoutError):
+        target_pg.copy_in(cur, "COPY t FROM STDIN", None)
+    assert cur.calls == [("copy", "COPY t FROM STDIN")]
 
 
 # --- Names derived from the table -------------------------------------------
