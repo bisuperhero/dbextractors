@@ -141,8 +141,12 @@ jobs:
       # "table does not exist" and point at the dialect instead of the fixture.
       - name: Seed the sources
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq mysql-client
-          mysql -h 127.0.0.1 -P 3306 -udbx -pdbx dbx_src < docker/seed/mysql/001_types.sql
+          # The client from the service's own image, not apt: `apt-get install
+          # mysql-client` upgrades the runner's preinstalled mysql-server along with
+          # it, and that package's postinst failed (14 Nov 2026, 8.4.13) — a red CI
+          # that had nothing to do with the code.
+          docker run --rm --network host -i mysql:8 \
+            mysql -h 127.0.0.1 -P 3306 -udbx -pdbx dbx_src < docker/seed/mysql/001_types.sql
           docker run --rm --network host -v "$PWD/docker/seed/mssql:/seed:ro" \
             mcr.microsoft.com/mssql/server:2022-latest \
             /opt/mssql-tools18/bin/sqlcmd -C -S 127.0.0.1 -U sa -P 'dbxDBX123!' -i /seed/001_types.sql -b
