@@ -7,7 +7,7 @@ Every release is tagged, and the tag is what a deployment pins in `requirements.
 **Every change carries a note on what it breaks** — roughly 670 tables depend on
 this package.
 
-## [Unreleased]
+## [2.4.1]
 
 ### Fixed
 
